@@ -7,7 +7,7 @@
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
-            href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
             rel="stylesheet"
         />
         <style>
@@ -20,106 +20,133 @@
             }
 
             :root {
-                --bg: #f4f3ef;
-                --surface: #fff;
-                --surface-muted: #faf9f6;
-                --text: #1a1a18;
-                --muted: #6b6b66;
-                --border: #e2e0da;
-                --accent: #2d6a4f;
-                --accent-soft: #e8f3ed;
-                --accent-hover: #1b4332;
-                --error: #b91c1c;
-                --radius: 10px;
+                --bg: #09090b;
+                --surface: #18181b;
+                --surface-muted: #27272a;
+                --text: #f4f4f5;
+                --muted: #a1a1aa;
+                --border: #27272a;
+                --border-hover: #3f3f46;
+                --border-active: #52525b;
+                --accent: #ffffff;
+                --accent-text: #09090b;
+                --accent-soft: #27272a;
+                --accent-hover: #e4e4e7;
+                --error: #ef4444;
+                --radius: 12px;
+                --radius-sm: 8px;
+                --radius-lg: 16px;
+                --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+                --font-mono: "JetBrains Mono", monospace;
             }
 
             body {
-                font-family: "IBM Plex Sans", system-ui, sans-serif;
+                font-family: var(--font-sans);
                 background: var(--bg);
                 color: var(--text);
                 min-height: 100vh;
-                padding: 2.5rem 1rem 3rem;
+                padding: 3rem 2rem;
                 line-height: 1.5;
                 -webkit-font-smoothing: antialiased;
             }
 
-            main {
-                width: 100%;
-                max-width: 640px;
+            /* Main Layout container */
+            .app-container {
+                max-width: 1200px;
                 margin: 0 auto;
+                display: flex;
+                flex-direction: column;
+                gap: 2.5rem;
             }
 
+            /* Header Section */
             header {
-                margin-bottom: 1.75rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+                border-bottom: 1px solid var(--border);
+                padding-bottom: 2rem;
+            }
+
+            .logo-area {
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+            }
+
+            .logo-icon {
+                width: 28px;
+                height: 28px;
+                stroke: var(--text);
             }
 
             h1 {
-                font-size: 1.5rem;
-                font-weight: 600;
+                font-size: 1.75rem;
+                font-weight: 700;
                 letter-spacing: -0.03em;
             }
 
             .subtitle {
                 color: var(--muted);
-                font-size: 0.9375rem;
-                margin-top: 0.35rem;
+                font-size: 0.95rem;
+                max-width: 600px;
             }
 
-            form {
+            /* Modern 2-column Grid */
+            .app-grid {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 2.5rem;
+                align-items: start;
+            }
+
+            @media (min-width: 1024px) {
+                .app-grid {
+                    grid-template-columns: 1.2fr 1fr;
+                }
+            }
+
+            .grid-left,
+            .grid-right {
                 display: flex;
                 flex-direction: column;
-                gap: 1.25rem;
+                gap: 2rem;
             }
 
+            /* Sticky container for preview & actions */
+            .sticky-panel {
+                position: sticky;
+                top: 2rem;
+            }
+
+            /* Card Panel Styling */
             .panel {
                 background: var(--surface);
                 border: 1px solid var(--border);
                 border-radius: var(--radius);
-                padding: 1.25rem;
+                padding: 1.75rem;
+                transition: border-color 0.2s ease;
+            }
+
+            .panel:hover {
+                border-color: var(--border-hover);
             }
 
             .panel-title {
+                font-family: var(--font-mono);
                 font-size: 0.75rem;
                 font-weight: 600;
-                letter-spacing: 0.06em;
+                letter-spacing: 0.08em;
                 text-transform: uppercase;
                 color: var(--muted);
-                margin-bottom: 1rem;
+                margin-bottom: 1.5rem;
+                border-bottom: 1px solid var(--border);
+                padding-bottom: 0.75rem;
             }
 
-            label {
-                display: block;
-                font-size: 0.8125rem;
-                font-weight: 500;
-                margin-bottom: 0.4rem;
-                color: var(--muted);
-            }
-
-            input[type="url"],
-            input[type="text"],
-            select {
-                width: 100%;
-                font: inherit;
-                font-size: 0.9375rem;
-                padding: 0.65rem 0.8rem;
-                border: 1px solid var(--border);
-                border-radius: 8px;
-                background: var(--surface-muted);
-                color: var(--text);
-                outline: none;
-                transition:
-                    border-color 0.15s,
-                    background 0.15s;
-            }
-
-            input:focus,
-            select:focus {
-                border-color: var(--accent);
-                background: var(--surface);
-            }
-
+            /* Form Elements */
             .field {
-                margin-bottom: 1rem;
+                margin-bottom: 1.25rem;
             }
 
             .field:last-child {
@@ -130,8 +157,51 @@
                 display: none;
             }
 
+            label {
+                display: block;
+                font-size: 0.8125rem;
+                font-weight: 500;
+                margin-bottom: 0.5rem;
+                color: var(--muted);
+            }
+
+            input[type="url"],
+            input[type="text"],
+            select {
+                width: 100%;
+                font-family: var(--font-sans);
+                font-size: 0.9375rem;
+                padding: 0.75rem 0.9rem;
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                background: var(--surface-muted);
+                color: var(--text);
+                outline: none;
+                transition:
+                    border-color 0.2s,
+                    background 0.2s,
+                    box-shadow 0.2s;
+            }
+
+            input[type="url"]:focus,
+            input[type="text"]:focus,
+            select:focus {
+                border-color: var(--border-active);
+                background: var(--surface);
+                box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.05);
+            }
+
+            select {
+                appearance: none;
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23a1a1aa'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+                background-repeat: no-repeat;
+                background-position: right 0.75rem center;
+                background-size: 1rem;
+                padding-right: 2.25rem;
+            }
+
             .hint {
-                margin-top: 0.4rem;
+                margin-top: 0.5rem;
                 font-size: 0.75rem;
                 color: var(--muted);
                 line-height: 1.4;
@@ -140,37 +210,44 @@
             .row {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                gap: 0.85rem;
+                gap: 1rem;
             }
 
+            /* Custom Monochromatic Toggle Row */
             .toggle-row {
                 display: flex;
                 align-items: flex-start;
                 justify-content: space-between;
-                gap: 1rem;
-                padding: 0.85rem 1rem;
+                gap: 1.5rem;
+                padding: 1rem 1.25rem;
                 border: 1px solid var(--border);
-                border-radius: 8px;
+                border-radius: var(--radius-sm);
                 background: var(--surface-muted);
+                transition: border-color 0.2s ease;
+            }
+
+            .toggle-row:hover {
+                border-color: var(--border-hover);
             }
 
             .toggle-copy strong {
                 display: block;
-                font-size: 0.9375rem;
-                font-weight: 500;
+                font-size: 0.9rem;
+                font-weight: 600;
                 color: var(--text);
-                margin-bottom: 0.15rem;
+                margin-bottom: 0.25rem;
             }
 
             .toggle-copy span {
-                font-size: 0.8125rem;
+                font-size: 0.75rem;
                 color: var(--muted);
+                line-height: 1.35;
             }
 
             .toggle {
                 position: relative;
-                width: 44px;
-                height: 24px;
+                width: 40px;
+                height: 22px;
                 flex-shrink: 0;
             }
 
@@ -183,38 +260,41 @@
             .toggle-slider {
                 position: absolute;
                 inset: 0;
-                background: #d8d6d0;
+                background: var(--surface);
+                border: 1px solid var(--border);
                 border-radius: 999px;
                 cursor: pointer;
-                transition: background 0.2s;
+                transition: all 0.2s;
             }
 
             .toggle-slider::before {
                 content: "";
                 position: absolute;
-                width: 18px;
-                height: 18px;
+                width: 14px;
+                height: 14px;
                 left: 3px;
                 top: 3px;
-                background: #fff;
+                background: var(--muted);
                 border-radius: 50%;
-                transition: transform 0.2s;
-                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+                transition: all 0.2s;
             }
 
             .toggle input:checked + .toggle-slider {
-                background: var(--accent);
+                background: var(--text);
+                border-color: var(--text);
             }
 
             .toggle input:checked + .toggle-slider::before {
-                transform: translateX(20px);
+                transform: translateX(18px);
+                background: var(--bg);
             }
 
+            /* Curve Physics visualizer block */
             .curve-preview {
-                margin-bottom: 1rem;
-                padding: 1rem;
+                margin-bottom: 1.5rem;
+                padding: 1.25rem;
                 border: 1px solid var(--border);
-                border-radius: 8px;
+                border-radius: var(--radius-sm);
                 background: var(--surface-muted);
             }
 
@@ -222,166 +302,349 @@
                 display: flex;
                 justify-content: space-between;
                 align-items: baseline;
-                margin-bottom: 0.75rem;
+                margin-bottom: 1rem;
             }
 
             .curve-preview-head strong {
-                font-size: 0.9375rem;
+                font-family: var(--font-sans);
+                font-size: 0.95rem;
+                font-weight: 600;
+                color: var(--text);
             }
 
             .curve-preview-head span {
-                font-size: 0.8125rem;
+                font-family: var(--font-mono);
+                font-size: 0.75rem;
                 color: var(--muted);
+            }
+
+            .canvas-container {
+                position: relative;
+                width: 100%;
+                border-radius: var(--radius-sm);
+                overflow: hidden;
+                border: 1px solid var(--border);
+                background: var(--surface);
             }
 
             .curve-preview-canvas {
                 width: 100%;
-                height: 88px;
+                height: 120px;
                 display: block;
-                border-radius: 6px;
-                background: #fff;
-                border: 1px solid var(--border);
+            }
+
+            /* Curve Selector Grid */
+            .curve-selection-area {
+                margin-top: 1.5rem;
+            }
+
+            .curve-selection-area > label {
+                margin-bottom: 0.75rem;
             }
 
             .curve-grid {
                 display: grid;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 0.65rem;
+                gap: 0.75rem;
             }
 
             @media (min-width: 560px) {
                 .curve-grid {
-                    grid-template-columns: repeat(4, minmax(0, 1fr));
+                    grid-template-columns: repeat(3, minmax(0, 1fr));
                 }
             }
 
             .curve-card {
                 display: flex;
                 flex-direction: column;
-                gap: 0.45rem;
-                padding: 0.65rem;
+                gap: 0.5rem;
+                padding: 0.85rem;
                 border: 1px solid var(--border);
-                border-radius: 8px;
-                background: #fff;
+                border-radius: var(--radius-sm);
+                background: var(--surface);
                 cursor: pointer;
                 text-align: left;
+                outline: none;
                 transition:
-                    border-color 0.15s,
-                    box-shadow 0.15s,
-                    background 0.15s;
+                    border-color 0.2s,
+                    background 0.2s,
+                    box-shadow 0.2s;
             }
 
             .curve-card:hover {
-                border-color: #c8c5bc;
+                border-color: var(--border-hover);
+                background: var(--surface-muted);
             }
 
             .curve-card.active {
-                border-color: var(--accent);
-                background: var(--accent-soft);
-                box-shadow: 0 0 0 1px var(--accent);
+                border-color: var(--border-active);
+                background: var(--surface-muted);
+                box-shadow: 0 0 0 1px var(--border-active);
+                color: var(--text);
             }
 
             .curve-card svg {
                 width: 100%;
-                height: 36px;
+                height: 40px;
                 display: block;
+                color: var(--muted);
+                transition: color 0.2s;
+            }
+
+            .curve-card.active svg {
+                color: var(--text);
             }
 
             .curve-card-name {
-                font-size: 0.75rem;
-                font-weight: 500;
+                font-size: 0.8rem;
+                font-weight: 600;
                 color: var(--text);
             }
 
             .curve-card-desc {
-                font-size: 0.6875rem;
+                font-size: 0.7rem;
                 color: var(--muted);
                 line-height: 1.3;
             }
 
             .curve-card.wide {
                 grid-column: 1 / -1;
+                flex-direction: row;
+                align-items: center;
+                gap: 1rem;
+            }
+
+            .curve-card.wide svg {
+                width: 60px;
+                height: 30px;
+                flex-shrink: 0;
+            }
+
+            .curve-card.wide .curve-card-info {
+                display: flex;
+                flex-direction: column;
+                gap: 0.2rem;
+            }
+
+            /* Record / CTA Button */
+            .actions-area {
+                margin-top: 1.5rem;
             }
 
             button[type="submit"] {
                 width: 100%;
-                font: inherit;
-                font-size: 1rem;
+                font-family: var(--font-sans);
+                font-size: 0.95rem;
                 font-weight: 600;
-                padding: 0.85rem 1rem;
-                border: none;
-                border-radius: 8px;
-                background: var(--accent);
-                color: #fff;
+                padding: 0.9rem 1.25rem;
+                border: 1px solid var(--text);
+                border-radius: var(--radius-sm);
+                background: var(--text);
+                color: var(--bg);
                 cursor: pointer;
-                transition: background 0.15s;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.75rem;
+                transition:
+                    background 0.2s,
+                    color 0.2s,
+                    border-color 0.2s,
+                    transform 0.1s;
             }
 
             button[type="submit"]:hover:not(:disabled) {
-                background: var(--accent-hover);
+                background: transparent;
+                color: var(--text);
+                border-color: var(--border-hover);
+            }
+
+            button[type="submit"]:active:not(:disabled) {
+                transform: scale(0.985);
             }
 
             button[type="submit"]:disabled {
-                opacity: 0.6;
+                opacity: 0.4;
                 cursor: not-allowed;
+                border-color: var(--border);
+                background: var(--surface-muted);
+                color: var(--muted);
             }
 
+            /* Spinner Animation */
+            .loader-circle {
+                width: 16px;
+                height: 16px;
+                border: 2px solid rgba(255, 255, 255, 0.2);
+                border-radius: 50%;
+                border-top-color: currentColor;
+                animation: spin 0.8s linear infinite;
+                display: none;
+            }
+
+            button[type="submit"]:disabled .loader-circle {
+                display: inline-block;
+            }
+
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            /* Status Text Area */
             .status {
-                margin-top: 1rem;
-                font-size: 0.875rem;
+                margin-top: 1.25rem;
+                font-family: var(--font-mono);
+                font-size: 0.8rem;
                 text-align: center;
                 min-height: 1.25rem;
+                padding: 0.5rem;
+                border-radius: var(--radius-sm);
+                transition: all 0.2s;
             }
 
             .status.loading {
-                color: var(--muted);
-            }
-            .status.error {
-                color: var(--error);
-            }
-            .status.success {
-                color: var(--accent);
+                color: var(--text);
+                background: rgba(255, 255, 255, 0.03);
+                border: 1px dashed var(--border);
             }
 
+            .status.error {
+                color: var(--error);
+                background: rgba(239, 68, 68, 0.05);
+                border: 1px solid rgba(239, 68, 68, 0.15);
+            }
+
+            .status.success {
+                color: var(--text);
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            /* Result Preview Block */
             .result {
-                margin-top: 1.5rem;
+                margin-top: 2rem;
                 display: none;
+                animation: fadeIn 0.3s ease-out;
             }
 
             .result.visible {
                 display: block;
             }
 
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            /* Browser Mockup Container */
+            .browser-mockup {
+                border: 1px solid var(--border);
+                border-radius: var(--radius);
+                background: var(--surface);
+                overflow: hidden;
+                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+            }
+
+            .browser-header {
+                display: grid;
+                grid-template-columns: 80px 1fr 80px;
+                align-items: center;
+                background: var(--surface-muted);
+                padding: 0.75rem 1rem;
+                border-bottom: 1px solid var(--border);
+                gap: 0.5rem;
+            }
+
+            .browser-dots {
+                display: flex;
+                gap: 6px;
+            }
+
+            .browser-dots .dot {
+                width: 9px;
+                height: 9px;
+                border-radius: 50%;
+                background: var(--border);
+            }
+
+            .browser-address-bar {
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                padding: 0.3rem 0.75rem;
+                font-family: var(--font-mono);
+                font-size: 0.7rem;
+                color: var(--muted);
+                text-align: center;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .browser-actions {
+                display: flex;
+                justify-content: flex-end;
+            }
+
+            .browser-actions a {
+                color: var(--muted);
+                text-decoration: none;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 26px;
+                height: 26px;
+                border-radius: 6px;
+                border: 1px solid transparent;
+                transition: all 0.2s;
+            }
+
+            .browser-actions a:hover {
+                color: var(--text);
+                background: var(--surface);
+                border-color: var(--border);
+            }
+
+            .browser-actions a svg {
+                width: 14px;
+                height: 14px;
+            }
+
+            .browser-content {
+                background: #000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                aspect-ratio: 16 / 9;
+            }
+
             video {
                 width: 100%;
-                aspect-ratio: 16 / 9;
+                height: 100%;
                 object-fit: contain;
-                border-radius: var(--radius);
-                border: 1px solid var(--border);
-                background: #000;
+                display: block;
             }
 
             .meta {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                margin-top: 0.75rem;
-                font-size: 0.8125rem;
+                margin-top: 1rem;
+                font-family: var(--font-mono);
+                font-size: 0.75rem;
                 color: var(--muted);
             }
 
-            .meta a {
-                color: var(--accent);
-                text-decoration: none;
-                font-weight: 500;
-            }
-
-            .meta a:hover {
-                text-decoration: underline;
-            }
-
             .dimmed {
-                opacity: 0.55;
+                opacity: 0.45;
                 pointer-events: none;
             }
 
@@ -391,139 +654,215 @@
                     opacity: 1;
                 }
                 50% {
-                    opacity: 0.4;
+                    opacity: 0.3;
                 }
             }
 
             .status.loading::after {
-                content: "";
+                content: "...";
                 display: inline-block;
-                width: 4px;
-                height: 4px;
-                margin-left: 2px;
                 animation: pulse 1.2s ease-in-out infinite;
             }
         </style>
     </head>
     <body>
-        <main>
+        <main class="app-container">
             <header>
-                <h1>Website Recorder</h1>
+                <div class="logo-area">
+                    <h1>Website Recorder</h1>
+                </div>
                 <p class="subtitle">
-                    Record a smooth scroll-through of any webpage as MP4.
+                    Record smooth scroll-through videos of any webpage as MP4.
                 </p>
             </header>
 
-            <form id="form">
-                <section class="panel">
-                    <div class="panel-title">Recording</div>
+            <form id="form" class="app-grid">
+                <!-- Left column: Settings panels -->
+                <div class="grid-left">
+                    <section class="panel">
+                        <div class="panel-title">Target Page</div>
 
-                    <div class="field">
-                        <label for="url">URL</label>
-                        <input
-                            type="url"
-                            id="url"
-                            name="url"
-                            placeholder="https://example.com"
-                            required
-                        />
-                    </div>
+                        <div class="field">
+                            <label for="url">Target URL</label>
+                            <input
+                                type="url"
+                                id="url"
+                                name="url"
+                                placeholder="https://example.com"
+                                required
+                            />
+                        </div>
 
-                    <div class="field">
-                        <div class="toggle-row">
-                            <div class="toggle-copy">
-                                <strong>Fast mode</strong>
-                                <span
-                                    >Lighter hydration, faster scroll, quick
-                                    encode. Some lazy content may be
-                                    missed.</span
-                                >
+                        <div class="row">
+                            <div class="field">
+                                <label for="width">Viewport Width</label>
+                                <select id="width" name="width">
+                                    <option value="1920" selected>
+                                        1920 px
+                                    </option>
+                                    <option value="1440">1440 px</option>
+                                    <option value="1280">1280 px</option>
+                                </select>
                             </div>
-                            <label class="toggle" aria-label="Fast mode">
-                                <input type="checkbox" id="fastMode" />
-                                <span class="toggle-slider"></span>
-                            </label>
+                            <div class="field">
+                                <label for="height">Viewport Height</label>
+                                <select id="height" name="height">
+                                    <option value="1080" selected>
+                                        1080 px
+                                    </option>
+                                    <option value="900">900 px</option>
+                                    <option value="720">720 px</option>
+                                </select>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="row">
-                        <div class="field">
-                            <label for="width">Width</label>
-                            <select id="width" name="width">
-                                <option value="1920" selected>1920</option>
-                                <option value="1440">1440</option>
-                                <option value="1280">1280</option>
+                        <div class="field" id="qualityField">
+                            <label for="quality">Render Quality</label>
+                            <select id="quality" name="quality">
+                                <option value="high" selected>
+                                    High (2x capture, slow encode)
+                                </option>
+                                <option value="medium">
+                                    Medium (1.5x capture, standard)
+                                </option>
+                                <option value="low">
+                                    Low (1x capture, fast encode)
+                                </option>
                             </select>
+                            <p class="hint" id="qualityHint">
+                                High quality samples at 2× scale for crisp
+                                renders.
+                            </p>
                         </div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">Scroll Physics</div>
+
                         <div class="field">
-                            <label for="height">Height</label>
-                            <select id="height" name="height">
-                                <option value="1080" selected>1080</option>
-                                <option value="900">900</option>
-                                <option value="720">720</option>
-                            </select>
+                            <div class="toggle-row">
+                                <div class="toggle-copy">
+                                    <strong>Fast Hydration Mode</strong>
+                                    <span
+                                        >Skips heavy page hydration delays and
+                                        speeds up scrolling dynamics.</span
+                                    >
+                                </div>
+                                <label class="toggle" aria-label="Fast mode">
+                                    <input type="checkbox" id="fastMode" />
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="field" id="qualityField">
-                        <label for="quality">Quality</label>
-                        <select id="quality" name="quality">
-                            <option value="high" selected>High</option>
-                            <option value="medium">Medium</option>
-                            <option value="low">Low</option>
-                        </select>
-                        <p class="hint" id="qualityHint">
-                            High uses 2× capture and slow encoding for the
-                            sharpest output.
-                        </p>
-                    </div>
-                </section>
-
-                <section class="panel">
-                    <div class="panel-title">Scroll curve</div>
-
-                    <div class="curve-preview">
-                        <div class="curve-preview-head">
-                            <strong id="previewLabel">Ease in-out</strong>
-                            <span id="previewDesc">Slow start and end</span>
+                        <div class="curve-selection-area">
+                            <label>Timeline Interpolation Curve</label>
+                            <div class="curve-grid" id="curveGrid"></div>
                         </div>
-                        <canvas
-                            id="curvePreview"
-                            class="curve-preview-canvas"
-                            width="560"
-                            height="88"
-                        ></canvas>
-                    </div>
 
-                    <div class="curve-grid" id="curveGrid"></div>
-
-                    <div class="field hidden" id="customBezierField">
-                        <label for="customBezier">Custom bezier</label>
-                        <input
-                            type="text"
-                            id="customBezier"
-                            name="customBezier"
-                            value="0.42, 0, 0.58, 1"
-                            placeholder="x1, y1, x2, y2"
-                        />
-                        <p class="hint">
-                            CSS cubic-bezier values, e.g. 0.42, 0, 0.58, 1
-                        </p>
-                    </div>
-                </section>
-
-                <button type="submit" id="submit">Record</button>
-            </form>
-
-            <p class="status" id="status" aria-live="polite"></p>
-
-            <div class="result" id="result">
-                <video id="player" controls></video>
-                <div class="meta">
-                    <span id="duration"></span>
-                    <a id="download" download="recording.mp4">Download MP4</a>
+                        <div class="field hidden" id="customBezierField">
+                            <label for="customBezier"
+                                >Custom Cubic Bezier</label
+                            >
+                            <input
+                                type="text"
+                                id="customBezier"
+                                name="customBezier"
+                                value="0.42, 0, 0.58, 1"
+                                placeholder="x1, y1, x2, y2"
+                            />
+                            <p class="hint">
+                                Standard CSS cubic-bezier parameters, e.g. 0.42,
+                                0, 0.58, 1
+                            </p>
+                        </div>
+                    </section>
                 </div>
-            </div>
+
+                <!-- Right column: Interactive preview & Action feedback -->
+                <div class="grid-right">
+                    <div class="panel sticky-panel">
+                        <div class="panel-title">Motion Profile</div>
+
+                        <div class="curve-preview">
+                            <div class="curve-preview-head">
+                                <strong id="previewLabel">Ease in-out</strong>
+                                <span id="previewDesc">Slow start and end</span>
+                            </div>
+                            <div class="canvas-container">
+                                <canvas
+                                    id="curvePreview"
+                                    class="curve-preview-canvas"
+                                    width="560"
+                                    height="120"
+                                ></canvas>
+                            </div>
+                        </div>
+
+                        <div class="actions-area">
+                            <button type="submit" id="submit">
+                                <span class="loader-circle"></span>
+                                <span id="buttonText">Start Capture</span>
+                            </button>
+                        </div>
+
+                        <p class="status" id="status" aria-live="polite"></p>
+
+                        <div class="result" id="result">
+                            <div class="browser-mockup">
+                                <div class="browser-header">
+                                    <div class="browser-dots">
+                                        <span class="dot"></span>
+                                        <span class="dot"></span>
+                                        <span class="dot"></span>
+                                    </div>
+                                    <div
+                                        class="browser-address-bar"
+                                        id="browserAddressBar"
+                                    >
+                                        https://example.com
+                                    </div>
+                                    <div class="browser-actions">
+                                        <a
+                                            id="download"
+                                            download="recording.mp4"
+                                            title="Download video file"
+                                        >
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                            >
+                                                <path
+                                                    d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+                                                ></path>
+                                                <polyline
+                                                    points="7 10 12 15 17 10"
+                                                ></polyline>
+                                                <line
+                                                    x1="12"
+                                                    y1="15"
+                                                    x2="12"
+                                                    y2="3"
+                                                ></line>
+                                            </svg>
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="browser-content">
+                                    <video id="player" controls></video>
+                                </div>
+                            </div>
+                            <div class="meta">
+                                <span id="duration"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
         </main>
 
         <script>
@@ -549,7 +888,7 @@
                 {
                     id: "ease-in-out",
                     label: "Ease in-out",
-                    desc: "Slow start and end",
+                    desc: "Slow start & end",
                     bezier: [0.42, 0, 0.58, 1],
                 },
                 {
@@ -567,13 +906,13 @@
                 {
                     id: "ease-in-out-cubic",
                     label: "In-out cubic",
-                    desc: "Strong ease both ends",
+                    desc: "Heavy easing",
                     bezier: [0.645, 0.045, 0.355, 1],
                 },
                 {
                     id: "custom",
                     label: "Custom",
-                    desc: "Your own bezier",
+                    desc: "Cubic bezier input",
                     bezier: [0.42, 0, 0.58, 1],
                     wide: true,
                 },
@@ -586,6 +925,7 @@
             const form = document.getElementById("form");
             const status = document.getElementById("status");
             const submit = document.getElementById("submit");
+            const buttonText = document.getElementById("buttonText");
             const result = document.getElementById("result");
             const player = document.getElementById("player");
             const duration = document.getElementById("duration");
@@ -600,7 +940,17 @@
             const fastMode = document.getElementById("fastMode");
             const qualityField = document.getElementById("qualityField");
             const qualityHint = document.getElementById("qualityHint");
+            const urlInput = document.getElementById("url");
+            const browserAddressBar =
+                document.getElementById("browserAddressBar");
             const previewCtx = previewCanvas.getContext("2d");
+
+            // Update browser address bar live
+            function updateAddressBar() {
+                const val = urlInput.value.trim() || "https://example.com";
+                browserAddressBar.textContent = val;
+            }
+            urlInput.addEventListener("input", updateAddressBar);
 
             function sampleCurveY(bezier, linearProgress) {
                 const [x1, y1, x2, y2] = bezier;
@@ -681,12 +1031,13 @@
                     .join(" ");
 
                 return `<svg viewBox="0 0 100 36" preserveAspectRatio="none" aria-hidden="true">
-                    <path d="M4 32 L96 32" stroke="#e2e0da" stroke-width="1" fill="none"></path>
-                    <path d="M4 4 L4 32" stroke="#e2e0da" stroke-width="1" fill="none"></path>
-                    <path d="${path}" stroke="currentColor" stroke-width="2.25" fill="none" stroke-linecap="round"></path>
+                    <path d="M4 32 L96 32" stroke="var(--border)" stroke-width="1" fill="none"></path>
+                    <path d="M4 4 L4 32" stroke="var(--border)" stroke-width="1" fill="none"></path>
+                    <path d="${path}" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"></path>
                 </svg>`;
             }
 
+            // Return active bezier curve points
             function getSelectedBezier() {
                 if (selectedCurve === "custom") {
                     const parts = customBezierInput.value
@@ -710,7 +1061,18 @@
                 curveGrid.innerHTML = CURVES.map((curve) => {
                     const active = curve.id === selectedCurve ? " active" : "";
                     const wide = curve.wide ? " wide" : "";
-                    return `<button type="button" class="curve-card${active}${wide}" data-curve="${curve.id}">
+
+                    if (curve.wide) {
+                        return `<button type="button" class="curve-card${active}${wide}" data-curve="${curve.id}">
+                            ${drawCurveSvg(curve.bezier)}
+                            <div class="curve-card-info">
+                                <span class="curve-card-name">${curve.label}</span>
+                                <span class="curve-card-desc">${curve.desc}</span>
+                            </div>
+                        </button>`;
+                    }
+
+                    return `<button type="button" class="curve-card${active}" data-curve="${curve.id}">
                         ${drawCurveSvg(curve.bezier)}
                         <span class="curve-card-name">${curve.label}</span>
                         <span class="curve-card-desc">${curve.desc}</span>
@@ -741,26 +1103,26 @@
                 const bezier = getSelectedBezier();
                 const width = previewCanvas.width;
                 const height = previewCanvas.height;
-                const points = curvePoints(bezier, width, height, 14);
+                const points = curvePoints(bezier, width, height, 16);
                 const t = (previewFrame % 180) / 180;
                 const eased = sampleCurveY(bezier, t);
                 const marker = {
-                    x: 14 + t * (width - 28),
-                    y: 14 + (height - 28) - eased * (height - 28),
+                    x: 16 + t * (width - 32),
+                    y: 16 + (height - 32) - eased * (height - 32),
                 };
 
                 previewCtx.clearRect(0, 0, width, height);
 
-                previewCtx.strokeStyle = "#e2e0da";
+                previewCtx.strokeStyle = "#27272a";
                 previewCtx.lineWidth = 1;
                 previewCtx.beginPath();
-                previewCtx.moveTo(14, height - 14);
-                previewCtx.lineTo(width - 14, height - 14);
-                previewCtx.moveTo(14, 14);
-                previewCtx.lineTo(14, height - 14);
+                previewCtx.moveTo(16, height - 16);
+                previewCtx.lineTo(width - 16, height - 16);
+                previewCtx.moveTo(16, 16);
+                previewCtx.lineTo(16, height - 16);
                 previewCtx.stroke();
 
-                previewCtx.strokeStyle = "#2d6a4f";
+                previewCtx.strokeStyle = "#ffffff";
                 previewCtx.lineWidth = 2.5;
                 previewCtx.lineJoin = "round";
                 previewCtx.lineCap = "round";
@@ -771,12 +1133,12 @@
                 });
                 previewCtx.stroke();
 
-                previewCtx.fillStyle = "#2d6a4f";
+                previewCtx.fillStyle = "#ffffff";
                 previewCtx.beginPath();
                 previewCtx.arc(marker.x, marker.y, 5, 0, Math.PI * 2);
                 previewCtx.fill();
 
-                previewCtx.fillStyle = "rgba(45, 106, 79, 0.15)";
+                previewCtx.fillStyle = "rgba(255, 255, 255, 0.15)";
                 previewCtx.beginPath();
                 previewCtx.arc(marker.x, marker.y, 10, 0, Math.PI * 2);
                 previewCtx.fill();
@@ -822,9 +1184,10 @@
                 result.classList.remove("visible");
                 status.className = "status loading";
                 status.textContent = fastMode.checked
-                    ? "Recording (fast mode) — hang tight"
-                    : "Recording — this may take a minute";
+                    ? "Recording (fast mode)"
+                    : "Recording website";
                 submit.disabled = true;
+                buttonText.textContent = "Recording...";
 
                 const body = {
                     targetUrl: document.getElementById("url").value.trim(),
@@ -868,12 +1231,13 @@
                     duration.textContent = `Completed in ${(data.durationMs / 1000).toFixed(1)}s`;
                     result.classList.add("visible");
                     status.className = "status success";
-                    status.textContent = "Done";
+                    status.textContent = "Recording finished successfully.";
                 } catch (err) {
                     status.className = "status error";
                     status.textContent = err.message || "Something went wrong";
                 } finally {
                     submit.disabled = false;
+                    buttonText.textContent = "Start Capture";
                 }
             });
 
@@ -881,6 +1245,7 @@
             updatePreviewMeta();
             syncFastModeUi();
             drawPreview();
+            updateAddressBar();
         </script>
     </body>
 </html>
