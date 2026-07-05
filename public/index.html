@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Website Recorder</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            *,
+            *::before,
+            *::after {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+
+            :root {
+                --bg: #f6f5f2;
+                --surface: #fff;
+                --text: #1a1a18;
+                --muted: #6b6b66;
+                --border: #e2e0da;
+                --accent: #2d6a4f;
+                --accent-hover: #1b4332;
+                --error: #b91c1c;
+                --radius: 8px;
+            }
+
+            body {
+                font-family: "IBM Plex Sans", system-ui, sans-serif;
+                background: var(--bg);
+                color: var(--text);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 2rem 1rem;
+                line-height: 1.5;
+                -webkit-font-smoothing: antialiased;
+            }
+
+            main {
+                width: 100%;
+                max-width: 480px;
+            }
+
+            h1 {
+                font-size: 1.25rem;
+                font-weight: 500;
+                letter-spacing: -0.02em;
+                margin-bottom: 0.25rem;
+            }
+
+            .subtitle {
+                color: var(--muted);
+                font-size: 0.875rem;
+                margin-bottom: 2rem;
+            }
+
+            form {
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: var(--radius);
+                padding: 1.5rem;
+            }
+
+            label {
+                display: block;
+                font-size: 0.8125rem;
+                font-weight: 500;
+                margin-bottom: 0.375rem;
+                color: var(--muted);
+            }
+
+            input[type="url"],
+            select {
+                width: 100%;
+                font: inherit;
+                font-size: 0.9375rem;
+                padding: 0.625rem 0.75rem;
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                background: var(--bg);
+                color: var(--text);
+                outline: none;
+                transition: border-color 0.15s;
+            }
+
+            input[type="url"]:focus,
+            select:focus {
+                border-color: var(--accent);
+            }
+
+            .field {
+                margin-bottom: 1.25rem;
+            }
+            .field:last-of-type {
+                margin-bottom: 1.5rem;
+            }
+
+            .row {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.75rem;
+            }
+
+            button[type="submit"] {
+                width: 100%;
+                font: inherit;
+                font-size: 0.9375rem;
+                font-weight: 500;
+                padding: 0.75rem 1rem;
+                border: none;
+                border-radius: 6px;
+                background: var(--accent);
+                color: #fff;
+                cursor: pointer;
+                transition: background 0.15s;
+            }
+
+            button[type="submit"]:hover:not(:disabled) {
+                background: var(--accent-hover);
+            }
+
+            button[type="submit"]:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+
+            .status {
+                margin-top: 1.25rem;
+                font-size: 0.875rem;
+                text-align: center;
+                min-height: 1.25rem;
+            }
+
+            .status.loading {
+                color: var(--muted);
+            }
+            .status.error {
+                color: var(--error);
+            }
+            .status.success {
+                color: var(--accent);
+            }
+
+            .result {
+                margin-top: 1.5rem;
+                display: none;
+            }
+
+            .result.visible {
+                display: block;
+            }
+
+            video {
+                width: 100%;
+                aspect-ratio: 16 / 9;
+                object-fit: contain;
+                border-radius: var(--radius);
+                border: 1px solid var(--border);
+                background: #000;
+            }
+
+            .meta {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 0.75rem;
+                font-size: 0.8125rem;
+                color: var(--muted);
+            }
+
+            .meta a {
+                color: var(--accent);
+                text-decoration: none;
+                font-weight: 500;
+            }
+
+            .meta a:hover {
+                text-decoration: underline;
+            }
+
+            @keyframes pulse {
+                0%,
+                100% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.4;
+                }
+            }
+
+            .status.loading::after {
+                content: "";
+                display: inline-block;
+                width: 4px;
+                height: 4px;
+                margin-left: 2px;
+                animation: pulse 1.2s ease-in-out infinite;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <h1>Website Recorder</h1>
+            <p class="subtitle">
+                Record a smooth scroll-through of any webpage as MP4.
+            </p>
+
+            <form id="form">
+                <div class="field">
+                    <label for="url">URL</label>
+                    <input
+                        type="url"
+                        id="url"
+                        name="url"
+                        placeholder="https://example.com"
+                        required
+                    />
+                </div>
+
+                <div class="field row">
+                    <div>
+                        <label for="width">Width</label>
+                        <select id="width" name="width">
+                            <option value="1920" selected>1920</option>
+                            <option value="1440">1440</option>
+                            <option value="1280">1280</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="height">Height</label>
+                        <select id="height" name="height">
+                            <option value="1080" selected>1080</option>
+                            <option value="900">900</option>
+                            <option value="720">720</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="quality">Quality</label>
+                    <select id="quality" name="quality">
+                        <option value="high" selected>High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+
+                <button type="submit" id="submit">Record</button>
+            </form>
+
+            <p class="status" id="status" aria-live="polite"></p>
+
+            <div class="result" id="result">
+                <video id="player" controls></video>
+                <div class="meta">
+                    <span id="duration"></span>
+                    <a id="download" download="recording.mp4">Download MP4</a>
+                </div>
+            </div>
+        </main>
+
+        <script>
+            const form = document.getElementById("form");
+            const status = document.getElementById("status");
+            const submit = document.getElementById("submit");
+            const result = document.getElementById("result");
+            const player = document.getElementById("player");
+            const duration = document.getElementById("duration");
+            const download = document.getElementById("download");
+
+            form.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                result.classList.remove("visible");
+                status.className = "status loading";
+                status.textContent = "Recording — this may take a minute";
+                submit.disabled = true;
+
+                const body = {
+                    targetUrl: document.getElementById("url").value.trim(),
+                    exportFormat: "mp4",
+                    videoConfig: {
+                        framerate: 60,
+                        qualityPreset: document.getElementById("quality").value,
+                        viewport: {
+                            width: Number(
+                                document.getElementById("width").value,
+                            ),
+                            height: Number(
+                                document.getElementById("height").value,
+                            ),
+                        },
+                    },
+                    animationConfig: {
+                        pixelsPerFrame: 4,
+                        preRecordingDelayMs: 2000,
+                        removeOverlayElements: true,
+                    },
+                };
+
+                try {
+                    const res = await fetch("/record", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(body),
+                    });
+                    const data = await res.json();
+
+                    if (!res.ok || !data.ok) {
+                        throw new Error(data.error || "Recording failed");
+                    }
+
+                    const videoUrl = `/outputs/${data.jobId}/output.mp4`;
+                    player.src = videoUrl;
+                    download.href = videoUrl;
+                    duration.textContent = `Completed in ${(data.durationMs / 1000).toFixed(1)}s`;
+                    result.classList.add("visible");
+                    status.className = "status success";
+                    status.textContent = "Done";
+                } catch (err) {
+                    status.className = "status error";
+                    status.textContent = err.message || "Something went wrong";
+                } finally {
+                    submit.disabled = false;
+                }
+            });
+        </script>
+    </body>
+</html>

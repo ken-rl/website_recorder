@@ -1,0 +1,24 @@
+{
+  "targetUrl": "https://example.com",
+  "exportFormat": "mp4",
+  "videoConfig": {
+    "framerate": 60,
+    "qualityPreset": "high",
+    "viewport": {
+      "width": 1920,
+      "height": 1080,
+      "deviceScaleFactor": 2
+    }
+  },
+  "animationConfig": {
+    "pixelsPerFrame": 4,
+    "preRecordingDelayMs": 2000,
+    "removeOverlayElements": true,
+    "pauseTriggers": [
+      {
+        "selector": "footer",
+        "durationMs": 1500
+      }
+    ]
+  }
+}
