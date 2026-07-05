@@ -92,6 +92,91 @@
                 max-width: 600px;
             }
 
+            .recording-status-dot {
+                width: 7px;
+                height: 7px;
+                background: #ef4444;
+                border-radius: 50%;
+                display: inline-block;
+                animation: blink 1.2s step-end infinite;
+                margin-left: 0.5rem;
+                box-shadow: 0 0 8px #ef4444;
+            }
+
+            @keyframes blink {
+                50% {
+                    opacity: 0;
+                }
+            }
+
+            /* Progress Card & Loaders */
+            .progress-card {
+                background: var(--surface-muted);
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                padding: 1.25rem;
+                margin-top: 1.5rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+                animation: fadeIn 0.25s ease-out;
+            }
+
+            .progress-card.hidden {
+                display: none;
+            }
+
+            .progress-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .progress-title {
+                font-size: 0.85rem;
+                font-weight: 600;
+                color: var(--text);
+            }
+
+            .progress-percent {
+                font-family: var(--font-mono);
+                font-size: 0.8rem;
+                color: var(--text);
+                font-weight: 600;
+            }
+
+            .progress-bar-track {
+                width: 100%;
+                height: 4px;
+                background: var(--surface);
+                border-radius: 99px;
+                overflow: hidden;
+            }
+
+            .progress-bar-fill {
+                height: 100%;
+                width: 0%;
+                background: var(--text);
+                border-radius: 99px;
+                transition: width 0.15s ease-out;
+            }
+
+            .progress-footer {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 0.72rem;
+                color: var(--muted);
+            }
+
+            .progress-status {
+                font-family: var(--font-sans);
+            }
+
+            .progress-timer {
+                font-family: var(--font-mono);
+            }
+
             /* Modern 2-column Grid */
             .app-grid {
                 display: grid;
@@ -720,13 +805,31 @@
                         <div class="field">
                             <label for="devicePreset">Device Viewport</label>
                             <select id="devicePreset" name="devicePreset">
-                                <option value="1920x1080" selected>Desktop (1920 × 1080)</option>
-                                <option value="1440x900">Laptop (1440 × 900)</option>
-                                <option value="768x1024">Tablet (768 × 1024)</option>
-                                <option value="390x844">Mobile Phone (390 × 844)</option>
+                                <option value="1920x1080" selected>
+                                    Desktop (1920 × 1080)
+                                </option>
+                                <option value="1440x900">
+                                    Laptop (1440 × 900)
+                                </option>
+                                <option value="768x1024">
+                                    Tablet (768 × 1024)
+                                </option>
+                                <option value="390x844">
+                                    Mobile Phone (390 × 844)
+                                </option>
                             </select>
-                            <input type="hidden" id="width" name="width" value="1920" />
-                            <input type="hidden" id="height" name="height" value="1080" />
+                            <input
+                                type="hidden"
+                                id="width"
+                                name="width"
+                                value="1920"
+                            />
+                            <input
+                                type="hidden"
+                                id="height"
+                                name="height"
+                                value="1080"
+                            />
                         </div>
 
                         <div class="field" id="qualityField">
@@ -810,7 +913,10 @@
                                     height="180"
                                 ></canvas>
                             </div>
-                            <p class="canvas-tip">Drag the white handle points on the grid to visually customize the curve.</p>
+                            <p class="canvas-tip">
+                                Drag the white handle points on the grid to
+                                visually customize the curve.
+                            </p>
                         </div>
 
                         <div class="actions-area">
@@ -821,6 +927,36 @@
                         </div>
 
                         <p class="status" id="status" aria-live="polite"></p>
+
+                        <!-- Progress Bar Card -->
+                        <div class="progress-card hidden" id="progressCard">
+                            <div class="progress-header">
+                                <span class="progress-title" id="progressTitle"
+                                    >Capturing Website</span
+                                >
+                                <span
+                                    class="progress-percent"
+                                    id="progressPercent"
+                                    >0%</span
+                                >
+                            </div>
+                            <div class="progress-bar-track">
+                                <div
+                                    class="progress-bar-fill"
+                                    id="progressBarFill"
+                                ></div>
+                            </div>
+                            <div class="progress-footer">
+                                <span
+                                    class="progress-status"
+                                    id="progressStatus"
+                                    >Initializing headless browser context</span
+                                >
+                                <span class="progress-timer" id="progressTimer"
+                                    >0.0s</span
+                                >
+                            </div>
+                        </div>
 
                         <div class="result" id="result">
                             <div class="browser-mockup">
@@ -1079,7 +1215,7 @@
                 curveGrid.innerHTML = CURVES.map((curve) => {
                     const active = curve.id === selectedCurve ? " active" : "";
                     const wide = curve.wide ? " wide" : "";
-                    
+
                     if (curve.wide) {
                         return `<button type="button" class="curve-card${active}${wide}" data-curve="${curve.id}">
                             ${drawCurveSvg(curve.bezier)}
@@ -1089,7 +1225,7 @@
                             </div>
                         </button>`;
                     }
-                    
+
                     return `<button type="button" class="curve-card${active}" data-curve="${curve.id}">
                         ${drawCurveSvg(curve.bezier)}
                         <span class="curve-card-name">${curve.label}</span>
@@ -1121,13 +1257,13 @@
                 const rect = previewCanvas.getBoundingClientRect();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                
+
                 const scaleX = previewCanvas.width / rect.width;
                 const scaleY = previewCanvas.height / rect.height;
-                
+
                 return {
                     x: (clientX - rect.left) * scaleX,
-                    y: (clientY - rect.top) * scaleY
+                    y: (clientY - rect.top) * scaleY,
                 };
             }
 
@@ -1138,15 +1274,15 @@
                 const padding = 24;
                 const innerW = 316; // graph inner width
                 const innerH = 132; // graph inner height
-                
+
                 const cx1 = padding + x1 * innerW;
                 const cy1 = padding + (1 - y1) * innerH;
                 const cx2 = padding + x2 * innerW;
                 const cy2 = padding + (1 - y2) * innerH;
-                
+
                 const dist1 = Math.hypot(pos.x - cx1, pos.y - cy1);
                 const dist2 = Math.hypot(pos.x - cx2, pos.y - cy2);
-                
+
                 const hitRadius = 18;
                 if (dist1 < hitRadius && dist1 < dist2) {
                     hoveredHandle = 1;
@@ -1163,7 +1299,7 @@
             function onStartDrag(e) {
                 const pos = getEventPos(e);
                 if (!pos) return;
-                
+
                 updateHoverState(pos);
                 if (hoveredHandle) {
                     activeDragHandle = hoveredHandle;
@@ -1175,27 +1311,31 @@
             function onDragMove(e) {
                 const pos = getEventPos(e);
                 if (!pos) return;
-                
+
                 if (activeDragHandle) {
                     if (e.cancelable) e.preventDefault();
-                    
+
                     const padding = 24;
                     const innerW = 316; // graph inner width
                     const innerH = 132; // graph inner height
-                    
+
                     let x = (pos.x - padding) / innerW;
                     let y = 1 - (pos.y - padding) / innerH;
-                    
+
                     x = Math.max(0, Math.min(1, x));
                     y = Math.max(0, Math.min(1, y)); // Constrain to coordinate viewport
-                    
+
                     if (selectedCurve !== "custom") {
                         const currentBezier = getSelectedBezier();
-                        customBezierInput.value = currentBezier.map(n => n.toFixed(2)).join(", ");
+                        customBezierInput.value = currentBezier
+                            .map((n) => n.toFixed(2))
+                            .join(", ");
                         selectCurve("custom");
                     }
-                    
-                    const parts = customBezierInput.value.split(",").map(n => Number(n.trim()));
+
+                    const parts = customBezierInput.value
+                        .split(",")
+                        .map((n) => Number(n.trim()));
                     if (parts.length === 4 && !parts.some(Number.isNaN)) {
                         if (activeDragHandle === 1) {
                             parts[0] = Number(x.toFixed(2));
@@ -1204,7 +1344,9 @@
                             parts[2] = Number(x.toFixed(2));
                             parts[3] = Number(y.toFixed(2));
                         }
-                        customBezierInput.value = parts.map(n => n.toFixed(2)).join(", ");
+                        customBezierInput.value = parts
+                            .map((n) => n.toFixed(2))
+                            .join(", ");
                         updatePreviewMeta();
                         renderCurveCards();
                     }
@@ -1224,8 +1366,12 @@
             window.addEventListener("mousemove", onDragMove);
             window.addEventListener("mouseup", onStopDrag);
 
-            previewCanvas.addEventListener("touchstart", onStartDrag, { passive: false });
-            window.addEventListener("touchmove", onDragMove, { passive: false });
+            previewCanvas.addEventListener("touchstart", onStartDrag, {
+                passive: false,
+            });
+            window.addEventListener("touchmove", onDragMove, {
+                passive: false,
+            });
             window.addEventListener("touchend", onStopDrag);
             window.addEventListener("touchcancel", onStopDrag);
 
@@ -1240,12 +1386,12 @@
 
                 // Compute steps dynamically for smooth curve drawing (uses 120 points)
                 const points = curvePoints(bezier, 364, height, padding);
-                
+
                 // Pause at start (30 frames) and end (30 frames) for a 240 frame loop
                 const totalFrames = 240;
                 const currentFrame = previewFrame % totalFrames;
                 let t = 0;
-                
+
                 if (currentFrame < 30) {
                     t = 0; // Pause at top
                 } else if (currentFrame > 210) {
@@ -1253,7 +1399,7 @@
                 } else {
                     t = (currentFrame - 30) / 180; // Interpolate active scroll phase
                 }
-                
+
                 const eased = sampleCurveY(bezier, t);
                 const marker = {
                     x: padding + t * innerW,
@@ -1330,7 +1476,8 @@
 
                 // 5. Draw active handles
                 // Handle 1 (P1)
-                let g1 = (hoveredHandle === 1 || activeDragHandle === 1) ? 0.35 : 0.15;
+                let g1 =
+                    hoveredHandle === 1 || activeDragHandle === 1 ? 0.35 : 0.15;
                 previewCtx.fillStyle = `rgba(255, 255, 255, ${g1})`;
                 previewCtx.beginPath();
                 previewCtx.arc(cx1, cy1, 10, 0, Math.PI * 2);
@@ -1342,7 +1489,8 @@
                 previewCtx.fill();
 
                 // Handle 2 (P2)
-                let g2 = (hoveredHandle === 2 || activeDragHandle === 2) ? 0.35 : 0.15;
+                let g2 =
+                    hoveredHandle === 2 || activeDragHandle === 2 ? 0.35 : 0.15;
                 previewCtx.fillStyle = `rgba(255, 255, 255, ${g2})`;
                 previewCtx.beginPath();
                 previewCtx.arc(cx2, cy2, 10, 0, Math.PI * 2);
@@ -1374,11 +1522,11 @@
                 // Draw mock browser frame background
                 previewCtx.fillStyle = "var(--surface)";
                 previewCtx.fillRect(simX, simY, simW, simH);
-                
+
                 // Draw mock browser header
                 previewCtx.fillStyle = "rgba(255, 255, 255, 0.03)";
                 previewCtx.fillRect(simX, simY, simW, headerH);
-                
+
                 previewCtx.strokeStyle = "var(--border)";
                 previewCtx.lineWidth = 1;
                 previewCtx.beginPath();
@@ -1390,7 +1538,13 @@
                 previewCtx.fillStyle = "rgba(255, 255, 255, 0.2)";
                 for (let i = 0; i < 3; i++) {
                     previewCtx.beginPath();
-                    previewCtx.arc(simX + 10 + i * 5, simY + headerH / 2, 1.5, 0, Math.PI * 2);
+                    previewCtx.arc(
+                        simX + 10 + i * 5,
+                        simY + headerH / 2,
+                        1.5,
+                        0,
+                        Math.PI * 2,
+                    );
                     previewCtx.fill();
                 }
 
@@ -1420,8 +1574,13 @@
                     } else {
                         // Draw standard paragraph line
                         previewCtx.fillStyle = "rgba(255, 255, 255, 0.12)";
-                        const lineW = (y % 3 === 0) ? 90 : (y % 2 === 0) ? 75 : 105;
-                        previewCtx.fillRect(simX + 10, elemY, Math.min(lineW, simW - 20), 2.5);
+                        const lineW = y % 3 === 0 ? 90 : y % 2 === 0 ? 75 : 105;
+                        previewCtx.fillRect(
+                            simX + 10,
+                            elemY,
+                            Math.min(lineW, simW - 20),
+                            2.5,
+                        );
                     }
                 }
 
@@ -1433,8 +1592,12 @@
                 previewCtx.strokeRect(simX, simY, simW, simH);
 
                 // Draw scrollbar indicator
-                const sbHeight = ((simH - headerH) / pageHeight) * (simH - headerH);
-                const sbY = simY + headerH + (scrollY / maxScroll) * (simH - headerH - sbHeight);
+                const sbHeight =
+                    ((simH - headerH) / pageHeight) * (simH - headerH);
+                const sbY =
+                    simY +
+                    headerH +
+                    (scrollY / maxScroll) * (simH - headerH - sbHeight);
                 previewCtx.fillStyle = "rgba(255, 255, 255, 0.25)";
                 previewCtx.fillRect(simX + simW - 3, sbY, 1.5, sbHeight);
 
@@ -1474,6 +1637,108 @@
                 }
             });
 
+            let progressInterval = null;
+            let progressStartTime = 0;
+
+            function startProgressSimulator(isFast) {
+                const progressCard = document.getElementById("progressCard");
+                const progressPercent =
+                    document.getElementById("progressPercent");
+                const progressBarFill =
+                    document.getElementById("progressBarFill");
+                const progressStatus =
+                    document.getElementById("progressStatus");
+                const progressTimer = document.getElementById("progressTimer");
+                const logoRecordingDot =
+                    document.getElementById("logoRecordingDot");
+
+                progressCard.classList.remove("hidden");
+                if (logoRecordingDot)
+                    logoRecordingDot.classList.remove("hidden");
+
+                // Reset styling
+                progressBarFill.style.backgroundColor = "var(--text)";
+                progressBarFill.style.width = "0%";
+                progressPercent.textContent = "0%";
+
+                progressStartTime = Date.now();
+                let percentage = 0;
+
+                const expectedDuration = isFast ? 5000 : 18000;
+
+                progressInterval = setInterval(() => {
+                    const elapsed = Date.now() - progressStartTime;
+                    progressTimer.textContent = `${(elapsed / 1000).toFixed(1)}s`;
+
+                    // Non-linear progress curve (approaches 95% asymptotically)
+                    percentage =
+                        95 *
+                        (1 - Math.exp(-elapsed / (expectedDuration * 0.45)));
+
+                    progressPercent.textContent = `${Math.round(percentage)}%`;
+                    progressBarFill.style.width = `${percentage}%`;
+
+                    if (isFast) {
+                        if (elapsed < 1200) {
+                            progressStatus.textContent =
+                                "Launching headless browser context...";
+                        } else if (elapsed < 3500) {
+                            progressStatus.textContent =
+                                "Scrolling website & capturing responsive viewport...";
+                        } else {
+                            progressStatus.textContent =
+                                "Processing and finalizing MP4 video stream...";
+                        }
+                    } else {
+                        if (elapsed < 2000) {
+                            progressStatus.textContent =
+                                "Spawning Chromium browser instance...";
+                        } else if (elapsed < 5000) {
+                            progressStatus.textContent =
+                                "Hydrating lazy-loaded assets & selectors...";
+                        } else if (elapsed < 12000) {
+                            progressStatus.textContent =
+                                "Scrolling website & encoding 60fps frames...";
+                        } else {
+                            progressStatus.textContent =
+                                "Processing and stitching MP4 with FFmpeg...";
+                        }
+                    }
+                }, 100);
+            }
+
+            function stopProgressSimulator(success, errorMsg = "") {
+                if (progressInterval) {
+                    clearInterval(progressInterval);
+                    progressInterval = null;
+                }
+
+                const logoRecordingDot =
+                    document.getElementById("logoRecordingDot");
+                if (logoRecordingDot) logoRecordingDot.classList.add("hidden");
+
+                const progressCard = document.getElementById("progressCard");
+                const progressPercent =
+                    document.getElementById("progressPercent");
+                const progressBarFill =
+                    document.getElementById("progressBarFill");
+                const progressStatus =
+                    document.getElementById("progressStatus");
+
+                if (success) {
+                    progressPercent.textContent = "100%";
+                    progressBarFill.style.width = "100%";
+                    progressStatus.textContent = "Capture completed!";
+                    setTimeout(() => {
+                        progressCard.classList.add("hidden");
+                    }, 800);
+                } else {
+                    progressStatus.textContent = errorMsg || "Capture failed.";
+                    progressBarFill.style.width = "100%";
+                    progressBarFill.style.backgroundColor = "var(--error)";
+                }
+            }
+
             form.addEventListener("submit", async (e) => {
                 e.preventDefault();
                 result.classList.remove("visible");
@@ -1483,6 +1748,9 @@
                     : "Recording website";
                 submit.disabled = true;
                 buttonText.textContent = "Recording...";
+
+                // Start visual progress simulator
+                startProgressSimulator(fastMode.checked);
 
                 const body = {
                     targetUrl: document.getElementById("url").value.trim(),
@@ -1527,9 +1795,15 @@
                     result.classList.add("visible");
                     status.className = "status success";
                     status.textContent = "Recording finished successfully.";
+
+                    // Stop simulator on success
+                    stopProgressSimulator(true);
                 } catch (err) {
                     status.className = "status error";
                     status.textContent = err.message || "Something went wrong";
+
+                    // Stop simulator on error
+                    stopProgressSimulator(false, err.message);
                 } finally {
                     submit.disabled = false;
                     buttonText.textContent = "Start Capture";
@@ -1545,10 +1819,11 @@
                 const [w, h] = devicePreset.value.split("x");
                 widthInput.value = w;
                 heightInput.value = h;
-                
-                const browserContent = document.querySelector(".browser-content");
+
+                const browserContent =
+                    document.querySelector(".browser-content");
                 browserContent.style.aspectRatio = `${w} / ${h}`;
-                
+
                 const mockup = document.querySelector(".browser-mockup");
                 if (Number(w) < Number(h)) {
                     mockup.classList.add("is-mobile");
@@ -1560,7 +1835,10 @@
                     mockup.style.margin = "0";
                 }
             }
-            devicePreset.addEventListener("change", updateBrowserMockupAspectRatio);
+            devicePreset.addEventListener(
+                "change",
+                updateBrowserMockupAspectRatio,
+            );
             updateBrowserMockupAspectRatio(); // run initially to set up default
 
             renderCurveCards();

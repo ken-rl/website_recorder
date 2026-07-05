@@ -1,5 +1,4 @@
 packages:
-  - "."
-
+  - "apps/*"
 allowBuilds:
-  esbuild: true
+  esbuild: set this to true or false
