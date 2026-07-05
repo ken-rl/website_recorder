@@ -35,9 +35,17 @@ export async function recordWebsite(
 
   const startedAt = Date.now();
   const browser = await chromium.launch({ headless: true });
+  
+  // Enable mobile responsive emulation if viewport is portrait phone size
+  const isMobileViewport = viewport.width < viewport.height && viewport.width <= 500;
   const contextOptions = {
     viewport: { width: viewport.width, height: viewport.height },
     deviceScaleFactor,
+    isMobile: isMobileViewport,
+    hasTouch: isMobileViewport,
+    userAgent: isMobileViewport
+      ? "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
+      : undefined,
   };
 
   let rawVideoPath = "";

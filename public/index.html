@@ -559,6 +559,22 @@
                 background: var(--surface);
                 overflow: hidden;
                 box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+                transition: max-width 0.3s ease;
+            }
+
+            .browser-mockup.is-mobile .browser-header {
+                grid-template-columns: 1fr;
+                justify-content: center;
+                padding: 0.5rem;
+            }
+            .browser-mockup.is-mobile .browser-dots,
+            .browser-mockup.is-mobile .browser-actions {
+                display: none;
+            }
+            .browser-mockup.is-mobile .browser-address-bar {
+                max-width: 160px;
+                margin: 0 auto;
+                font-size: 0.65rem;
             }
 
             .browser-header {
@@ -701,27 +717,16 @@
                             />
                         </div>
 
-                        <div class="row">
-                            <div class="field">
-                                <label for="width">Viewport Width</label>
-                                <select id="width" name="width">
-                                    <option value="1920" selected>
-                                        1920 px
-                                    </option>
-                                    <option value="1440">1440 px</option>
-                                    <option value="1280">1280 px</option>
-                                </select>
-                            </div>
-                            <div class="field">
-                                <label for="height">Viewport Height</label>
-                                <select id="height" name="height">
-                                    <option value="1080" selected>
-                                        1080 px
-                                    </option>
-                                    <option value="900">900 px</option>
-                                    <option value="720">720 px</option>
-                                </select>
-                            </div>
+                        <div class="field">
+                            <label for="devicePreset">Device Viewport</label>
+                            <select id="devicePreset" name="devicePreset">
+                                <option value="1920x1080" selected>Desktop (1920 × 1080)</option>
+                                <option value="1440x900">Laptop (1440 × 900)</option>
+                                <option value="768x1024">Tablet (768 × 1024)</option>
+                                <option value="390x844">Mobile Phone (390 × 844)</option>
+                            </select>
+                            <input type="hidden" id="width" name="width" value="1920" />
+                            <input type="hidden" id="height" name="height" value="1080" />
                         </div>
 
                         <div class="field" id="qualityField">
@@ -1111,7 +1116,6 @@
                 previewLabel.textContent = curve?.label ?? "Custom";
                 previewDesc.textContent = curve?.desc ?? "Custom cubic-bezier";
             }
-
             // Mapped mouse/touch interaction helpers
             function getEventPos(e) {
                 const rect = previewCanvas.getBoundingClientRect();
@@ -1132,8 +1136,8 @@
                 const width = previewCanvas.width;
                 const height = previewCanvas.height;
                 const padding = 24;
-                const innerW = width - padding * 2;
-                const innerH = height - padding * 2;
+                const innerW = 316; // graph inner width
+                const innerH = 132; // graph inner height
                 
                 const cx1 = padding + x1 * innerW;
                 const cy1 = padding + (1 - y1) * innerH;
@@ -1175,11 +1179,9 @@
                 if (activeDragHandle) {
                     if (e.cancelable) e.preventDefault();
                     
-                    const width = previewCanvas.width;
-                    const height = previewCanvas.height;
                     const padding = 24;
-                    const innerW = width - padding * 2;
-                    const innerH = height - padding * 2;
+                    const innerW = 316; // graph inner width
+                    const innerH = 132; // graph inner height
                     
                     let x = (pos.x - padding) / innerW;
                     let y = 1 - (pos.y - padding) / innerH;
@@ -1233,11 +1235,25 @@
                 const width = previewCanvas.width;
                 const height = previewCanvas.height;
                 const padding = 24;
-                const innerW = width - padding * 2;
-                const innerH = height - padding * 2;
+                const innerW = 316; // graph inner width
+                const innerH = 132; // graph inner height
 
-                const points = curvePoints(bezier, width, height, padding);
-                const t = (previewFrame % 180) / 180;
+                // Compute steps dynamically for smooth curve drawing (uses 120 points)
+                const points = curvePoints(bezier, 364, height, padding);
+                
+                // Pause at start (30 frames) and end (30 frames) for a 240 frame loop
+                const totalFrames = 240;
+                const currentFrame = previewFrame % totalFrames;
+                let t = 0;
+                
+                if (currentFrame < 30) {
+                    t = 0; // Pause at top
+                } else if (currentFrame > 210) {
+                    t = 1; // Pause at bottom
+                } else {
+                    t = (currentFrame - 30) / 180; // Interpolate active scroll phase
+                }
+                
                 const eased = sampleCurveY(bezier, t);
                 const marker = {
                     x: padding + t * innerW,
@@ -1246,8 +1262,16 @@
 
                 previewCtx.clearRect(0, 0, width, height);
 
-                // 1. Draw subtle background grid lines
-                previewCtx.strokeStyle = "rgba(255, 255, 255, 0.03)";
+                // 1. Draw vertical layout separator line
+                previewCtx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+                previewCtx.lineWidth = 1;
+                previewCtx.beginPath();
+                previewCtx.moveTo(380, 16);
+                previewCtx.lineTo(380, height - 16);
+                previewCtx.stroke();
+
+                // 2. Draw subtle background grid lines (Left Graph)
+                previewCtx.strokeStyle = "rgba(255, 255, 255, 0.02)";
                 previewCtx.lineWidth = 1;
                 for (let i = 1; i <= 3; i++) {
                     const y = padding + (i / 4) * innerH;
@@ -1339,6 +1363,80 @@
                 previewCtx.beginPath();
                 previewCtx.arc(marker.x, marker.y, 10, 0, Math.PI * 2);
                 previewCtx.fill();
+
+                // 7. Draw Scrolling Simulator on the right
+                const simX = 398;
+                const simY = padding;
+                const simW = 138;
+                const simH = innerH;
+                const headerH = 14;
+
+                // Draw mock browser frame background
+                previewCtx.fillStyle = "var(--surface)";
+                previewCtx.fillRect(simX, simY, simW, simH);
+                
+                // Draw mock browser header
+                previewCtx.fillStyle = "rgba(255, 255, 255, 0.03)";
+                previewCtx.fillRect(simX, simY, simW, headerH);
+                
+                previewCtx.strokeStyle = "var(--border)";
+                previewCtx.lineWidth = 1;
+                previewCtx.beginPath();
+                previewCtx.moveTo(simX, simY + headerH);
+                previewCtx.lineTo(simX + simW, simY + headerH);
+                previewCtx.stroke();
+
+                // Draw traffic dots in mini header
+                previewCtx.fillStyle = "rgba(255, 255, 255, 0.2)";
+                for (let i = 0; i < 3; i++) {
+                    previewCtx.beginPath();
+                    previewCtx.arc(simX + 10 + i * 5, simY + headerH / 2, 1.5, 0, Math.PI * 2);
+                    previewCtx.fill();
+                }
+
+                // Draw simulated scrolling content
+                previewCtx.save();
+                previewCtx.beginPath();
+                previewCtx.rect(simX, simY + headerH, simW, simH - headerH);
+                previewCtx.clip();
+
+                const pageHeight = 320;
+                const maxScroll = pageHeight - (simH - headerH);
+                const scrollY = eased * maxScroll;
+
+                // Draw simple layout elements inside simulated page
+                for (let y = 10; y < pageHeight; y += 16) {
+                    const elemY = simY + headerH + y - scrollY;
+
+                    if (y === 26 || y === 122 || y === 218) {
+                        // Draw image block
+                        previewCtx.fillStyle = "rgba(255, 255, 255, 0.05)";
+                        previewCtx.fillRect(simX + 10, elemY, simW - 20, 24);
+                        y += 18; // offset
+                    } else if (y === 58 || y === 154 || y === 250) {
+                        // Draw header text line
+                        previewCtx.fillStyle = "rgba(255, 255, 255, 0.25)";
+                        previewCtx.fillRect(simX + 10, elemY, 50, 4);
+                    } else {
+                        // Draw standard paragraph line
+                        previewCtx.fillStyle = "rgba(255, 255, 255, 0.12)";
+                        const lineW = (y % 3 === 0) ? 90 : (y % 2 === 0) ? 75 : 105;
+                        previewCtx.fillRect(simX + 10, elemY, Math.min(lineW, simW - 20), 2.5);
+                    }
+                }
+
+                previewCtx.restore();
+
+                // Draw simulated device border frame
+                previewCtx.strokeStyle = "var(--border)";
+                previewCtx.lineWidth = 1.25;
+                previewCtx.strokeRect(simX, simY, simW, simH);
+
+                // Draw scrollbar indicator
+                const sbHeight = ((simH - headerH) / pageHeight) * (simH - headerH);
+                const sbY = simY + headerH + (scrollY / maxScroll) * (simH - headerH - sbHeight);
+                previewCtx.fillStyle = "rgba(255, 255, 255, 0.25)";
+                previewCtx.fillRect(simX + simW - 3, sbY, 1.5, sbHeight);
 
                 previewFrame += 1;
                 previewHandle = requestAnimationFrame(drawPreview);
@@ -1437,6 +1535,33 @@
                     buttonText.textContent = "Start Capture";
                 }
             });
+
+            // Viewport preset change event listener
+            const devicePreset = document.getElementById("devicePreset");
+            const widthInput = document.getElementById("width");
+            const heightInput = document.getElementById("height");
+
+            function updateBrowserMockupAspectRatio() {
+                const [w, h] = devicePreset.value.split("x");
+                widthInput.value = w;
+                heightInput.value = h;
+                
+                const browserContent = document.querySelector(".browser-content");
+                browserContent.style.aspectRatio = `${w} / ${h}`;
+                
+                const mockup = document.querySelector(".browser-mockup");
+                if (Number(w) < Number(h)) {
+                    mockup.classList.add("is-mobile");
+                    mockup.style.maxWidth = "320px";
+                    mockup.style.margin = "0 auto";
+                } else {
+                    mockup.classList.remove("is-mobile");
+                    mockup.style.maxWidth = "100%";
+                    mockup.style.margin = "0";
+                }
+            }
+            devicePreset.addEventListener("change", updateBrowserMockupAspectRatio);
+            updateBrowserMockupAspectRatio(); // run initially to set up default
 
             renderCurveCards();
             updatePreviewMeta();
