@@ -24,7 +24,45 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, { ok: true });
   }
 
-  if (req.method === "GET" && url.pathname === "/") {
+  if (req.method === "GET" && url.pathname === "/api/upcoming") {
+    return sendJson(res, 200, {
+      ok: true,
+      upcomingFeatures: [
+        {
+          id: "react-component",
+          title: "Embeddable React Component (<WebRecorder />)",
+          description: "A reusable React component for developer dashboards and documentation with built-in progress feedback.",
+          status: "planned"
+        },
+        {
+          id: "deterministic-caching",
+          title: "Deterministic Server Caching",
+          description: "Instant video loading on matching configurations by checking pre-recorded caches indexed by SHA-256 configuration hashes.",
+          status: "planned"
+        },
+        {
+          id: "bezier-editor",
+          title: "Visual Scroll Curve Editor",
+          description: "An interactive, draggable canvas editor to customize CSS-style cubic-bezier scroll transitions.",
+          status: "in-progress"
+        },
+        {
+          id: "webhook-notifications",
+          title: "Webhooks & Async Processing",
+          description: "Allow long-running captures to run in the background and notify clients via Webhooks or SSE when ready.",
+          status: "planned"
+        },
+        {
+          id: "audio-overlay",
+          title: "Audio & Speech Hydration",
+          description: "Synthesize background soundtracks or text-to-speech audio overlays synchronized with the viewport scroll animation.",
+          status: "planned"
+        }
+      ]
+    });
+  }
+
+  if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/upcoming")) {
     return serveFile(
       res,
       path.join(PUBLIC_DIR, "index.html"),
@@ -39,6 +77,20 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 403, { ok: false, error: "Forbidden" });
     }
     return serveFile(res, filePath, contentTypeFor(filePath));
+  }
+
+  // Serve general static files from PUBLIC_DIR (e.g. built JS/CSS files)
+  if (req.method === "GET" && url.pathname !== "/") {
+    const relativePath = url.pathname.startsWith("/") ? url.pathname.slice(1) : url.pathname;
+    const filePath = path.resolve(PUBLIC_DIR, relativePath);
+    if (filePath.startsWith(PUBLIC_DIR + path.sep)) {
+      try {
+        await fs.access(filePath);
+        return serveFile(res, filePath, contentTypeFor(filePath));
+      } catch {
+        // Fall through to other routes or 404
+      }
+    }
   }
 
   if (req.method === "POST" && url.pathname === "/record") {
@@ -92,6 +144,10 @@ function contentTypeFor(filePath: string) {
   if (filePath.endsWith(".html")) return "text/html; charset=utf-8";
   if (filePath.endsWith(".css")) return "text/css; charset=utf-8";
   if (filePath.endsWith(".js")) return "text/javascript; charset=utf-8";
+  if (filePath.endsWith(".svg")) return "image/svg+xml";
+  if (filePath.endsWith(".png")) return "image/png";
+  if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) return "image/jpeg";
+  if (filePath.endsWith(".ico")) return "image/x-icon";
   return "application/octet-stream";
 }
 

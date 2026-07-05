@@ -1,12 +1,29 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Logo from "./components/Logo";
 import TargetPageForm from "./components/TargetPageForm";
 import ScrollPhysicsForm from "./components/ScrollPhysicsForm";
 import BezierVisualizer from "./components/BezierVisualizer";
 import ProgressCard from "./components/ProgressCard";
 import BrowserMockup from "./components/BrowserMockup";
+import UpcomingFeatures from "./components/UpcomingFeatures";
 
 export default function App() {
+  // Routing State
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const navigate = (path: string) => {
+    window.history.pushState({}, "", path);
+    setCurrentPath(path);
+  };
+
   // Target Page Configurations
   const [url, setUrl] = useState("");
   const [devicePreset, setDevicePreset] = useState("1920x1080");
@@ -31,7 +48,7 @@ export default function App() {
   const [elapsedTime, setElapsedTime] = useState("0.0s");
   const [resultVideo, setResultVideo] = useState<{ url: string; duration: string } | null>(null);
 
-  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const progressIntervalRef = useRef<any>(null);
   const progressStartTimeRef = useRef(0);
 
   // Sync dimensions helper when preset changes in child component
@@ -79,6 +96,7 @@ export default function App() {
     }, 100);
   }
 
+  // Stop Simulator Easing
   function stopProgressSimulator(success: boolean, errorMsg = "") {
     if (progressIntervalRef.current) {
       clearInterval(progressIntervalRef.current);
@@ -153,83 +171,127 @@ export default function App() {
 
   return (
     <main className="app-container">
-      <header>
-        <Logo isRecording={isSubmitting} />
-        <p className="subtitle">
-          Record smooth scroll-through videos of any webpage as MP4.
-        </p>
+      <header className="app-header">
+        <div className="header-brand">
+          <Logo isRecording={isSubmitting} />
+          <p className="subtitle">
+            Record smooth scroll-through videos of any webpage as MP4.
+          </p>
+        </div>
+        <nav className="header-nav">
+          <button
+            type="button"
+            className={`nav-link ${currentPath === "/" || currentPath === "" ? "active" : ""}`}
+            onClick={() => navigate("/")}
+          >
+            Recorder
+          </button>
+          <button
+            type="button"
+            className={`nav-link ${currentPath === "/upcoming" ? "active" : ""}`}
+            onClick={() => navigate("/upcoming")}
+          >
+            Roadmap
+          </button>
+        </nav>
       </header>
 
-      <form id="form" className="app-grid" onSubmit={handleSubmit}>
-        {/* Left column: Settings panels */}
-        <div className="grid-left">
-          <TargetPageForm
-            url={url}
-            setUrl={setUrl}
-            devicePreset={devicePreset}
-            setDevicePreset={handleDevicePresetChange}
-            quality={quality}
-            setQuality={setQuality}
-            fastMode={fastMode}
-          />
-
-          <ScrollPhysicsForm
-            selectedCurve={selectedCurve}
-            setSelectedCurve={setSelectedCurve}
-            customBezier={customBezier}
-            setCustomBezier={setCustomBezier}
-            customInputText={customInputText}
-            setCustomInputText={setCustomInputText}
-            fastMode={fastMode}
-            setFastMode={setFastMode}
-          />
-        </div>
-
-        {/* Right column: Interactive preview & Action feedback */}
-        <div className="grid-right">
-          <div className="panel sticky-panel">
-            <div className="panel-title">Motion Profile</div>
-
-            <BezierVisualizer
-              selectedCurve={selectedCurve}
-              setSelectedCurve={setSelectedCurve}
-              customBezier={customBezier}
-              setCustomBezier={setCustomBezier}
-              customInputText={customInputText}
-              setCustomInputText={setCustomInputText}
+      {currentPath === "/upcoming" ? (
+        <UpcomingFeatures />
+      ) : (
+        <form id="form" className="app-grid" onSubmit={handleSubmit}>
+          {/* Left column: Settings panels & visual easing canvas */}
+          <div className="grid-left">
+            <TargetPageForm
+              url={url}
+              setUrl={setUrl}
+              devicePreset={devicePreset}
+              setDevicePreset={handleDevicePresetChange}
+              quality={quality}
+              setQuality={setQuality}
+              fastMode={fastMode}
             />
 
-            <div className="actions-area">
-              <button type="submit" id="submit" disabled={isSubmitting}>
-                <span className="loader-circle"></span>
-                <span id="buttonText">{isSubmitting ? "Recording..." : "Start Capture"}</span>
-              </button>
-            </div>
+            <section className="panel">
+              <div className="panel-title">Scroll Physics</div>
+              
+              <ScrollPhysicsForm
+                selectedCurve={selectedCurve}
+                setSelectedCurve={setSelectedCurve}
+                customBezier={customBezier}
+                setCustomBezier={setCustomBezier}
+                customInputText={customInputText}
+                setCustomInputText={setCustomInputText}
+              />
 
-            {statusType !== "idle" && (
-              <p className={`status ${statusType}`} id="status" aria-live="polite">
-                {statusText}
-              </p>
-            )}
+              <div style={{ marginTop: "1.5rem" }}>
+                <BezierVisualizer
+                  selectedCurve={selectedCurve}
+                  setSelectedCurve={setSelectedCurve}
+                  customBezier={customBezier}
+                  setCustomBezier={setCustomBezier}
+                  customInputText={customInputText}
+                  setCustomInputText={setCustomInputText}
+                />
+              </div>
+            </section>
+          </div>
 
-            <ProgressCard
-              percent={progressPercent}
-              status={progressStatus}
-              elapsed={elapsedTime}
-            />
+          {/* Right column: Execution control & mockup preview */}
+          <div className="grid-right">
+            <div className="panel sticky-panel">
+              <div className="panel-title">Capture & Live Output</div>
 
-            {resultVideo && (
+              <div className="actions-area">
+                <button type="submit" id="submit" disabled={isSubmitting}>
+                  <span className="loader-circle"></span>
+                  <span id="buttonText">{isSubmitting ? "Recording..." : "Start Capture"}</span>
+                </button>
+              </div>
+
+              <div className="field" style={{ marginTop: "1.25rem" }}>
+                <div className="toggle-row">
+                  <div className="toggle-copy">
+                    <strong>Fast Hydration Mode</strong>
+                    <span>Skips heavy page hydration delays and speeds up scrolling dynamics.</span>
+                  </div>
+                  <label className="toggle" aria-label="Fast mode">
+                    <input
+                      type="checkbox"
+                      id="fastMode"
+                      checked={fastMode}
+                      onChange={(e) => setFastMode(e.target.checked)}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              {statusType === "error" && (
+                <p className="status error" id="status" aria-live="polite">
+                  {statusText}
+                </p>
+              )}
+
+              <ProgressCard
+                percent={progressPercent}
+                status={progressStatus}
+                elapsed={elapsedTime}
+              />
+
               <BrowserMockup
                 url={url}
-                videoUrl={resultVideo.url}
-                duration={resultVideo.duration}
+                videoUrl={resultVideo?.url || null}
+                duration={resultVideo?.duration || null}
                 width={width}
                 height={height}
+                isSubmitting={isSubmitting}
+                statusType={statusType}
               />
-            )}
+            </div>
           </div>
-        </div>
-      </form>
+        </form>
+      )}
     </main>
   );
 }

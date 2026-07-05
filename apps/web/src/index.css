@@ -746,3 +746,200 @@ video {
     display: inline-block;
     animation: pulse 1.2s ease-in-out infinite;
 }
+
+/* Browser Placeholder & Empty States */
+.browser-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 2rem;
+    text-align: center;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #18181b 0%, #09090b 100%);
+}
+
+.placeholder-icon {
+    width: 36px;
+    height: 36px;
+    color: var(--muted);
+}
+
+.placeholder-icon.pulsating {
+    animation: pulse-red 1.5s infinite ease-in-out;
+    color: var(--error);
+}
+
+@keyframes pulse-red {
+    0%, 100% { opacity: 0.5; filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0)); }
+    50% { opacity: 1; filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.4)); }
+}
+
+.placeholder-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.placeholder-desc {
+    font-size: 0.72rem;
+    color: var(--muted);
+    max-width: 220px;
+    line-height: 1.4;
+}
+
+/* App Header & Navigation styling */
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.5rem;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.header-brand {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.header-nav {
+    display: flex;
+    gap: 0.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 0.25rem;
+    border-radius: var(--radius-sm);
+}
+
+.nav-link {
+    background: transparent;
+    border: none;
+    font-family: var(--font-sans);
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+.nav-link:hover {
+    color: var(--text);
+}
+
+.nav-link.active {
+    color: var(--text);
+    background: var(--surface-muted);
+}
+
+/* Roadmap UI styling - Minimal */
+.upcoming-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.roadmap-header-minimal {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.25rem;
+}
+
+.roadmap-header-minimal h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+}
+
+.roadmap-desc-minimal {
+    font-size: 0.875rem;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.features-list-minimal {
+    display: flex;
+    flex-direction: column;
+}
+
+.feature-row-minimal {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 2rem;
+    padding: 1.5rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.feature-row-minimal:last-child {
+    border-bottom: none;
+}
+
+.feature-info-minimal {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    flex-grow: 1;
+}
+
+.feature-meta-minimal {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-dot-planned {
+    background: rgb(251, 191, 36);
+}
+
+.status-dot-inprogress {
+    background: rgb(56, 189, 248);
+}
+
+.status-dot-completed {
+    background: rgb(52, 211, 153);
+}
+
+.status-text-minimal {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.feature-title-minimal {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.01em;
+}
+
+.feature-desc-minimal {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.5;
+}
+
+/* Animations */
+.animate-fade-in {
+    animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
