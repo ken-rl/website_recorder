@@ -12,6 +12,9 @@
   },
   "animationConfig": {
     "pixelsPerFrame": 4,
+    "scrollCurve": {
+      "preset": "ease-in-out"
+    },
     "preRecordingDelayMs": 2000,
     "removeOverlayElements": true,
     "pauseTriggers": [

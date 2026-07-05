@@ -1,7 +1,30 @@
 {
   "name": "websiterecorder",
   "version": "1.0.0",
-  "private": true,
+  "description": "Record smooth scroll-through videos of any webpage as MP4",
+  "license": "MIT",
+  "author": "ken-rl (https://github.com/ken-rl)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ken-rl/website_recorder.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ken-rl/website_recorder/issues"
+  },
+  "homepage": "https://github.com/ken-rl/website_recorder#readme",
+  "keywords": [
+    "playwright",
+    "screen-recording",
+    "video",
+    "webpage",
+    "scroll",
+    "mp4",
+    "ffmpeg",
+    "website-recorder"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "scripts": {
     "start": "tsx src/api/server.ts",

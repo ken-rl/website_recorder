@@ -78,6 +78,7 @@
             }
 
             input[type="url"],
+            input[type="text"],
             select {
                 width: 100%;
                 font: inherit;
@@ -92,6 +93,7 @@
             }
 
             input[type="url"]:focus,
+            input[type="text"]:focus,
             select:focus {
                 border-color: var(--accent);
             }
@@ -101,6 +103,16 @@
             }
             .field:last-of-type {
                 margin-bottom: 1.5rem;
+            }
+
+            .field.hidden {
+                display: none;
+            }
+
+            .hint {
+                margin-top: 0.375rem;
+                font-size: 0.75rem;
+                color: var(--muted);
             }
 
             .row {
@@ -253,6 +265,38 @@
                     </select>
                 </div>
 
+                <div class="field">
+                    <label for="scrollCurve">Scroll curve</label>
+                    <select id="scrollCurve" name="scrollCurve">
+                        <option value="linear">Linear</option>
+                        <option value="ease-in">Ease in</option>
+                        <option value="ease-out">Ease out</option>
+                        <option value="ease-in-out" selected>
+                            Ease in-out
+                        </option>
+                        <option value="ease-in-cubic">Ease in (cubic)</option>
+                        <option value="ease-out-cubic">Ease out (cubic)</option>
+                        <option value="ease-in-out-cubic">
+                            Ease in-out (cubic)
+                        </option>
+                        <option value="custom">Custom bezier</option>
+                    </select>
+                </div>
+
+                <div class="field hidden" id="customBezierField">
+                    <label for="customBezier">Custom bezier</label>
+                    <input
+                        type="text"
+                        id="customBezier"
+                        name="customBezier"
+                        value="0.42, 0, 0.58, 1"
+                        placeholder="x1, y1, x2, y2"
+                    />
+                    <p class="hint">
+                        CSS cubic-bezier values, e.g. 0.42, 0, 0.58, 1
+                    </p>
+                </div>
+
                 <button type="submit" id="submit">Record</button>
             </form>
 
@@ -275,6 +319,31 @@
             const player = document.getElementById("player");
             const duration = document.getElementById("duration");
             const download = document.getElementById("download");
+            const scrollCurve = document.getElementById("scrollCurve");
+            const customBezierField =
+                document.getElementById("customBezierField");
+
+            scrollCurve.addEventListener("change", () => {
+                customBezierField.classList.toggle(
+                    "hidden",
+                    scrollCurve.value !== "custom",
+                );
+            });
+
+            function buildScrollCurve() {
+                const preset = scrollCurve.value;
+                if (preset !== "custom") return { preset };
+
+                const raw = document.getElementById("customBezier").value;
+                const parts = raw.split(",").map((part) => Number(part.trim()));
+                if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) {
+                    throw new Error(
+                        "Custom bezier must be four comma-separated numbers",
+                    );
+                }
+
+                return { preset: "custom", bezier: parts };
+            }
 
             form.addEventListener("submit", async (e) => {
                 e.preventDefault();
@@ -300,6 +369,7 @@
                     },
                     animationConfig: {
                         pixelsPerFrame: 4,
+                        scrollCurve: buildScrollCurve(),
                         preRecordingDelayMs: 2000,
                         removeOverlayElements: true,
                     },

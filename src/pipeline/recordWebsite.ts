@@ -5,6 +5,7 @@ import { dismissCookieBanners } from "../browser/cookies.js";
 import { gotoReachablePage } from "../browser/goto.js";
 import { hydrateLazyContent } from "../browser/hydrate.js";
 import { primeLazyAssets } from "../browser/prime.js";
+import { resolveScrollCurve } from "../browser/curves.js";
 import { runSmoothScroll } from "../browser/scroll.js";
 import { sanitizeDom } from "../browser/sanitize.js";
 import { removeFileIfExists, transcodeToMp4 } from "../transcode/ffmpeg.js";
@@ -36,6 +37,7 @@ export async function recordWebsite(
   const preRecordingDelayMs =
     animation.preRecordingDelayMs ?? DEFAULT_PRE_RECORDING_DELAY_MS;
   const pauseTriggers = animation.pauseTriggers ?? [];
+  const scrollCurve = resolveScrollCurve(animation.scrollCurve);
   const removeOverlays = animation.removeOverlayElements ?? true;
 
   const startedAt = Date.now();
@@ -92,7 +94,7 @@ export async function recordWebsite(
         window.scrollTo({ top: 0, left: 0, behavior: "instant" }),
       );
       await page.waitForTimeout(preRecordingDelayMs);
-      await runSmoothScroll(page, pixelsPerFrame, pauseTriggers);
+      await runSmoothScroll(page, pixelsPerFrame, pauseTriggers, scrollCurve);
       await page.waitForTimeout(500);
     } finally {
       const video = page.video();
