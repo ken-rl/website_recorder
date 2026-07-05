@@ -37,6 +37,8 @@ export interface AnimationConfig {
   removeOverlayElements?: boolean;
   pauseTriggers?: PauseTrigger[];
   scrollCurve?: ScrollCurve;
+  /** Skip deep hydration, scroll faster, and use quick encoding. */
+  fastMode?: boolean;
 }
 
 export interface RecordRequest {

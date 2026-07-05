@@ -134,9 +134,21 @@ cp .env.example .env
 | `videoConfig.viewport` | Width, height, and optional `deviceScaleFactor` |
 | `animationConfig.pixelsPerFrame` | Base scroll speed in pixels per animation frame (default: 4). Controls total duration; the curve shapes how that speed varies. |
 | `animationConfig.scrollCurve` | Easing curve for scroll speed — preset name or custom CSS `cubic-bezier` |
+| `animationConfig.fastMode` | Skip deep hydration, scroll faster, and use quick encoding (default: false) |
 | `animationConfig.preRecordingDelayMs` | Pause at the top before scrolling (default: 2000) |
 | `animationConfig.removeOverlayElements` | Strip cookie banners, modals, and popups (default: true) |
 | `animationConfig.pauseTriggers` | Pause when a selector enters the viewport |
+
+### Fast mode
+
+Set `"fastMode": true` in `animationConfig` to prioritize speed over completeness:
+
+- One hydration pass with shorter waits
+- Faster scroll (`pixelsPerFrame` defaults to 12)
+- Shorter pre-roll delay (500ms)
+- Quick ffmpeg encode at 1× capture scale
+
+Some below-fold lazy content may not load. Best for quick drafts or simple pages.
 
 ### Scroll curves
 

@@ -8,12 +8,10 @@ import { primeLazyAssets } from "../browser/prime.js";
 import { resolveScrollCurve } from "../browser/curves.js";
 import { runSmoothScroll } from "../browser/scroll.js";
 import { sanitizeDom } from "../browser/sanitize.js";
+import { resolveRecordingProfile } from "../config/recordingProfile.js";
 import { removeFileIfExists, transcodeToMp4 } from "../transcode/ffmpeg.js";
-import { resolveEncodeSettings } from "../transcode/quality.js";
 import type { RecordRequest, RecordResult } from "../types.js";
 
-const DEFAULT_PIXELS_PER_FRAME = 4;
-const DEFAULT_PRE_RECORDING_DELAY_MS = 2000;
 const DEFAULT_FRAMERATE = 30;
 
 export async function recordWebsite(
@@ -26,16 +24,11 @@ export async function recordWebsite(
   await fs.mkdir(outputDir, { recursive: true });
 
   const viewport = request.videoConfig.viewport;
-  const encode = resolveEncodeSettings(
-    request.videoConfig.qualityPreset,
-    viewport.deviceScaleFactor,
-  );
+  const profile = resolveRecordingProfile(request);
+  const { pixelsPerFrame, preRecordingDelayMs, encode, hydrateFast } = profile;
   const deviceScaleFactor = encode.deviceScaleFactor;
   const framerate = request.videoConfig.framerate ?? DEFAULT_FRAMERATE;
   const animation = request.animationConfig ?? {};
-  const pixelsPerFrame = animation.pixelsPerFrame ?? DEFAULT_PIXELS_PER_FRAME;
-  const preRecordingDelayMs =
-    animation.preRecordingDelayMs ?? DEFAULT_PRE_RECORDING_DELAY_MS;
   const pauseTriggers = animation.pauseTriggers ?? [];
   const scrollCurve = resolveScrollCurve(animation.scrollCurve);
   const removeOverlays = animation.removeOverlayElements ?? true;
@@ -60,7 +53,9 @@ export async function recordWebsite(
     await sanitizeDom(prepPage, removeOverlays);
 
     try {
-      await hydrateLazyContent(prepPage, viewport.height);
+      await hydrateLazyContent(prepPage, viewport.height, {
+        fast: hydrateFast,
+      });
     } catch (error) {
       console.warn(
         "Lazy-content hydration failed; continuing with current page state.",

@@ -11,6 +11,7 @@
     }
   },
   "animationConfig": {
+    "fastMode": false,
     "pixelsPerFrame": 4,
     "scrollCurve": {
       "preset": "ease-in-out"

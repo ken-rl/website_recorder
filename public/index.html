@@ -7,7 +7,7 @@
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
-            href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&display=swap"
+            href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap"
             rel="stylesheet"
         />
         <style>
@@ -20,15 +20,17 @@
             }
 
             :root {
-                --bg: #f6f5f2;
+                --bg: #f4f3ef;
                 --surface: #fff;
+                --surface-muted: #faf9f6;
                 --text: #1a1a18;
                 --muted: #6b6b66;
                 --border: #e2e0da;
                 --accent: #2d6a4f;
+                --accent-soft: #e8f3ed;
                 --accent-hover: #1b4332;
                 --error: #b91c1c;
-                --radius: 8px;
+                --radius: 10px;
             }
 
             body {
@@ -36,44 +38,60 @@
                 background: var(--bg);
                 color: var(--text);
                 min-height: 100vh;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 2rem 1rem;
+                padding: 2.5rem 1rem 3rem;
                 line-height: 1.5;
                 -webkit-font-smoothing: antialiased;
             }
 
             main {
                 width: 100%;
-                max-width: 480px;
+                max-width: 640px;
+                margin: 0 auto;
+            }
+
+            header {
+                margin-bottom: 1.75rem;
             }
 
             h1 {
-                font-size: 1.25rem;
-                font-weight: 500;
-                letter-spacing: -0.02em;
-                margin-bottom: 0.25rem;
+                font-size: 1.5rem;
+                font-weight: 600;
+                letter-spacing: -0.03em;
             }
 
             .subtitle {
                 color: var(--muted);
-                font-size: 0.875rem;
-                margin-bottom: 2rem;
+                font-size: 0.9375rem;
+                margin-top: 0.35rem;
             }
 
             form {
+                display: flex;
+                flex-direction: column;
+                gap: 1.25rem;
+            }
+
+            .panel {
                 background: var(--surface);
                 border: 1px solid var(--border);
                 border-radius: var(--radius);
-                padding: 1.5rem;
+                padding: 1.25rem;
+            }
+
+            .panel-title {
+                font-size: 0.75rem;
+                font-weight: 600;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                color: var(--muted);
+                margin-bottom: 1rem;
             }
 
             label {
                 display: block;
                 font-size: 0.8125rem;
                 font-weight: 500;
-                margin-bottom: 0.375rem;
+                margin-bottom: 0.4rem;
                 color: var(--muted);
             }
 
@@ -83,26 +101,29 @@
                 width: 100%;
                 font: inherit;
                 font-size: 0.9375rem;
-                padding: 0.625rem 0.75rem;
+                padding: 0.65rem 0.8rem;
                 border: 1px solid var(--border);
-                border-radius: 6px;
-                background: var(--bg);
+                border-radius: 8px;
+                background: var(--surface-muted);
                 color: var(--text);
                 outline: none;
-                transition: border-color 0.15s;
+                transition:
+                    border-color 0.15s,
+                    background 0.15s;
             }
 
-            input[type="url"]:focus,
-            input[type="text"]:focus,
+            input:focus,
             select:focus {
                 border-color: var(--accent);
+                background: var(--surface);
             }
 
             .field {
-                margin-bottom: 1.25rem;
+                margin-bottom: 1rem;
             }
-            .field:last-of-type {
-                margin-bottom: 1.5rem;
+
+            .field:last-child {
+                margin-bottom: 0;
             }
 
             .field.hidden {
@@ -110,25 +131,186 @@
             }
 
             .hint {
-                margin-top: 0.375rem;
+                margin-top: 0.4rem;
                 font-size: 0.75rem;
                 color: var(--muted);
+                line-height: 1.4;
             }
 
             .row {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                gap: 0.75rem;
+                gap: 0.85rem;
+            }
+
+            .toggle-row {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 1rem;
+                padding: 0.85rem 1rem;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                background: var(--surface-muted);
+            }
+
+            .toggle-copy strong {
+                display: block;
+                font-size: 0.9375rem;
+                font-weight: 500;
+                color: var(--text);
+                margin-bottom: 0.15rem;
+            }
+
+            .toggle-copy span {
+                font-size: 0.8125rem;
+                color: var(--muted);
+            }
+
+            .toggle {
+                position: relative;
+                width: 44px;
+                height: 24px;
+                flex-shrink: 0;
+            }
+
+            .toggle input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+
+            .toggle-slider {
+                position: absolute;
+                inset: 0;
+                background: #d8d6d0;
+                border-radius: 999px;
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+
+            .toggle-slider::before {
+                content: "";
+                position: absolute;
+                width: 18px;
+                height: 18px;
+                left: 3px;
+                top: 3px;
+                background: #fff;
+                border-radius: 50%;
+                transition: transform 0.2s;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+            }
+
+            .toggle input:checked + .toggle-slider {
+                background: var(--accent);
+            }
+
+            .toggle input:checked + .toggle-slider::before {
+                transform: translateX(20px);
+            }
+
+            .curve-preview {
+                margin-bottom: 1rem;
+                padding: 1rem;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                background: var(--surface-muted);
+            }
+
+            .curve-preview-head {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                margin-bottom: 0.75rem;
+            }
+
+            .curve-preview-head strong {
+                font-size: 0.9375rem;
+            }
+
+            .curve-preview-head span {
+                font-size: 0.8125rem;
+                color: var(--muted);
+            }
+
+            .curve-preview-canvas {
+                width: 100%;
+                height: 88px;
+                display: block;
+                border-radius: 6px;
+                background: #fff;
+                border: 1px solid var(--border);
+            }
+
+            .curve-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.65rem;
+            }
+
+            @media (min-width: 560px) {
+                .curve-grid {
+                    grid-template-columns: repeat(4, minmax(0, 1fr));
+                }
+            }
+
+            .curve-card {
+                display: flex;
+                flex-direction: column;
+                gap: 0.45rem;
+                padding: 0.65rem;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                background: #fff;
+                cursor: pointer;
+                text-align: left;
+                transition:
+                    border-color 0.15s,
+                    box-shadow 0.15s,
+                    background 0.15s;
+            }
+
+            .curve-card:hover {
+                border-color: #c8c5bc;
+            }
+
+            .curve-card.active {
+                border-color: var(--accent);
+                background: var(--accent-soft);
+                box-shadow: 0 0 0 1px var(--accent);
+            }
+
+            .curve-card svg {
+                width: 100%;
+                height: 36px;
+                display: block;
+            }
+
+            .curve-card-name {
+                font-size: 0.75rem;
+                font-weight: 500;
+                color: var(--text);
+            }
+
+            .curve-card-desc {
+                font-size: 0.6875rem;
+                color: var(--muted);
+                line-height: 1.3;
+            }
+
+            .curve-card.wide {
+                grid-column: 1 / -1;
             }
 
             button[type="submit"] {
                 width: 100%;
                 font: inherit;
-                font-size: 0.9375rem;
-                font-weight: 500;
-                padding: 0.75rem 1rem;
+                font-size: 1rem;
+                font-weight: 600;
+                padding: 0.85rem 1rem;
                 border: none;
-                border-radius: 6px;
+                border-radius: 8px;
                 background: var(--accent);
                 color: #fff;
                 cursor: pointer;
@@ -145,7 +327,7 @@
             }
 
             .status {
-                margin-top: 1.25rem;
+                margin-top: 1rem;
                 font-size: 0.875rem;
                 text-align: center;
                 min-height: 1.25rem;
@@ -198,6 +380,11 @@
                 text-decoration: underline;
             }
 
+            .dimmed {
+                opacity: 0.55;
+                pointer-events: none;
+            }
+
             @keyframes pulse {
                 0%,
                 100% {
@@ -220,82 +407,110 @@
     </head>
     <body>
         <main>
-            <h1>Website Recorder</h1>
-            <p class="subtitle">
-                Record a smooth scroll-through of any webpage as MP4.
-            </p>
+            <header>
+                <h1>Website Recorder</h1>
+                <p class="subtitle">
+                    Record a smooth scroll-through of any webpage as MP4.
+                </p>
+            </header>
 
             <form id="form">
-                <div class="field">
-                    <label for="url">URL</label>
-                    <input
-                        type="url"
-                        id="url"
-                        name="url"
-                        placeholder="https://example.com"
-                        required
-                    />
-                </div>
+                <section class="panel">
+                    <div class="panel-title">Recording</div>
 
-                <div class="field row">
-                    <div>
-                        <label for="width">Width</label>
-                        <select id="width" name="width">
-                            <option value="1920" selected>1920</option>
-                            <option value="1440">1440</option>
-                            <option value="1280">1280</option>
-                        </select>
+                    <div class="field">
+                        <label for="url">URL</label>
+                        <input
+                            type="url"
+                            id="url"
+                            name="url"
+                            placeholder="https://example.com"
+                            required
+                        />
                     </div>
-                    <div>
-                        <label for="height">Height</label>
-                        <select id="height" name="height">
-                            <option value="1080" selected>1080</option>
-                            <option value="900">900</option>
-                            <option value="720">720</option>
-                        </select>
+
+                    <div class="field">
+                        <div class="toggle-row">
+                            <div class="toggle-copy">
+                                <strong>Fast mode</strong>
+                                <span
+                                    >Lighter hydration, faster scroll, quick
+                                    encode. Some lazy content may be
+                                    missed.</span
+                                >
+                            </div>
+                            <label class="toggle" aria-label="Fast mode">
+                                <input type="checkbox" id="fastMode" />
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
                     </div>
-                </div>
 
-                <div class="field">
-                    <label for="quality">Quality</label>
-                    <select id="quality" name="quality">
-                        <option value="high" selected>High</option>
-                        <option value="medium">Medium</option>
-                        <option value="low">Low</option>
-                    </select>
-                </div>
+                    <div class="row">
+                        <div class="field">
+                            <label for="width">Width</label>
+                            <select id="width" name="width">
+                                <option value="1920" selected>1920</option>
+                                <option value="1440">1440</option>
+                                <option value="1280">1280</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="height">Height</label>
+                            <select id="height" name="height">
+                                <option value="1080" selected>1080</option>
+                                <option value="900">900</option>
+                                <option value="720">720</option>
+                            </select>
+                        </div>
+                    </div>
 
-                <div class="field">
-                    <label for="scrollCurve">Scroll curve</label>
-                    <select id="scrollCurve" name="scrollCurve">
-                        <option value="linear">Linear</option>
-                        <option value="ease-in">Ease in</option>
-                        <option value="ease-out">Ease out</option>
-                        <option value="ease-in-out" selected>
-                            Ease in-out
-                        </option>
-                        <option value="ease-in-cubic">Ease in (cubic)</option>
-                        <option value="ease-out-cubic">Ease out (cubic)</option>
-                        <option value="ease-in-out-cubic">
-                            Ease in-out (cubic)
-                        </option>
-                        <option value="custom">Custom bezier</option>
-                    </select>
-                </div>
+                    <div class="field" id="qualityField">
+                        <label for="quality">Quality</label>
+                        <select id="quality" name="quality">
+                            <option value="high" selected>High</option>
+                            <option value="medium">Medium</option>
+                            <option value="low">Low</option>
+                        </select>
+                        <p class="hint" id="qualityHint">
+                            High uses 2× capture and slow encoding for the
+                            sharpest output.
+                        </p>
+                    </div>
+                </section>
 
-                <div class="field hidden" id="customBezierField">
-                    <label for="customBezier">Custom bezier</label>
-                    <input
-                        type="text"
-                        id="customBezier"
-                        name="customBezier"
-                        value="0.42, 0, 0.58, 1"
-                        placeholder="x1, y1, x2, y2"
-                    />
-                    <p class="hint">
-                        CSS cubic-bezier values, e.g. 0.42, 0, 0.58, 1
-                    </p>
-                </div>
+                <section class="panel">
+                    <div class="panel-title">Scroll curve</div>
+
+                    <div class="curve-preview">
+                        <div class="curve-preview-head">
+                            <strong id="previewLabel">Ease in-out</strong>
+                            <span id="previewDesc">Slow start and end</span>
+                        </div>
+                        <canvas
+                            id="curvePreview"
+                            class="curve-preview-canvas"
+                            width="560"
+                            height="88"
+                        ></canvas>
+                    </div>
+
+                    <div class="curve-grid" id="curveGrid"></div>
+
+                    <div class="field hidden" id="customBezierField">
+                        <label for="customBezier">Custom bezier</label>
+                        <input
+                            type="text"
+                            id="customBezier"
+                            name="customBezier"
+                            value="0.42, 0, 0.58, 1"
+                            placeholder="x1, y1, x2, y2"
+                        />
+                        <p class="hint">
+                            CSS cubic-bezier values, e.g. 0.42, 0, 0.58, 1
+                        </p>
+                    </div>
+                </section>
 
                 <button type="submit" id="submit">Record</button>
             </form>
@@ -312,6 +527,62 @@
         </main>
 
         <script>
+            const CURVES = [
+                {
+                    id: "linear",
+                    label: "Linear",
+                    desc: "Constant speed",
+                    bezier: [0, 0, 1, 1],
+                },
+                {
+                    id: "ease-in",
+                    label: "Ease in",
+                    desc: "Slow start",
+                    bezier: [0.65, 0, 1, 0.45],
+                },
+                {
+                    id: "ease-out",
+                    label: "Ease out",
+                    desc: "Slow end",
+                    bezier: [0, 0, 0.58, 1],
+                },
+                {
+                    id: "ease-in-out",
+                    label: "Ease in-out",
+                    desc: "Slow start and end",
+                    bezier: [0.42, 0, 0.58, 1],
+                },
+                {
+                    id: "ease-in-cubic",
+                    label: "In cubic",
+                    desc: "Strong slow start",
+                    bezier: [0.55, 0.055, 0.675, 0.19],
+                },
+                {
+                    id: "ease-out-cubic",
+                    label: "Out cubic",
+                    desc: "Strong slow end",
+                    bezier: [0.215, 0.61, 0.355, 1],
+                },
+                {
+                    id: "ease-in-out-cubic",
+                    label: "In-out cubic",
+                    desc: "Strong ease both ends",
+                    bezier: [0.645, 0.045, 0.355, 1],
+                },
+                {
+                    id: "custom",
+                    label: "Custom",
+                    desc: "Your own bezier",
+                    bezier: [0.42, 0, 0.58, 1],
+                    wide: true,
+                },
+            ];
+
+            let selectedCurve = "ease-in-out";
+            let previewFrame = 0;
+            let previewHandle = 0;
+
             const form = document.getElementById("form");
             const status = document.getElementById("status");
             const submit = document.getElementById("submit");
@@ -319,23 +590,208 @@
             const player = document.getElementById("player");
             const duration = document.getElementById("duration");
             const download = document.getElementById("download");
-            const scrollCurve = document.getElementById("scrollCurve");
+            const curveGrid = document.getElementById("curveGrid");
             const customBezierField =
                 document.getElementById("customBezierField");
+            const customBezierInput = document.getElementById("customBezier");
+            const previewCanvas = document.getElementById("curvePreview");
+            const previewLabel = document.getElementById("previewLabel");
+            const previewDesc = document.getElementById("previewDesc");
+            const fastMode = document.getElementById("fastMode");
+            const qualityField = document.getElementById("qualityField");
+            const qualityHint = document.getElementById("qualityHint");
+            const previewCtx = previewCanvas.getContext("2d");
 
-            scrollCurve.addEventListener("change", () => {
-                customBezierField.classList.toggle(
-                    "hidden",
-                    scrollCurve.value !== "custom",
+            function sampleCurveY(bezier, linearProgress) {
+                const [x1, y1, x2, y2] = bezier;
+
+                function sampleX(t) {
+                    const inv = 1 - t;
+                    return (
+                        3 * inv * inv * t * x1 +
+                        3 * inv * t * t * x2 +
+                        t * t * t
+                    );
+                }
+
+                function sampleY(t) {
+                    const inv = 1 - t;
+                    return (
+                        3 * inv * inv * t * y1 +
+                        3 * inv * t * t * y2 +
+                        t * t * t
+                    );
+                }
+
+                function sampleDx(t) {
+                    return (
+                        3 * (1 - t) * (1 - t) * x1 +
+                        6 * (1 - t) * t * (x2 - x1) +
+                        3 * t * t * (1 - x2)
+                    );
+                }
+
+                if (linearProgress <= 0) return 0;
+                if (linearProgress >= 1) return 1;
+
+                let start = 0;
+                let end = 1;
+                let param = linearProgress;
+
+                for (let i = 0; i < 8; i += 1) {
+                    param = (start + end) / 2;
+                    if (sampleX(param) < linearProgress) start = param;
+                    else end = param;
+                }
+
+                param = (start + end) / 2;
+                const dx = sampleDx(param);
+                if (Math.abs(dx) > 1e-6) {
+                    param -= (sampleX(param) - linearProgress) / dx;
+                }
+
+                return sampleY(Math.min(1, Math.max(0, param)));
+            }
+
+            function curvePoints(bezier, width, height, padding = 8) {
+                const points = [];
+                const innerW = width - padding * 2;
+                const innerH = height - padding * 2;
+
+                for (let i = 0; i <= 32; i += 1) {
+                    const t = i / 32;
+                    const y = sampleCurveY(bezier, t);
+                    points.push({
+                        x: padding + t * innerW,
+                        y: padding + innerH - y * innerH,
+                    });
+                }
+
+                return points;
+            }
+
+            function drawCurveSvg(bezier) {
+                const points = curvePoints(bezier, 100, 36, 4);
+                const path = points
+                    .map((point, index) =>
+                        index === 0
+                            ? `M ${point.x} ${point.y}`
+                            : `L ${point.x} ${point.y}`,
+                    )
+                    .join(" ");
+
+                return `<svg viewBox="0 0 100 36" preserveAspectRatio="none" aria-hidden="true">
+                    <path d="M4 32 L96 32" stroke="#e2e0da" stroke-width="1" fill="none"></path>
+                    <path d="M4 4 L4 32" stroke="#e2e0da" stroke-width="1" fill="none"></path>
+                    <path d="${path}" stroke="currentColor" stroke-width="2.25" fill="none" stroke-linecap="round"></path>
+                </svg>`;
+            }
+
+            function getSelectedBezier() {
+                if (selectedCurve === "custom") {
+                    const parts = customBezierInput.value
+                        .split(",")
+                        .map((part) => Number(part.trim()));
+                    if (
+                        parts.length === 4 &&
+                        parts.every((n) => !Number.isNaN(n))
+                    ) {
+                        return parts;
+                    }
+                }
+
+                return (
+                    CURVES.find((curve) => curve.id === selectedCurve)
+                        ?.bezier ?? [0, 0, 1, 1]
                 );
-            });
+            }
+
+            function renderCurveCards() {
+                curveGrid.innerHTML = CURVES.map((curve) => {
+                    const active = curve.id === selectedCurve ? " active" : "";
+                    const wide = curve.wide ? " wide" : "";
+                    return `<button type="button" class="curve-card${active}${wide}" data-curve="${curve.id}">
+                        ${drawCurveSvg(curve.bezier)}
+                        <span class="curve-card-name">${curve.label}</span>
+                        <span class="curve-card-desc">${curve.desc}</span>
+                    </button>`;
+                }).join("");
+
+                curveGrid.querySelectorAll("[data-curve]").forEach((button) => {
+                    button.addEventListener("click", () => {
+                        selectCurve(button.dataset.curve);
+                    });
+                });
+            }
+
+            function selectCurve(id) {
+                selectedCurve = id;
+                customBezierField.classList.toggle("hidden", id !== "custom");
+                renderCurveCards();
+                updatePreviewMeta();
+            }
+
+            function updatePreviewMeta() {
+                const curve = CURVES.find((item) => item.id === selectedCurve);
+                previewLabel.textContent = curve?.label ?? "Custom";
+                previewDesc.textContent = curve?.desc ?? "Custom cubic-bezier";
+            }
+
+            function drawPreview() {
+                const bezier = getSelectedBezier();
+                const width = previewCanvas.width;
+                const height = previewCanvas.height;
+                const points = curvePoints(bezier, width, height, 14);
+                const t = (previewFrame % 180) / 180;
+                const eased = sampleCurveY(bezier, t);
+                const marker = {
+                    x: 14 + t * (width - 28),
+                    y: 14 + (height - 28) - eased * (height - 28),
+                };
+
+                previewCtx.clearRect(0, 0, width, height);
+
+                previewCtx.strokeStyle = "#e2e0da";
+                previewCtx.lineWidth = 1;
+                previewCtx.beginPath();
+                previewCtx.moveTo(14, height - 14);
+                previewCtx.lineTo(width - 14, height - 14);
+                previewCtx.moveTo(14, 14);
+                previewCtx.lineTo(14, height - 14);
+                previewCtx.stroke();
+
+                previewCtx.strokeStyle = "#2d6a4f";
+                previewCtx.lineWidth = 2.5;
+                previewCtx.lineJoin = "round";
+                previewCtx.lineCap = "round";
+                previewCtx.beginPath();
+                points.forEach((point, index) => {
+                    if (index === 0) previewCtx.moveTo(point.x, point.y);
+                    else previewCtx.lineTo(point.x, point.y);
+                });
+                previewCtx.stroke();
+
+                previewCtx.fillStyle = "#2d6a4f";
+                previewCtx.beginPath();
+                previewCtx.arc(marker.x, marker.y, 5, 0, Math.PI * 2);
+                previewCtx.fill();
+
+                previewCtx.fillStyle = "rgba(45, 106, 79, 0.15)";
+                previewCtx.beginPath();
+                previewCtx.arc(marker.x, marker.y, 10, 0, Math.PI * 2);
+                previewCtx.fill();
+
+                previewFrame += 1;
+                previewHandle = requestAnimationFrame(drawPreview);
+            }
 
             function buildScrollCurve() {
-                const preset = scrollCurve.value;
-                if (preset !== "custom") return { preset };
+                if (selectedCurve !== "custom")
+                    return { preset: selectedCurve };
 
-                const raw = document.getElementById("customBezier").value;
-                const parts = raw.split(",").map((part) => Number(part.trim()));
+                const parts = customBezierInput.value
+                    .split(",")
+                    .map((part) => Number(part.trim()));
                 if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) {
                     throw new Error(
                         "Custom bezier must be four comma-separated numbers",
@@ -345,11 +801,29 @@
                 return { preset: "custom", bezier: parts };
             }
 
+            function syncFastModeUi() {
+                const enabled = fastMode.checked;
+                qualityField.classList.toggle("dimmed", enabled);
+                qualityHint.textContent = enabled
+                    ? "Fast mode uses quick encoding and skips high-quality capture."
+                    : "High uses 2× capture and slow encoding for the sharpest output.";
+            }
+
+            fastMode.addEventListener("change", syncFastModeUi);
+            customBezierInput.addEventListener("input", () => {
+                if (selectedCurve === "custom") {
+                    renderCurveCards();
+                    updatePreviewMeta();
+                }
+            });
+
             form.addEventListener("submit", async (e) => {
                 e.preventDefault();
                 result.classList.remove("visible");
                 status.className = "status loading";
-                status.textContent = "Recording — this may take a minute";
+                status.textContent = fastMode.checked
+                    ? "Recording (fast mode) — hang tight"
+                    : "Recording — this may take a minute";
                 submit.disabled = true;
 
                 const body = {
@@ -368,9 +842,10 @@
                         },
                     },
                     animationConfig: {
-                        pixelsPerFrame: 4,
+                        fastMode: fastMode.checked,
+                        pixelsPerFrame: fastMode.checked ? 12 : 4,
+                        preRecordingDelayMs: fastMode.checked ? 500 : 2000,
                         scrollCurve: buildScrollCurve(),
-                        preRecordingDelayMs: 2000,
                         removeOverlayElements: true,
                     },
                 };
@@ -401,6 +876,11 @@
                     submit.disabled = false;
                 }
             });
+
+            renderCurveCards();
+            updatePreviewMeta();
+            syncFastModeUi();
+            drawPreview();
         </script>
     </body>
 </html>
