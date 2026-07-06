@@ -121,6 +121,53 @@ export function blockAfter(
   return blocks[index + 1] ?? null;
 }
 
+export function exportMsToSourceMs(
+  exportMs: number,
+  blocks: TimelineBlock[],
+): number {
+  const block = findBlockAtExportMs(exportMs, blocks);
+  if (!block) return 0;
+
+  if (block.type === "freeze") {
+    return block.sourceStartMs;
+  }
+
+  const offset = exportMs - block.exportStartMs;
+  return block.sourceStartMs + offset;
+}
+
+export interface EditorPauseLike {
+  id: string;
+  atMs: number;
+}
+
+export function clampPauseAtMs(
+  atMs: number,
+  pauseId: string,
+  trimStartMs: number,
+  trimEndMs: number,
+  pauses: EditorPauseLike[],
+  minGapMs = 100,
+): number {
+  const sorted = pauses
+    .filter((pause) => pause.id !== pauseId)
+    .sort((a, b) => a.atMs - b.atMs);
+
+  let lower = trimStartMs;
+  let upper = trimEndMs;
+
+  for (const pause of sorted) {
+    if (pause.atMs < atMs) {
+      lower = Math.max(lower, pause.atMs + minGapMs);
+      continue;
+    }
+    upper = Math.min(upper, pause.atMs - minGapMs);
+    break;
+  }
+
+  return Math.round(Math.min(upper, Math.max(lower, atMs)));
+}
+
 export function exportMsToPlayback(
   exportMs: number,
   blocks: TimelineBlock[],

@@ -9,7 +9,9 @@ import EditorTimeline from "../components/EditorTimeline";
 import { useEditorPlayback } from "../hooks/useEditorPlayback";
 import {
   buildTimelineBlocks,
+  clampPauseAtMs,
   exportMsToPlayback,
+  exportMsToSourceMs,
   getExportDurationMs,
   sourceMsToExportMs,
 } from "../lib/editorTimeline";
@@ -55,6 +57,12 @@ export default function EditorPage({
   const exportMsRef = useRef(0);
   const blocksRef = useRef<ReturnType<typeof buildTimelineBlocks>>([]);
   const exportDurationMsRef = useRef(0);
+  const pauseDragOffsetRef = useRef(0);
+  const didDragRef = useRef(false);
+  const pausesRef = useRef<EditorPause[]>([]);
+  const trimStartMsRef = useRef(0);
+  const trimEndMsRef = useRef(0);
+  const sourceDurationMsRef = useRef(0);
 
   const [sourceDurationMs, setSourceDurationMs] = useState(0);
   const [exportMs, setExportMs] = useState(0);
@@ -82,23 +90,13 @@ export default function EditorPage({
   blocksRef.current = blocks;
   exportDurationMsRef.current = exportDurationMs;
   exportMsRef.current = exportMs;
+  pausesRef.current = pauses;
+  trimStartMsRef.current = trimStartMs;
+  trimEndMsRef.current = trimEndMs;
+  sourceDurationMsRef.current = sourceDurationMs;
 
   const activeVideoUrl =
     previewMode === "export" && exportedUrl ? exportedUrl : sourceVideoUrl;
-
-  const sourceMsFromClientX = useCallback(
-    (clientX: number) => {
-      const timeline = timelineRef.current;
-      if (!timeline || sourceDurationMs <= 0) return 0;
-      const rect = timeline.getBoundingClientRect();
-      const ratio = Math.min(
-        1,
-        Math.max(0, (clientX - rect.left) / rect.width),
-      );
-      return Math.round(ratio * sourceDurationMs);
-    },
-    [sourceDurationMs],
-  );
 
   const exportMsFromClientX = useCallback(
     (clientX: number) => {
@@ -112,6 +110,16 @@ export default function EditorPage({
       return Math.round(ratio * exportDurationMs);
     },
     [exportDurationMs],
+  );
+
+  const sourceMsFromExportClientX = useCallback(
+    (clientX: number) => {
+      return exportMsToSourceMs(
+        exportMsFromClientX(clientX),
+        blocksRef.current,
+      );
+    },
+    [exportMsFromClientX],
   );
 
   const {
@@ -217,59 +225,85 @@ export default function EditorPage({
     if (!dragTarget) return;
 
     const handleMove = (event: MouseEvent) => {
+      didDragRef.current = true;
+
       if (dragTarget === "trim-start") {
         const next = Math.min(
-          sourceMsFromClientX(event.clientX),
-          trimEndMs - 100,
+          sourceMsFromExportClientX(event.clientX),
+          trimEndMsRef.current - 100,
         );
-        setTrimStartMs(Math.max(0, next));
-        seekToExportMs(sourceMsToExportMs(next, blocks));
+        const trimStart = Math.max(0, next);
+        setTrimStartMs(trimStart);
+        const nextBlocks = buildTimelineBlocks(
+          trimStart,
+          trimEndMsRef.current,
+          pausesRef.current,
+        );
+        seekToExportMs(sourceMsToExportMs(trimStart, nextBlocks));
         return;
       }
 
       if (dragTarget === "trim-end") {
         const next = Math.max(
-          sourceMsFromClientX(event.clientX),
-          trimStartMs + 100,
+          sourceMsFromExportClientX(event.clientX),
+          trimStartMsRef.current + 100,
         );
-        setTrimEndMs(Math.min(sourceDurationMs, next));
-        seekToExportMs(
-          sourceMsToExportMs(Math.min(sourceDurationMs, next), blocks),
+        const trimEnd = Math.min(sourceDurationMsRef.current, next);
+        setTrimEndMs(trimEnd);
+        const nextBlocks = buildTimelineBlocks(
+          trimStartMsRef.current,
+          trimEnd,
+          pausesRef.current,
         );
+        seekToExportMs(sourceMsToExportMs(trimEnd, nextBlocks));
         return;
       }
 
       if (dragTarget.startsWith("resize-")) {
         const pauseId = dragTarget.slice("resize-".length);
-        const block = blocks.find((entry) => entry.pauseId === pauseId);
+        const block = blocksRef.current.find(
+          (entry) => entry.pauseId === pauseId,
+        );
         if (!block) return;
         const exportAtX = exportMsFromClientX(event.clientX);
         const nextHold = Math.min(
           30000,
           Math.max(100, exportAtX - block.exportStartMs),
         );
-        setPauses((current) =>
-          current.map((pause) =>
-            pause.id === pauseId ? { ...pause, holdMs: nextHold } : pause,
-          ),
+        const nextPauses = pausesRef.current.map((pause) =>
+          pause.id === pauseId ? { ...pause, holdMs: nextHold } : pause,
         );
+        pausesRef.current = nextPauses;
+        setPauses(nextPauses);
         return;
       }
 
       const pauseId = dragTarget;
-      const nextAt = Math.min(
-        trimEndMs,
-        Math.max(trimStartMs, sourceMsFromClientX(event.clientX)),
+      const nextAt = clampPauseAtMs(
+        sourceMsFromExportClientX(event.clientX) + pauseDragOffsetRef.current,
+        pauseId,
+        trimStartMsRef.current,
+        trimEndMsRef.current,
+        pausesRef.current,
       );
-      setPauses((current) =>
-        current.map((pause) =>
-          pause.id === pauseId ? { ...pause, atMs: nextAt } : pause,
-        ),
+      const nextPauses = pausesRef.current.map((pause) =>
+        pause.id === pauseId ? { ...pause, atMs: nextAt } : pause,
       );
-      seekToExportMs(sourceMsToExportMs(nextAt, blocks));
+      const nextBlocks = buildTimelineBlocks(
+        trimStartMsRef.current,
+        trimEndMsRef.current,
+        nextPauses,
+      );
+      pausesRef.current = nextPauses;
+      blocksRef.current = nextBlocks;
+      setPauses(nextPauses);
+      seekToExportMs(sourceMsToExportMs(nextAt, nextBlocks));
     };
 
-    const handleUp = () => setDragTarget(null);
+    const handleUp = () => {
+      setDragTarget(null);
+      pauseDragOffsetRef.current = 0;
+    };
 
     window.addEventListener("mousemove", handleMove);
     window.addEventListener("mouseup", handleUp);
@@ -278,14 +312,10 @@ export default function EditorPage({
       window.removeEventListener("mouseup", handleUp);
     };
   }, [
-    blocks,
     dragTarget,
     exportMsFromClientX,
-    sourceDurationMs,
-    sourceMsFromClientX,
+    sourceMsFromExportClientX,
     seekToExportMs,
-    trimEndMs,
-    trimStartMs,
   ]);
 
   const addPauseAtPlayhead = () => {
@@ -520,8 +550,8 @@ export default function EditorPage({
 
           <section className="editor-sidebar-section editor-sidebar-hint">
             <p>
-              Orange blocks are pause holds in the exported video. Drag a
-              block&apos;s right edge to change hold length. Press{" "}
+              Orange blocks are pause holds in the exported video. Drag a block
+              to move it, or drag the right edge to change hold length. Press{" "}
               <kbd>Space</kbd> to preview.
             </p>
           </section>
@@ -619,14 +649,26 @@ export default function EditorPage({
             selectedPauseId={selectedPauseId}
             dragTarget={dragTarget}
             timelineRef={timelineRef}
-            onSeekExport={seekToExportMs}
+            onSeekExport={(exportMs) => {
+              if (didDragRef.current) {
+                didDragRef.current = false;
+                return;
+              }
+              seekToExportMs(exportMs);
+            }}
             onTrimStartDrag={() => setDragTarget("trim-start")}
             onTrimEndDrag={() => setDragTarget("trim-end")}
-            onPauseDrag={(pauseId) => {
+            onPauseDrag={(pauseId, clientX) => {
+              const pause = pauses.find((entry) => entry.id === pauseId);
+              if (!pause) return;
+              stopPlayback();
+              pauseDragOffsetRef.current =
+                pause.atMs - sourceMsFromExportClientX(clientX);
               setDragTarget(pauseId);
               setSelectedPauseId(pauseId);
             }}
             onPauseResize={(pauseId) => {
+              stopPlayback();
               setDragTarget(`resize-${pauseId}`);
               setSelectedPauseId(pauseId);
             }}

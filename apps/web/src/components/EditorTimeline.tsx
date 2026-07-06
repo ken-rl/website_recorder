@@ -11,7 +11,7 @@ interface EditorTimelineProps {
   onSeekExport: (exportMs: number) => void;
   onTrimStartDrag: () => void;
   onTrimEndDrag: () => void;
-  onPauseDrag: (pauseId: string) => void;
+  onPauseDrag: (pauseId: string, clientX: number) => void;
   onPauseResize: (pauseId: string) => void;
   onSelectPause: (pauseId: string) => void;
   timelineRef: React.RefObject<HTMLDivElement | null>;
@@ -56,7 +56,7 @@ export default function EditorTimeline({
   }
 
   return (
-    <div className="tl-root">
+    <div className={`tl-root${dragTarget ? " is-dragging" : ""}`}>
       <div className="tl-ruler">
         {rulerMarks.map((mark) => (
           <span
@@ -93,22 +93,26 @@ export default function EditorTimeline({
               return (
                 <div
                   key={`${block.pauseId ?? "freeze"}-${index}`}
-                  className={`tl-block tl-block-freeze${selectedPauseId === block.pauseId ? " is-selected" : ""}`}
+                  className={`tl-block tl-block-freeze${selectedPauseId === block.pauseId ? " is-selected" : ""}${dragTarget === block.pauseId ? " is-dragging" : ""}`}
                   style={{ left: `${left}%`, width: `${width}%` }}
+                  onMouseDown={(event) => {
+                    if (
+                      (event.target as HTMLElement).closest(
+                        ".tl-freeze-handle-end",
+                      )
+                    ) {
+                      return;
+                    }
+                    event.stopPropagation();
+                    event.preventDefault();
+                    if (block.pauseId)
+                      onPauseDrag(block.pauseId, event.clientX);
+                  }}
                   onClick={(event) => {
                     event.stopPropagation();
                     if (block.pauseId) onSelectPause(block.pauseId);
                   }}
                 >
-                  <button
-                    type="button"
-                    className="tl-freeze-handle tl-freeze-handle-start"
-                    aria-label="Move pause"
-                    onMouseDown={(event) => {
-                      event.stopPropagation();
-                      if (block.pauseId) onPauseDrag(block.pauseId);
-                    }}
-                  />
                   <span className="tl-freeze-label">
                     {(widthMs / 1000).toFixed(1)}s hold
                   </span>
@@ -118,6 +122,7 @@ export default function EditorTimeline({
                     aria-label="Resize hold"
                     onMouseDown={(event) => {
                       event.stopPropagation();
+                      event.preventDefault();
                       if (block.pauseId) onPauseResize(block.pauseId);
                     }}
                   />

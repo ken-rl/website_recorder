@@ -1347,12 +1347,23 @@ input[type="number"]:disabled {
     justify-content: center;
     background: linear-gradient(180deg, #ea580c 0%, #c2410c 100%);
     border: 1px solid #fb923c;
-    cursor: pointer;
+    cursor: grab;
     min-width: 28px;
+    touch-action: none;
+    user-select: none;
 }
 
 .tl-block-freeze.is-selected {
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.tl-block-freeze.is-dragging,
+.tl-root.is-dragging .tl-block-freeze {
+    cursor: grabbing;
+}
+
+.tl-root.is-dragging .tl-track {
+    cursor: grabbing;
 }
 
 .tl-freeze-label {
@@ -1377,15 +1388,11 @@ input[type="number"]:disabled {
     z-index: 2;
 }
 
-.tl-freeze-handle-start {
-    left: 0;
-    border-radius: 4px 0 0 4px;
-}
-
 .tl-freeze-handle-end {
     right: 0;
     border-radius: 0 4px 4px 0;
     background: rgba(255, 255, 255, 0.2);
+    width: 10px;
 }
 
 .tl-playhead {
