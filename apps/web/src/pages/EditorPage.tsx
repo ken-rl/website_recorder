@@ -51,8 +51,9 @@ export default function EditorPage({
 }: EditorPageProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
-  const playbackRef = useRef<number | null>(null);
-  const lastFrameRef = useRef(0);
+  const exportMsRef = useRef(0);
+  const blocksRef = useRef<ReturnType<typeof buildTimelineBlocks>>([]);
+  const exportDurationMsRef = useRef(0);
 
   const [sourceDurationMs, setSourceDurationMs] = useState(0);
   const [exportMs, setExportMs] = useState(0);
@@ -76,6 +77,10 @@ export default function EditorPage({
   );
 
   const exportDurationMs = useMemo(() => getExportDurationMs(blocks), [blocks]);
+
+  blocksRef.current = blocks;
+  exportDurationMsRef.current = exportDurationMs;
+  exportMsRef.current = exportMs;
 
   const activeVideoUrl =
     previewMode === "export" && exportedUrl ? exportedUrl : sourceVideoUrl;
@@ -108,22 +113,20 @@ export default function EditorPage({
     [exportDurationMs],
   );
 
-  const applyEditPlayback = useCallback(
-    (nextExportMs: number, playing = isPlaying) => {
+  const syncVideoToExportMs = useCallback(
+    (nextExportMs: number) => {
       const video = videoRef.current;
-      if (!video || previewMode !== "edit") return;
+      const duration = exportDurationMsRef.current;
+      if (!video || previewMode !== "edit" || duration <= 0) return;
 
-      const clamped = Math.min(exportDurationMs, Math.max(0, nextExportMs));
-      const { sourceMs, isFrozen } = exportMsToPlayback(clamped, blocks);
+      const clamped = Math.min(duration, Math.max(0, nextExportMs));
+      const { sourceMs } = exportMsToPlayback(clamped, blocksRef.current);
+      video.pause();
       video.currentTime = sourceMs / 1000;
-      if (isFrozen) {
-        video.pause();
-      } else if (playing) {
-        void video.play();
-      }
+      exportMsRef.current = clamped;
       setExportMs(clamped);
     },
-    [blocks, exportDurationMs, isPlaying, previewMode],
+    [previewMode],
   );
 
   useEffect(() => {
@@ -137,6 +140,7 @@ export default function EditorPage({
       setTrimStartMs(0);
       setPauses([]);
       setSelectedPauseId(null);
+      exportMsRef.current = 0;
       setExportMs(0);
       setExportedUrl(null);
       setPreviewMode("edit");
@@ -156,43 +160,55 @@ export default function EditorPage({
   }, [activeVideoUrl, previewMode]);
 
   useEffect(() => {
-    if (!isPlaying || previewMode !== "edit") return;
+    if (!isPlaying || previewMode !== "edit" || exportDurationMs <= 0) {
+      return;
+    }
 
-    lastFrameRef.current = performance.now();
+    let frameId = 0;
+    let last = performance.now();
 
-    const step = (now: number) => {
-      const delta = now - lastFrameRef.current;
-      lastFrameRef.current = now;
+    const tick = (now: number) => {
+      const delta = now - last;
+      last = now;
 
-      setExportMs((prev) => {
-        const next = prev + delta;
-        if (next >= exportDurationMs) {
-          setIsPlaying(false);
-          return exportDurationMs;
-        }
-        return next;
-      });
+      const duration = exportDurationMsRef.current;
+      let next = exportMsRef.current + delta;
 
-      playbackRef.current = requestAnimationFrame(step);
+      if (next >= duration) {
+        next = duration;
+        setIsPlaying(false);
+      }
+
+      const video = videoRef.current;
+      if (video) {
+        const { sourceMs } = exportMsToPlayback(next, blocksRef.current);
+        video.pause();
+        video.currentTime = sourceMs / 1000;
+      }
+
+      exportMsRef.current = next;
+      setExportMs(next);
+
+      if (next < duration) {
+        frameId = requestAnimationFrame(tick);
+      }
     };
 
-    playbackRef.current = requestAnimationFrame(step);
-    return () => {
-      if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
-    };
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
   }, [isPlaying, previewMode, exportDurationMs]);
 
   useEffect(() => {
     if (exportMs > exportDurationMs) {
-      setExportMs(exportDurationMs);
+      syncVideoToExportMs(exportDurationMs);
     }
-  }, [exportDurationMs, exportMs]);
+  }, [exportDurationMs, exportMs, syncVideoToExportMs]);
 
   useEffect(() => {
-    if (previewMode === "edit") {
-      applyEditPlayback(exportMs);
+    if (!isPlaying && previewMode === "edit" && exportDurationMs > 0) {
+      syncVideoToExportMs(exportMsRef.current);
     }
-  }, [exportMs, applyEditPlayback, previewMode]);
+  }, [blocks, isPlaying, previewMode, exportDurationMs, syncVideoToExportMs]);
 
   const togglePlayback = useCallback(() => {
     const video = videoRef.current;
@@ -211,11 +227,11 @@ export default function EditorPage({
       return;
     }
 
-    if (exportMs >= exportDurationMs) {
-      setExportMs(0);
+    if (exportMsRef.current >= exportDurationMs) {
+      syncVideoToExportMs(0);
     }
     setIsPlaying(true);
-  }, [exportDurationMs, exportMs, isPlaying, previewMode]);
+  }, [exportDurationMs, isPlaying, previewMode, syncVideoToExportMs]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -245,7 +261,7 @@ export default function EditorPage({
           trimEndMs - 100,
         );
         setTrimStartMs(Math.max(0, next));
-        applyEditPlayback(sourceMsToExportMs(next, blocks));
+        syncVideoToExportMs(sourceMsToExportMs(next, blocks));
         return;
       }
 
@@ -255,7 +271,7 @@ export default function EditorPage({
           trimStartMs + 100,
         );
         setTrimEndMs(Math.min(sourceDurationMs, next));
-        applyEditPlayback(
+        syncVideoToExportMs(
           sourceMsToExportMs(Math.min(sourceDurationMs, next), blocks),
         );
         return;
@@ -288,7 +304,7 @@ export default function EditorPage({
           pause.id === pauseId ? { ...pause, atMs: nextAt } : pause,
         ),
       );
-      applyEditPlayback(sourceMsToExportMs(nextAt, blocks));
+      syncVideoToExportMs(sourceMsToExportMs(nextAt, blocks));
     };
 
     const handleUp = () => setDragTarget(null);
@@ -300,18 +316,18 @@ export default function EditorPage({
       window.removeEventListener("mouseup", handleUp);
     };
   }, [
-    applyEditPlayback,
     blocks,
     dragTarget,
     exportMsFromClientX,
     sourceDurationMs,
     sourceMsFromClientX,
+    syncVideoToExportMs,
     trimEndMs,
     trimStartMs,
   ]);
 
   const addPauseAtPlayhead = () => {
-    const { sourceMs } = exportMsToPlayback(exportMs, blocks);
+    const { sourceMs } = exportMsToPlayback(exportMsRef.current, blocks);
     const atMs = Math.min(trimEndMs, Math.max(trimStartMs, sourceMs));
     const id = createPauseId();
     setPauses((current) => [...current, { id, atMs, holdMs: defaultHoldMs }]);
@@ -374,7 +390,7 @@ export default function EditorPage({
       );
       return;
     }
-    applyEditPlayback(exportMs + deltaMs);
+    syncVideoToExportMs(exportMsRef.current + deltaMs);
   };
 
   return (
@@ -419,7 +435,7 @@ export default function EditorPage({
                 onClick={() => {
                   setPreviewMode("edit");
                   setIsPlaying(false);
-                  applyEditPlayback(exportMs);
+                  syncVideoToExportMs(exportMsRef.current);
                 }}
               >
                 Edit preview
@@ -640,7 +656,7 @@ export default function EditorPage({
             selectedPauseId={selectedPauseId}
             dragTarget={dragTarget}
             timelineRef={timelineRef}
-            onSeekExport={applyEditPlayback}
+            onSeekExport={syncVideoToExportMs}
             onTrimStartDrag={() => setDragTarget("trim-start")}
             onTrimEndDrag={() => setDragTarget("trim-end")}
             onPauseDrag={(pauseId) => {
@@ -655,7 +671,7 @@ export default function EditorPage({
               setSelectedPauseId(pauseId);
               const pause = pauses.find((entry) => entry.id === pauseId);
               if (pause)
-                applyEditPlayback(sourceMsToExportMs(pause.atMs, blocks));
+                syncVideoToExportMs(sourceMsToExportMs(pause.atMs, blocks));
             }}
           />
         )}
