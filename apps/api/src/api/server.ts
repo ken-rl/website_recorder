@@ -4,8 +4,9 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { editVideo } from "../pipeline/editVideo.js";
 import { recordWebsite } from "../pipeline/recordWebsite.js";
-import type { RecordRequest } from "../types.js";
+import type { EditRequest, RecordRequest } from "../types.js";
 
 const PORT = Number(process.env.PORT ?? 3847);
 const OUTPUT_DIR = path.resolve(process.env.OUTPUT_DIR ?? "./outputs");
@@ -31,38 +32,46 @@ const server = http.createServer(async (req, res) => {
         {
           id: "react-component",
           title: "Embeddable React Component (<WebRecorder />)",
-          description: "A reusable React component for developer dashboards and documentation with built-in progress feedback.",
-          status: "planned"
+          description:
+            "A reusable React component for developer dashboards and documentation with built-in progress feedback.",
+          status: "planned",
         },
         {
           id: "deterministic-caching",
           title: "Deterministic Server Caching",
-          description: "Instant video loading on matching configurations by checking pre-recorded caches indexed by SHA-256 configuration hashes.",
-          status: "planned"
+          description:
+            "Instant video loading on matching configurations by checking pre-recorded caches indexed by SHA-256 configuration hashes.",
+          status: "planned",
         },
         {
           id: "bezier-editor",
           title: "Visual Scroll Curve Editor",
-          description: "An interactive, draggable canvas editor to customize CSS-style cubic-bezier scroll transitions.",
-          status: "in-progress"
+          description:
+            "An interactive, draggable canvas editor to customize CSS-style cubic-bezier scroll transitions.",
+          status: "in-progress",
         },
         {
           id: "webhook-notifications",
           title: "Webhooks & Async Processing",
-          description: "Allow long-running captures to run in the background and notify clients via Webhooks or SSE when ready.",
-          status: "planned"
+          description:
+            "Allow long-running captures to run in the background and notify clients via Webhooks or SSE when ready.",
+          status: "planned",
         },
         {
           id: "audio-overlay",
           title: "Audio & Speech Hydration",
-          description: "Synthesize background soundtracks or text-to-speech audio overlays synchronized with the viewport scroll animation.",
-          status: "planned"
-        }
-      ]
+          description:
+            "Synthesize background soundtracks or text-to-speech audio overlays synchronized with the viewport scroll animation.",
+          status: "planned",
+        },
+      ],
     });
   }
 
-  if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/upcoming")) {
+  if (
+    req.method === "GET" &&
+    (url.pathname === "/" || url.pathname === "/upcoming")
+  ) {
     return serveFile(
       res,
       path.join(PUBLIC_DIR, "index.html"),
@@ -81,7 +90,9 @@ const server = http.createServer(async (req, res) => {
 
   // Serve general static files from PUBLIC_DIR (e.g. built JS/CSS files)
   if (req.method === "GET" && url.pathname !== "/") {
-    const relativePath = url.pathname.startsWith("/") ? url.pathname.slice(1) : url.pathname;
+    const relativePath = url.pathname.startsWith("/")
+      ? url.pathname.slice(1)
+      : url.pathname;
     const filePath = path.resolve(PUBLIC_DIR, relativePath);
     if (filePath.startsWith(PUBLIC_DIR + path.sep)) {
       try {
@@ -106,6 +117,24 @@ const server = http.createServer(async (req, res) => {
         durationMs: result.durationMs,
         viewport: result.viewport,
         scrollStrategy: result.scrollStrategy,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      return sendJson(res, 400, { ok: false, error: message });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/edit") {
+    try {
+      const body = await readJsonBody<EditRequest>(req);
+      const result = await editVideo(body, OUTPUT_DIR);
+      return sendJson(res, 200, {
+        ok: true,
+        jobId: result.jobId,
+        sourceVideoUrl: result.sourceVideoUrl,
+        videoUrl: result.videoUrl,
+        mp4Path: result.mp4Path,
+        durationMs: result.durationMs,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -147,7 +176,8 @@ function contentTypeFor(filePath: string) {
   if (filePath.endsWith(".js")) return "text/javascript; charset=utf-8";
   if (filePath.endsWith(".svg")) return "image/svg+xml";
   if (filePath.endsWith(".png")) return "image/png";
-  if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) return "image/jpeg";
+  if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg"))
+    return "image/jpeg";
   if (filePath.endsWith(".ico")) return "image/x-icon";
   return "application/octet-stream";
 }

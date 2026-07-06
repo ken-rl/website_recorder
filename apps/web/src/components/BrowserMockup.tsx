@@ -5,6 +5,7 @@ interface BrowserMockupProps {
   videoUrl: string | null;
   duration: string | null;
   scrollStrategy?: "document" | "virtual";
+  isEdited?: boolean;
   width: number;
   height: number;
   isSubmitting: boolean;
@@ -16,6 +17,7 @@ export default function BrowserMockup({
   videoUrl,
   duration,
   scrollStrategy,
+  isEdited,
   width,
   height,
   isSubmitting,
@@ -107,15 +109,22 @@ export default function BrowserMockup({
       {duration && (
         <div className="meta">
           <span id="duration">Completed in {duration}</span>
-          {scrollStrategy && (
-            <span
-              className={`scroll-strategy-badge scroll-strategy-${scrollStrategy}`}
-            >
-              {scrollStrategy === "virtual"
-                ? "Virtual scroll"
-                : "Document scroll"}
-            </span>
-          )}
+          <span className="meta-badges">
+            {scrollStrategy && (
+              <span
+                className={`scroll-strategy-badge scroll-strategy-${scrollStrategy}`}
+              >
+                {scrollStrategy === "virtual"
+                  ? "Virtual scroll"
+                  : "Document scroll"}
+              </span>
+            )}
+            {isEdited && (
+              <span className="scroll-strategy-badge scroll-strategy-edited">
+                Edited
+              </span>
+            )}
+          </span>
         </div>
       )}
     </div>

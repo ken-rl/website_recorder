@@ -70,3 +70,25 @@ export interface RecordResult {
   viewport: ViewportConfig;
   scrollStrategy: ResolvedScrollStrategy;
 }
+
+export interface EditorPause {
+  /** Position in the source video timeline (milliseconds). */
+  atMs: number;
+  /** How long to hold the frame (milliseconds). */
+  holdMs: number;
+}
+
+export interface EditRequest {
+  jobId: string;
+  trimStartMs?: number;
+  trimEndMs?: number;
+  pauses?: EditorPause[];
+}
+
+export interface EditResult {
+  jobId: string;
+  sourceVideoUrl: string;
+  videoUrl: string;
+  mp4Path: string;
+  durationMs: number;
+}

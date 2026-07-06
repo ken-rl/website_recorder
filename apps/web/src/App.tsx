@@ -8,6 +8,7 @@ import VirtualScrollForm, {
 import BezierVisualizer from "./components/BezierVisualizer";
 import ProgressCard from "./components/ProgressCard";
 import BrowserMockup from "./components/BrowserMockup";
+import VideoEditor from "./components/VideoEditor";
 import UpcomingFeatures from "./components/UpcomingFeatures";
 
 export default function App() {
@@ -63,9 +64,12 @@ export default function App() {
   );
   const [elapsedTime, setElapsedTime] = useState("0.0s");
   const [resultVideo, setResultVideo] = useState<{
+    jobId: string;
+    sourceUrl: string;
     url: string;
     duration: string;
     scrollStrategy?: "document" | "virtual";
+    isEdited?: boolean;
   } | null>(null);
 
   const progressIntervalRef = useRef<any>(null);
@@ -186,9 +190,12 @@ export default function App() {
       }
 
       setResultVideo({
+        jobId: data.jobId,
+        sourceUrl: data.videoUrl,
         url: data.videoUrl,
         duration: `${(data.durationMs / 1000).toFixed(1)}s`,
         scrollStrategy: data.scrollStrategy,
+        isEdited: false,
       });
       setStatusType("success");
       setStatusText("Recording finished successfully.");
@@ -346,11 +353,33 @@ export default function App() {
                 videoUrl={resultVideo?.url || null}
                 duration={resultVideo?.duration || null}
                 scrollStrategy={resultVideo?.scrollStrategy}
+                isEdited={resultVideo?.isEdited}
                 width={width}
                 height={height}
                 isSubmitting={isSubmitting}
                 statusType={statusType}
               />
+
+              {resultVideo && (
+                <VideoEditor
+                  jobId={resultVideo.jobId}
+                  sourceVideoUrl={resultVideo.sourceUrl}
+                  onEdited={({ videoUrl, durationMs }) => {
+                    setResultVideo((current) =>
+                      current
+                        ? {
+                            ...current,
+                            url: videoUrl,
+                            duration: `${(durationMs / 1000).toFixed(1)}s`,
+                            isEdited: true,
+                          }
+                        : current,
+                    );
+                    setStatusType("success");
+                    setStatusText("Edited video exported successfully.");
+                  }}
+                />
+              )}
             </div>
           </div>
         </form>

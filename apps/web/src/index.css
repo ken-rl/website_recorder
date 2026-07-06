@@ -810,6 +810,239 @@ input[type="number"]:disabled {
     border-color: var(--border-active);
 }
 
+.scroll-strategy-edited {
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.35);
+}
+
+.meta-badges {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.editor-panel {
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+}
+
+.editor-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.editor-subtitle {
+    margin-top: 0.35rem;
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.45;
+    max-width: 34rem;
+}
+
+.editor-preview {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: #000;
+}
+
+.editor-video {
+    width: 100%;
+    display: block;
+    max-height: 280px;
+    background: #000;
+}
+
+.editor-time-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+}
+
+.editor-timeline {
+    position: relative;
+    height: 42px;
+    margin-top: 0.85rem;
+    border-radius: 999px;
+    cursor: pointer;
+    touch-action: none;
+}
+
+.editor-timeline-track {
+    position: absolute;
+    inset: 14px 0;
+    border-radius: 999px;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+}
+
+.editor-timeline-trim {
+    position: absolute;
+    top: 14px;
+    height: 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    pointer-events: none;
+}
+
+.editor-playhead {
+    position: absolute;
+    top: 8px;
+    width: 2px;
+    height: 26px;
+    margin-left: -1px;
+    background: var(--accent);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+}
+
+.editor-trim-handle,
+.editor-pause-marker {
+    position: absolute;
+    top: 6px;
+    width: 14px;
+    height: 30px;
+    margin-left: -7px;
+    border: none;
+    padding: 0;
+    cursor: ew-resize;
+    z-index: 2;
+}
+
+.editor-trim-handle {
+    border-radius: 4px;
+    background: var(--accent);
+}
+
+.editor-trim-handle-end {
+    background: #a1a1aa;
+}
+
+.editor-pause-marker {
+    width: 10px;
+    height: 10px;
+    top: 16px;
+    margin-left: -5px;
+    border-radius: 50%;
+    background: #f97316;
+    border: 2px solid #09090b;
+    cursor: grab;
+}
+
+.editor-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+    margin-top: 0.9rem;
+}
+
+.editor-secondary-btn,
+.editor-export-btn {
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.editor-secondary-btn {
+    padding: 0.55rem 0.85rem;
+    color: var(--text);
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+}
+
+.editor-secondary-btn:hover {
+    border-color: var(--border-active);
+}
+
+.editor-export-btn {
+    padding: 0.6rem 1rem;
+    color: var(--accent-text);
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    white-space: nowrap;
+}
+
+.editor-export-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.editor-hold-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.78rem;
+    color: var(--muted);
+}
+
+.editor-hold-field input {
+    width: 5.5rem;
+}
+
+.editor-pause-list {
+    list-style: none;
+    margin-top: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.editor-pause-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+}
+
+.editor-pause-item label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0;
+    color: var(--muted);
+}
+
+.editor-pause-item input {
+    width: 5rem;
+}
+
+.editor-remove-btn {
+    margin-left: auto;
+    padding: 0.25rem 0.55rem;
+    font-size: 0.68rem;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.editor-remove-btn:hover {
+    color: var(--error);
+    border-color: rgba(239, 68, 68, 0.45);
+}
+
 .dimmed {
     opacity: 0.45;
     pointer-events: none;
