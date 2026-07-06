@@ -270,6 +270,11 @@ export default function App() {
           <p className="subtitle">
             Record smooth scroll-through videos of any webpage as MP4.
           </p>
+          <div className="header-pills">
+            <span className="header-pill">60 fps</span>
+            <span className="header-pill">MP4 export</span>
+            <span className="header-pill">Scroll physics</span>
+          </div>
         </div>
         <nav className="header-nav">
           <button
@@ -344,20 +349,50 @@ export default function App() {
           </div>
 
           <div className="grid-right">
-            <div className="panel sticky-panel">
-              <div className="panel-title">Capture & Live Output</div>
+            <div className="panel capture-panel sticky-panel">
+              <div className="capture-panel-head">
+                <div>
+                  <div className="panel-title capture-panel-title">
+                    Live Output
+                  </div>
+                  <p className="capture-panel-desc">
+                    Preview the captured scroll recording as it renders.
+                  </p>
+                </div>
+                <span
+                  className={`capture-status-badge capture-status-${isSubmitting ? "recording" : resultVideo ? "ready" : "idle"}`}
+                >
+                  <span className="capture-status-dot" />
+                  {isSubmitting
+                    ? "Recording"
+                    : resultVideo
+                      ? "Ready"
+                      : "Standby"}
+                </span>
+              </div>
 
-              <div className="actions-area">
+              <BrowserMockup
+                url={url}
+                videoUrl={resultVideo?.url || null}
+                duration={resultVideo?.duration || null}
+                scrollStrategy={resultVideo?.scrollStrategy}
+                isEdited={resultVideo?.isEdited}
+                width={width}
+                height={height}
+                isSubmitting={isSubmitting}
+                statusType={statusType}
+                onOpenEditor={resultVideo ? openEditor : undefined}
+              />
+
+              <div className="capture-controls">
                 <button type="submit" id="submit" disabled={isSubmitting}>
                   <span className="loader-circle"></span>
                   <span id="buttonText">
                     {isSubmitting ? "Recording..." : "Start Capture"}
                   </span>
                 </button>
-              </div>
 
-              <div className="field" style={{ marginTop: "1.25rem" }}>
-                <div className="toggle-row">
+                <div className="toggle-row capture-toggle">
                   <div className="toggle-copy">
                     <strong>Fast Hydration Mode</strong>
                     <span>
@@ -397,19 +432,6 @@ export default function App() {
                 percent={progressPercent}
                 status={progressStatus}
                 elapsed={elapsedTime}
-              />
-
-              <BrowserMockup
-                url={url}
-                videoUrl={resultVideo?.url || null}
-                duration={resultVideo?.duration || null}
-                scrollStrategy={resultVideo?.scrollStrategy}
-                isEdited={resultVideo?.isEdited}
-                width={width}
-                height={height}
-                isSubmitting={isSubmitting}
-                statusType={statusType}
-                onOpenEditor={resultVideo ? openEditor : undefined}
               />
             </div>
           </div>

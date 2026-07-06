@@ -468,13 +468,40 @@ export default function EditorPage({
 
       <div className="editor-body">
         <aside className="editor-sidebar">
+          <div className="editor-sidebar-intro">
+            <span className="editor-sidebar-eyebrow">Project</span>
+            <p className="editor-sidebar-url" title={targetUrl}>
+              {targetUrl || "Untitled capture"}
+            </p>
+            <div className="editor-sidebar-stats">
+              <span>
+                {width}×{height}
+              </span>
+              {scrollStrategy && (
+                <span className={`editor-chip editor-chip-${scrollStrategy}`}>
+                  {scrollStrategy === "virtual" ? "Virtual" : "Document"}
+                </span>
+              )}
+            </div>
+          </div>
+
           <section className="editor-sidebar-section">
             <h3>Tools</h3>
             <button
               type="button"
               className="editor-tool-btn editor-tool-btn-active"
             >
-              <span className="editor-tool-icon">◎</span>
+              <span className="editor-tool-icon" aria-hidden>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
+                  <path d="M13 13l6 6" />
+                </svg>
+              </span>
               Select
             </button>
             <button
@@ -483,8 +510,14 @@ export default function EditorPage({
               onClick={addPauseAtPlayhead}
               disabled={sourceDurationMs <= 0 || previewMode === "export"}
             >
-              <span className="editor-tool-icon">⏸</span>
+              <span className="editor-tool-icon" aria-hidden>
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="6" y="5" width="4" height="14" rx="1" />
+                  <rect x="14" y="5" width="4" height="14" rx="1" />
+                </svg>
+              </span>
               Add pause
+              <kbd className="editor-tool-kbd">P</kbd>
             </button>
           </section>
 
@@ -558,6 +591,12 @@ export default function EditorPage({
         </aside>
 
         <main className="editor-stage">
+          <div className="editor-stage-label">
+            <span className="editor-stage-eyebrow">Program monitor</span>
+            <span className="editor-stage-mode">
+              {previewMode === "export" ? "Export preview" : "Edit preview"}
+            </span>
+          </div>
           <div
             className="editor-monitor"
             style={{ aspectRatio: `${width} / ${height}` }}

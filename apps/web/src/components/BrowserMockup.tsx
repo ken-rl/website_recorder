@@ -23,27 +23,38 @@ export default function BrowserMockup({
   width,
   height,
   isSubmitting,
-  statusType,
 }: BrowserMockupProps) {
   const isMobile = width < height;
+  const displayUrl = url || "https://example.com";
 
   return (
-    <div className="result-container" style={{ marginTop: "1.5rem" }}>
+    <div className="result-container capture-window">
       <div
-        className={`browser-mockup${isMobile ? " is-mobile" : ""}`}
+        className={`browser-mockup capture-browser${isMobile ? " is-mobile" : ""}${isSubmitting ? " is-recording" : ""}${videoUrl ? " has-video" : ""}`}
         style={{
           maxWidth: isMobile ? "280px" : "100%",
           margin: isMobile ? "0 auto" : "0",
         }}
       >
         <div className="browser-header">
-          <div className="browser-dots">
-            <span className="dot" />
-            <span className="dot" />
-            <span className="dot" />
+          <div className="browser-dots" aria-hidden>
+            <span className="dot dot-close" />
+            <span className="dot dot-min" />
+            <span className="dot dot-max" />
           </div>
           <div className="browser-address-bar" id="browserAddressBar">
-            {url || "https://example.com"}
+            <svg
+              className="browser-lock"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden
+            >
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <span className="browser-url-text">{displayUrl}</span>
           </div>
           <div className="browser-actions">
             {videoUrl && (
@@ -74,42 +85,55 @@ export default function BrowserMockup({
           className="browser-content"
           style={{ aspectRatio: `${width} / ${height}` }}
         >
+          {isSubmitting && <div className="browser-scanline" aria-hidden />}
+
           {videoUrl ? (
             <div className="browser-media">
               <video id="player" src={videoUrl} controls autoPlay playsInline />
             </div>
           ) : (
             <div className="browser-placeholder">
-              <svg
-                className={`placeholder-icon${isSubmitting ? " pulsating" : ""}`}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-                <line x1="8" y1="21" x2="16" y2="21" />
-                <line x1="12" y1="17" x2="12" y2="21" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
+              <div className="placeholder-visual">
+                <svg
+                  className={`placeholder-icon${isSubmitting ? " pulsating" : ""}`}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                  <line x1="8" y1="21" x2="16" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                {isSubmitting && (
+                  <span className="placeholder-recording-ring" aria-hidden />
+                )}
+              </div>
               <div className="placeholder-title">
-                {isSubmitting
-                  ? "Capturing Active View..."
-                  : "Capture Target Preview"}
+                {isSubmitting ? "Capturing active view" : "Awaiting capture"}
               </div>
               <div className="placeholder-desc">
                 {isSubmitting
                   ? "Playwright is scrolling and recording the target URL."
-                  : "Set parameters on the left and click 'Start Capture' to record."}
+                  : "Set your target URL, then press Start Capture."}
               </div>
             </div>
           )}
         </div>
+
+        <div className="browser-footer-bar">
+          <span className="browser-footer-label">Viewport</span>
+          <span className="browser-footer-value">
+            {width} × {height}
+          </span>
+        </div>
       </div>
+
       {duration && (
-        <div className="meta">
+        <div className="meta capture-meta">
           <span id="duration">Completed in {duration}</span>
           <div className="meta-actions">
             <span className="meta-badges">
