@@ -6,6 +6,8 @@ dist/
 outputs/*
 !outputs/.gitkeep
 
+apps/api/outputs/*
+
 *.webm
 *.log
 

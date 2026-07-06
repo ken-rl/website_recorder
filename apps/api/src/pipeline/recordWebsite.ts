@@ -1,18 +1,40 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { chromium } from "playwright";
+import {
+  chromium,
+  type Browser,
+  type BrowserContext,
+  type BrowserContextOptions,
+} from "playwright";
 import { dismissCookieBanners } from "../browser/cookies.js";
+import { detectScrollMode } from "../browser/detectScrollMode.js";
 import { gotoReachablePage } from "../browser/goto.js";
 import { hydrateLazyContent } from "../browser/hydrate.js";
 import { primeLazyAssets } from "../browser/prime.js";
 import { resolveScrollCurve } from "../browser/curves.js";
-import { runSmoothScroll } from "../browser/scroll.js";
+import { runScroll } from "../browser/scroll.js";
 import { sanitizeDom } from "../browser/sanitize.js";
+import { ensureOnTargetUrl } from "../browser/urlGuard.js";
+import {
+  launchArgsForHeadless,
+  resolveBrowserLaunch,
+  shouldWarnHeadlessVirtualCapture,
+} from "../config/browserLaunch.js";
 import { resolveRecordingProfile } from "../config/recordingProfile.js";
 import { removeFileIfExists, transcodeToMp4 } from "../transcode/ffmpeg.js";
-import type { RecordRequest, RecordResult } from "../types.js";
+import type {
+  AnimationConfig,
+  RecordRequest,
+  RecordResult,
+  ResolvedScrollStrategy,
+} from "../types.js";
 
 const DEFAULT_FRAMERATE = 30;
+
+interface CaptureSessionResult {
+  rawVideoPath: string;
+  scrollStrategy: ResolvedScrollStrategy;
+}
 
 export async function recordWebsite(
   request: RecordRequest,
@@ -34,23 +56,112 @@ export async function recordWebsite(
   const removeOverlays = animation.removeOverlayElements ?? true;
 
   const startedAt = Date.now();
-  const browser = await chromium.launch({ headless: true });
-  
-  // Enable mobile responsive emulation if viewport is portrait phone size
-  const isMobileViewport = viewport.width < viewport.height && viewport.width <= 500;
-  const contextOptions = {
-    viewport: { width: viewport.width, height: viewport.height },
-    deviceScaleFactor,
-    isMobile: isMobileViewport,
-    hasTouch: isMobileViewport,
-    userAgent: isMobileViewport
-      ? "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
-      : undefined,
-  };
+  const launch = resolveBrowserLaunch(animation);
+  const contextOptions = buildContextOptions(viewport, deviceScaleFactor);
 
-  let rawVideoPath = "";
+  const storageState = await runPrepSession({
+    request,
+    animation,
+    contextOptions,
+    removeOverlays,
+    hydrateFast,
+  });
+
+  let captureHeadless = launch.headless;
+  let capture: CaptureSessionResult | null = null;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (!captureHeadless) {
+      console.log("Using headed Chromium for smooth virtual-scroll capture.");
+    }
+
+    capture = await runRecordSession({
+      request,
+      outputDir,
+      animation,
+      viewport,
+      pixelsPerFrame,
+      preRecordingDelayMs,
+      pauseTriggers,
+      scrollCurve,
+      removeOverlays,
+      storageState,
+      headless: captureHeadless,
+      launchArgs: launchArgsForHeadless(captureHeadless),
+    });
+
+    const shouldRetryHeaded =
+      attempt === 0 &&
+      captureHeadless &&
+      capture.scrollStrategy === "virtual" &&
+      (animation.scrollMode ?? "auto") === "auto";
+
+    if (!shouldRetryHeaded) {
+      break;
+    }
+
+    console.log(
+      "Virtual scroll detected during headless capture; retrying with headed browser.",
+    );
+    captureHeadless = false;
+  }
+
+  if (!capture?.rawVideoPath) {
+    throw new Error("Playwright did not produce a recorded video file");
+  }
+
+  const mp4Path = path.join(outputDir, "output.mp4");
+  await transcodeToMp4(
+    capture.rawVideoPath,
+    mp4Path,
+    framerate,
+    viewport.width,
+    viewport.height,
+    encode,
+  );
+  await removeFileIfExists(capture.rawVideoPath);
+
+  const captureWarning = shouldWarnHeadlessVirtualCapture(
+    capture.scrollStrategy,
+    captureHeadless,
+  );
+  if (captureWarning) {
+    console.warn(captureWarning);
+  }
+
+  return {
+    jobId: resolvedJobId,
+    outputDir,
+    rawVideoPath: capture.rawVideoPath,
+    mp4Path,
+    durationMs: Date.now() - startedAt,
+    viewport: {
+      width: viewport.width,
+      height: viewport.height,
+      deviceScaleFactor,
+    },
+    scrollStrategy: capture.scrollStrategy,
+  };
+}
+
+async function runPrepSession(options: {
+  request: RecordRequest;
+  animation: AnimationConfig;
+  contextOptions: BrowserContextOptions;
+  removeOverlays: boolean;
+  hydrateFast: boolean;
+}) {
+  const { request, animation, contextOptions, removeOverlays, hydrateFast } =
+    options;
+
+  let browser: Browser | null = null;
 
   try {
+    browser = await chromium.launch({
+      headless: true,
+      args: launchArgsForHeadless(true),
+    });
+
     const prepContext = await browser.newContext(contextOptions);
     const prepPage = await prepContext.newPage();
     await prepPage.addInitScript("window.__name = (target) => target");
@@ -60,9 +171,17 @@ export async function recordWebsite(
     await dismissCookieBanners(prepPage);
     await sanitizeDom(prepPage, removeOverlays);
 
+    const expectedScrollMode = await detectScrollMode(
+      prepPage,
+      animation.scrollMode,
+    );
+    const hydrateUsesWheel =
+      expectedScrollMode === "virtual" || animation.scrollMode === "virtual";
+
     try {
-      await hydrateLazyContent(prepPage, viewport.height, {
+      await hydrateLazyContent(prepPage, contextOptions.viewport!.height!, {
         fast: hydrateFast,
+        useWheel: hydrateUsesWheel,
       });
     } catch (error) {
       console.warn(
@@ -71,9 +190,63 @@ export async function recordWebsite(
       );
     }
 
+    await ensureOnTargetUrl(prepPage, request.targetUrl);
+    await prepPage.evaluate(() =>
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" }),
+    );
+    await prepPage.waitForTimeout(300);
+
     const storageState = await prepContext.storageState();
-    const preparedUrl = prepPage.url();
     await prepContext.close();
+    return storageState;
+  } finally {
+    await browser?.close();
+  }
+}
+
+async function runRecordSession(options: {
+  request: RecordRequest;
+  outputDir: string;
+  animation: AnimationConfig;
+  viewport: RecordRequest["videoConfig"]["viewport"];
+  pixelsPerFrame: number;
+  preRecordingDelayMs: number;
+  pauseTriggers: AnimationConfig["pauseTriggers"];
+  scrollCurve: ReturnType<typeof resolveScrollCurve>;
+  removeOverlays: boolean;
+  storageState: Awaited<ReturnType<BrowserContext["storageState"]>>;
+  headless: boolean;
+  launchArgs: string[];
+}): Promise<CaptureSessionResult> {
+  const {
+    request,
+    outputDir,
+    animation,
+    viewport,
+    pixelsPerFrame,
+    preRecordingDelayMs,
+    pauseTriggers,
+    scrollCurve,
+    removeOverlays,
+    storageState,
+    headless,
+    launchArgs,
+  } = options;
+
+  let browser: Browser | null = null;
+  let rawVideoPath = "";
+  let scrollStrategy: ResolvedScrollStrategy = "document";
+
+  const contextOptions = buildContextOptions(viewport, 1);
+
+  try {
+    const recordLaunchArgs = [
+      ...launchArgs.filter(
+        (arg) => !arg.startsWith("--force-device-scale-factor"),
+      ),
+      "--force-device-scale-factor=1",
+    ];
+    browser = await chromium.launch({ headless, args: recordLaunchArgs });
 
     const recordContext = await browser.newContext({
       ...contextOptions,
@@ -87,7 +260,8 @@ export async function recordWebsite(
     await page.addInitScript("window.__name = (target) => target");
 
     try {
-      await gotoReachablePage(page, preparedUrl);
+      await gotoReachablePage(page, request.targetUrl);
+      await ensureOnTargetUrl(page, request.targetUrl);
       await page.evaluate("window.__name = (target) => target");
       await dismissCookieBanners(page);
       await sanitizeDom(page, removeOverlays);
@@ -96,8 +270,19 @@ export async function recordWebsite(
       await page.evaluate(() =>
         window.scrollTo({ top: 0, left: 0, behavior: "instant" }),
       );
+      await ensureOnTargetUrl(page, request.targetUrl);
       await page.waitForTimeout(preRecordingDelayMs);
-      await runSmoothScroll(page, pixelsPerFrame, pauseTriggers, scrollCurve);
+      scrollStrategy = await runScroll(page, {
+        pixelsPerFrame,
+        pauseTriggers: pauseTriggers ?? [],
+        bezier: scrollCurve,
+        scrollMode: animation.scrollMode,
+        animationConfig: animation,
+        viewportWidth: viewport.width,
+        viewportHeight: viewport.height,
+        fastMode: animation.fastMode ?? false,
+      });
+      console.log(`Scroll strategy: ${scrollStrategy}`);
       await page.waitForTimeout(500);
     } finally {
       const video = page.video();
@@ -106,35 +291,27 @@ export async function recordWebsite(
       rawVideoPath = video ? await video.path() : "";
     }
   } finally {
-    await browser.close();
+    await browser?.close();
   }
 
-  if (!rawVideoPath) {
-    throw new Error("Playwright did not produce a recorded video file");
-  }
+  return { rawVideoPath, scrollStrategy };
+}
 
-  const mp4Path = path.join(outputDir, "output.mp4");
-  await transcodeToMp4(
-    rawVideoPath,
-    mp4Path,
-    framerate,
-    viewport.width,
-    viewport.height,
-    encode,
-  );
-  await removeFileIfExists(rawVideoPath);
+function buildContextOptions(
+  viewport: RecordRequest["videoConfig"]["viewport"],
+  deviceScaleFactor: number,
+): BrowserContextOptions {
+  const isMobileViewport =
+    viewport.width < viewport.height && viewport.width <= 500;
 
   return {
-    jobId: resolvedJobId,
-    outputDir,
-    rawVideoPath,
-    mp4Path,
-    durationMs: Date.now() - startedAt,
-    viewport: {
-      width: viewport.width,
-      height: viewport.height,
-      deviceScaleFactor,
-    },
+    viewport: { width: viewport.width, height: viewport.height },
+    deviceScaleFactor,
+    isMobile: isMobileViewport,
+    hasTouch: isMobileViewport,
+    userAgent: isMobileViewport
+      ? "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
+      : undefined,
   };
 }
 

@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
+import { detectVideoMargins } from "../capture/detectMargins.js";
 import type { EncodeSettings } from "./quality.js";
 
 export async function transcodeToMp4(
@@ -14,18 +15,20 @@ export async function transcodeToMp4(
 
   const evenWidth = width % 2 === 0 ? width : width - 1;
   const evenHeight = height % 2 === 0 ? height : height - 1;
-  const inputSize = await probeVideoSize(inputPath);
+  const margins = await detectVideoMargins(inputPath);
 
   const filters: string[] = [];
-  if (
-    inputSize &&
-    (inputSize.width !== evenWidth || inputSize.height !== evenHeight)
-  ) {
-    filters.push(
-      `scale=${evenWidth}:${evenHeight}:flags=lanczos+accurate_rnd+full_chroma_int`,
+  if (margins.right > 0 || margins.bottom > 0) {
+    console.log(
+      `Trimming recorder margins: right=${margins.right}px bottom=${margins.bottom}px`,
     );
+    filters.push(`crop=iw-${margins.right}:ih-${margins.bottom}:0:0`);
   }
-  filters.push(`fps=${framerate}`);
+  filters.push(
+    `scale=${evenWidth}:${evenHeight}:flags=lanczos+accurate_rnd+full_chroma_int`,
+    "setsar=1",
+    `fps=${framerate}`,
+  );
 
   const args = [
     "-y",
@@ -47,36 +50,6 @@ export async function transcodeToMp4(
   ];
 
   await runFfmpeg(args);
-}
-
-async function probeVideoSize(
-  inputPath: string,
-): Promise<{ width: number; height: number } | null> {
-  return new Promise((resolve) => {
-    const child = spawn("ffprobe", [
-      "-v",
-      "error",
-      "-select_streams",
-      "v:0",
-      "-show_entries",
-      "stream=width,height",
-      "-of",
-      "csv=p=0:s=x",
-      inputPath,
-    ]);
-
-    let stdout = "";
-    child.stdout.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString();
-    });
-    child.on("error", () => resolve(null));
-    child.on("close", (code) => {
-      if (code !== 0) return resolve(null);
-      const [width, height] = stdout.trim().split("x").map(Number);
-      if (!width || !height) return resolve(null);
-      resolve({ width, height });
-    });
-  });
 }
 
 async function assertFfmpegAvailable() {

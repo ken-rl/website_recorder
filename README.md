@@ -138,6 +138,28 @@ cp .env.example .env
 | `animationConfig.preRecordingDelayMs` | Pause at the top before scrolling (default: 2000) |
 | `animationConfig.removeOverlayElements` | Strip cookie banners, modals, and popups (default: true) |
 | `animationConfig.pauseTriggers` | Pause when a selector enters the viewport |
+| `animationConfig.scrollMode` | `auto` (default), `document`, or `virtual` — see below |
+| `animationConfig.virtualScrollCycles` | Virtual mode: viewport-heights of wheel input to replay (default: 12, or 5 in fast mode) |
+| `animationConfig.virtualScrollDurationMs` | Virtual mode: fixed capture duration in ms (overrides cycle-based timing) |
+
+### Virtual scroll (infinite / fixed-viewport sites)
+
+Some sites — especially scroll-scrubbing, WebGL, or infinitely looping experiences — lock the document to one viewport (`overflow: hidden`, no page scroll). Website Recorder auto-detects this and switches to **virtual scroll**: it replays wheel input over a timed duration instead of calling `window.scrollTo()`.
+
+Use `scrollMode: "virtual"` to force it, or leave `auto` to detect. Tune how much of the loop you capture with `virtualScrollCycles` (default 8 ≈ 10s of scroll). Virtual captures use a headed browser with real GPU for smooth WebGL video. For sites like [ui8.ai/forge](https://ui8.ai/forge/), use a **Linear** curve and 8–12 cycles.
+
+```json
+"animationConfig": {
+  "scrollMode": "auto",
+  "virtualScrollCycles": 16,
+  "pixelsPerFrame": 4,
+  "scrollCurve": { "preset": "linear" }
+}
+```
+
+`pauseTriggers` apply to document scroll only.
+
+Virtual-scroll captures use a **headed Chromium window** when possible. WebGL sites (e.g. ui8.ai) throttle their render loop to a few fps in headless mode, which makes video look choppy even when wheel input is fast. Set `RECORD_HEADED=1` to force headed capture, or `RECORD_HEADED=0` to force headless.
 
 ### Fast mode
 

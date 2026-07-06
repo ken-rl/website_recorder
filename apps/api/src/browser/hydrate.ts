@@ -10,6 +10,8 @@ const FAST_MAX_SCROLL_STEPS = 10;
 
 export interface HydrateOptions {
   fast?: boolean;
+  /** Wheel nudges help virtual-scroll sites; skip on document-scroll pages. */
+  useWheel?: boolean;
 }
 
 async function documentHeight(page: Page) {
@@ -43,6 +45,7 @@ export async function hydrateLazyContent(
   options: HydrateOptions = {},
 ) {
   const fast = options.fast ?? false;
+  const useWheel = options.useWheel ?? true;
   const scrollSettleMs = fast
     ? FAST_SCROLL_SETTLE_MS
     : DEFAULT_SCROLL_SETTLE_MS;
@@ -74,9 +77,11 @@ export async function hydrateLazyContent(
           window.scrollTo({ top: nextY, left: 0, behavior: "instant" }),
         y,
       );
-      await page.mouse
-        .wheel(0, Math.floor(viewportHeight * (fast ? 0.3 : 0.18)))
-        .catch(() => undefined);
+      if (useWheel) {
+        await page.mouse
+          .wheel(0, Math.floor(viewportHeight * (fast ? 0.3 : 0.18)))
+          .catch(() => undefined);
+      }
       await page.waitForTimeout(scrollSettleMs);
       await page
         .waitForLoadState("networkidle", { timeout: stepNetworkTimeout })

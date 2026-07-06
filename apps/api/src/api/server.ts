@@ -105,6 +105,7 @@ const server = http.createServer(async (req, res) => {
         mp4Path: result.mp4Path,
         durationMs: result.durationMs,
         viewport: result.viewport,
+        scrollStrategy: result.scrollStrategy,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";

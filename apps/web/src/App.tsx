@@ -2,6 +2,9 @@ import React, { useState, useRef, useEffect } from "react";
 import Logo from "./components/Logo";
 import TargetPageForm from "./components/TargetPageForm";
 import ScrollPhysicsForm from "./components/ScrollPhysicsForm";
+import VirtualScrollForm, {
+  type ScrollModeOption,
+} from "./components/VirtualScrollForm";
 import BezierVisualizer from "./components/BezierVisualizer";
 import ProgressCard from "./components/ProgressCard";
 import BrowserMockup from "./components/BrowserMockup";
@@ -34,19 +37,36 @@ export default function App() {
 
   // Bezier States
   const [selectedCurve, setSelectedCurve] = useState("ease-in-out");
-  const [customBezier, setCustomBezier] = useState<[number, number, number, number]>([0.42, 0, 0.58, 1]);
-  const [customInputText, setCustomInputText] = useState("0.42, 0.00, 0.58, 1.00");
+  const [customBezier, setCustomBezier] = useState<
+    [number, number, number, number]
+  >([0.42, 0, 0.58, 1]);
+  const [customInputText, setCustomInputText] = useState(
+    "0.42, 0.00, 0.58, 1.00",
+  );
+
+  const [scrollMode, setScrollMode] = useState<ScrollModeOption>("auto");
+  const [virtualScrollCycles, setVirtualScrollCycles] = useState(8);
+  const [useFixedDuration, setUseFixedDuration] = useState(false);
+  const [virtualScrollDurationMs, setVirtualScrollDurationMs] = useState(30000);
 
   // Status and Output States
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [statusType, setStatusType] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [statusType, setStatusType] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
   const [statusText, setStatusText] = useState("");
-  
+
   // Progress Loader States
   const [progressPercent, setProgressPercent] = useState(0);
-  const [progressStatus, setProgressStatus] = useState("Initializing browser context");
+  const [progressStatus, setProgressStatus] = useState(
+    "Initializing browser context",
+  );
   const [elapsedTime, setElapsedTime] = useState("0.0s");
-  const [resultVideo, setResultVideo] = useState<{ url: string; duration: string } | null>(null);
+  const [resultVideo, setResultVideo] = useState<{
+    url: string;
+    duration: string;
+    scrollStrategy?: "document" | "virtual";
+  } | null>(null);
 
   const progressIntervalRef = useRef<any>(null);
   const progressStartTimeRef = useRef(0);
@@ -62,7 +82,7 @@ export default function App() {
   // Progress Bar Easing Loops
   function startProgressSimulator(isFast: boolean) {
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-    
+
     setProgressPercent(0);
     progressStartTimeRef.current = Date.now();
     const expectedDuration = isFast ? 5000 : 18000;
@@ -78,7 +98,9 @@ export default function App() {
         if (elapsed < 1200) {
           setProgressStatus("Launching headless browser context...");
         } else if (elapsed < 3500) {
-          setProgressStatus("Scrolling website & capturing responsive viewport...");
+          setProgressStatus(
+            "Scrolling website & capturing responsive viewport...",
+          );
         } else {
           setProgressStatus("Processing and finalizing MP4 video stream...");
         }
@@ -136,8 +158,18 @@ export default function App() {
         fastMode,
         pixelsPerFrame: fastMode ? 12 : 4,
         preRecordingDelayMs: fastMode ? 500 : 2000,
-        scrollCurve: selectedCurve === "custom" ? { preset: "custom", bezier: customBezier } : { preset: selectedCurve },
+        scrollCurve:
+          selectedCurve === "custom"
+            ? { preset: "custom", bezier: customBezier }
+            : { preset: selectedCurve },
         removeOverlayElements: true,
+        scrollMode,
+        ...(scrollMode !== "document"
+          ? {
+              virtualScrollCycles,
+              ...(useFixedDuration ? { virtualScrollDurationMs } : {}),
+            }
+          : {}),
       },
     };
 
@@ -156,6 +188,7 @@ export default function App() {
       setResultVideo({
         url: data.videoUrl,
         duration: `${(data.durationMs / 1000).toFixed(1)}s`,
+        scrollStrategy: data.scrollStrategy,
       });
       setStatusType("success");
       setStatusText("Recording finished successfully.");
@@ -214,7 +247,7 @@ export default function App() {
 
             <section className="panel">
               <div className="panel-title">Scroll Physics</div>
-              
+
               <ScrollPhysicsForm
                 selectedCurve={selectedCurve}
                 setSelectedCurve={setSelectedCurve}
@@ -223,6 +256,20 @@ export default function App() {
                 customInputText={customInputText}
                 setCustomInputText={setCustomInputText}
               />
+
+              <div style={{ marginTop: "1.5rem" }}>
+                <VirtualScrollForm
+                  scrollMode={scrollMode}
+                  setScrollMode={setScrollMode}
+                  virtualScrollCycles={virtualScrollCycles}
+                  setVirtualScrollCycles={setVirtualScrollCycles}
+                  useFixedDuration={useFixedDuration}
+                  setUseFixedDuration={setUseFixedDuration}
+                  virtualScrollDurationMs={virtualScrollDurationMs}
+                  setVirtualScrollDurationMs={setVirtualScrollDurationMs}
+                  fastMode={fastMode}
+                />
+              </div>
 
               <div style={{ marginTop: "1.5rem" }}>
                 <BezierVisualizer
@@ -245,7 +292,9 @@ export default function App() {
               <div className="actions-area">
                 <button type="submit" id="submit" disabled={isSubmitting}>
                   <span className="loader-circle"></span>
-                  <span id="buttonText">{isSubmitting ? "Recording..." : "Start Capture"}</span>
+                  <span id="buttonText">
+                    {isSubmitting ? "Recording..." : "Start Capture"}
+                  </span>
                 </button>
               </div>
 
@@ -253,14 +302,27 @@ export default function App() {
                 <div className="toggle-row">
                   <div className="toggle-copy">
                     <strong>Fast Hydration Mode</strong>
-                    <span>Skips heavy page hydration delays and speeds up scrolling dynamics.</span>
+                    <span>
+                      Skips heavy page hydration delays and speeds up scrolling
+                      dynamics.
+                    </span>
                   </div>
                   <label className="toggle" aria-label="Fast mode">
                     <input
                       type="checkbox"
                       id="fastMode"
                       checked={fastMode}
-                      onChange={(e) => setFastMode(e.target.checked)}
+                      onChange={(e) => {
+                        const enabled = e.target.checked;
+                        setFastMode(enabled);
+                        setVirtualScrollCycles((cycles) =>
+                          cycles === (enabled ? 8 : 6)
+                            ? enabled
+                              ? 6
+                              : 8
+                            : cycles,
+                        );
+                      }}
                     />
                     <span className="toggle-slider"></span>
                   </label>
@@ -283,6 +345,7 @@ export default function App() {
                 url={url}
                 videoUrl={resultVideo?.url || null}
                 duration={resultVideo?.duration || null}
+                scrollStrategy={resultVideo?.scrollStrategy}
                 width={width}
                 height={height}
                 isSubmitting={isSubmitting}
