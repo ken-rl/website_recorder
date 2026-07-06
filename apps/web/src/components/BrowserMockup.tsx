@@ -6,6 +6,7 @@ interface BrowserMockupProps {
   duration: string | null;
   scrollStrategy?: "document" | "virtual";
   isEdited?: boolean;
+  onOpenEditor?: () => void;
   width: number;
   height: number;
   isSubmitting: boolean;
@@ -18,6 +19,7 @@ export default function BrowserMockup({
   duration,
   scrollStrategy,
   isEdited,
+  onOpenEditor,
   width,
   height,
   isSubmitting,
@@ -109,22 +111,33 @@ export default function BrowserMockup({
       {duration && (
         <div className="meta">
           <span id="duration">Completed in {duration}</span>
-          <span className="meta-badges">
-            {scrollStrategy && (
-              <span
-                className={`scroll-strategy-badge scroll-strategy-${scrollStrategy}`}
+          <div className="meta-actions">
+            <span className="meta-badges">
+              {scrollStrategy && (
+                <span
+                  className={`scroll-strategy-badge scroll-strategy-${scrollStrategy}`}
+                >
+                  {scrollStrategy === "virtual"
+                    ? "Virtual scroll"
+                    : "Document scroll"}
+                </span>
+              )}
+              {isEdited && (
+                <span className="scroll-strategy-badge scroll-strategy-edited">
+                  Edited
+                </span>
+              )}
+            </span>
+            {onOpenEditor && (
+              <button
+                type="button"
+                className="open-editor-btn"
+                onClick={onOpenEditor}
               >
-                {scrollStrategy === "virtual"
-                  ? "Virtual scroll"
-                  : "Document scroll"}
-              </span>
+                Open in Editor
+              </button>
             )}
-            {isEdited && (
-              <span className="scroll-strategy-badge scroll-strategy-edited">
-                Edited
-              </span>
-            )}
-          </span>
+          </div>
         </div>
       )}
     </div>

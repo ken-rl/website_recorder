@@ -70,7 +70,9 @@ const server = http.createServer(async (req, res) => {
 
   if (
     req.method === "GET" &&
-    (url.pathname === "/" || url.pathname === "/upcoming")
+    (url.pathname === "/" ||
+      url.pathname === "/upcoming" ||
+      url.pathname === "/editor")
   ) {
     return serveFile(
       res,

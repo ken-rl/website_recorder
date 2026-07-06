@@ -8,16 +8,26 @@ import VirtualScrollForm, {
 import BezierVisualizer from "./components/BezierVisualizer";
 import ProgressCard from "./components/ProgressCard";
 import BrowserMockup from "./components/BrowserMockup";
-import VideoEditor from "./components/VideoEditor";
 import UpcomingFeatures from "./components/UpcomingFeatures";
+import EditorPage from "./pages/EditorPage";
+import {
+  loadEditorSession,
+  saveEditorSession,
+  type EditorSession,
+} from "./lib/editorSession";
 
 export default function App() {
-  // Routing State
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  const [editorSession, setEditorSession] = useState<EditorSession | null>(
+    () => (window.location.pathname === "/editor" ? loadEditorSession() : null),
+  );
 
   useEffect(() => {
     const handlePopState = () => {
       setCurrentPath(window.location.pathname);
+      if (window.location.pathname === "/editor") {
+        setEditorSession(loadEditorSession());
+      }
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -26,9 +36,11 @@ export default function App() {
   const navigate = (path: string) => {
     window.history.pushState({}, "", path);
     setCurrentPath(path);
+    if (path === "/editor") {
+      setEditorSession(loadEditorSession());
+    }
   };
 
-  // Target Page Configurations
   const [url, setUrl] = useState("");
   const [devicePreset, setDevicePreset] = useState("1920x1080");
   const [width, setWidth] = useState(1920);
@@ -36,7 +48,6 @@ export default function App() {
   const [quality, setQuality] = useState("high");
   const [fastMode, setFastMode] = useState(false);
 
-  // Bezier States
   const [selectedCurve, setSelectedCurve] = useState("ease-in-out");
   const [customBezier, setCustomBezier] = useState<
     [number, number, number, number]
@@ -50,14 +61,12 @@ export default function App() {
   const [useFixedDuration, setUseFixedDuration] = useState(false);
   const [virtualScrollDurationMs, setVirtualScrollDurationMs] = useState(30000);
 
-  // Status and Output States
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusType, setStatusType] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [statusText, setStatusText] = useState("");
 
-  // Progress Loader States
   const [progressPercent, setProgressPercent] = useState(0);
   const [progressStatus, setProgressStatus] = useState(
     "Initializing browser context",
@@ -72,10 +81,11 @@ export default function App() {
     isEdited?: boolean;
   } | null>(null);
 
-  const progressIntervalRef = useRef<any>(null);
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
   const progressStartTimeRef = useRef(0);
 
-  // Sync dimensions helper when preset changes in child component
   const handleDevicePresetChange = (preset: string) => {
     setDevicePreset(preset);
     const [w, h] = preset.split("x").map(Number);
@@ -83,7 +93,6 @@ export default function App() {
     setHeight(h);
   };
 
-  // Progress Bar Easing Loops
   function startProgressSimulator(isFast: boolean) {
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
 
@@ -122,7 +131,6 @@ export default function App() {
     }, 100);
   }
 
-  // Stop Simulator Easing
   function stopProgressSimulator(success: boolean, errorMsg = "") {
     if (progressIntervalRef.current) {
       clearInterval(progressIntervalRef.current);
@@ -140,7 +148,22 @@ export default function App() {
     }
   }
 
-  // Submit Form Handler
+  const openEditor = () => {
+    if (!resultVideo) return;
+
+    const session: EditorSession = {
+      jobId: resultVideo.jobId,
+      sourceUrl: resultVideo.sourceUrl,
+      targetUrl: url.trim(),
+      width,
+      height,
+      scrollStrategy: resultVideo.scrollStrategy,
+    };
+    saveEditorSession(session);
+    setEditorSession(session);
+    navigate("/editor");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setResultVideo(null);
@@ -200,14 +223,44 @@ export default function App() {
       setStatusType("success");
       setStatusText("Recording finished successfully.");
       stopProgressSimulator(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Something went wrong";
       setStatusType("error");
-      setStatusText(err.message || "Something went wrong");
-      stopProgressSimulator(false, err.message);
+      setStatusText(message);
+      stopProgressSimulator(false, message);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (currentPath === "/editor") {
+    if (!editorSession) {
+      return (
+        <main className="editor-empty">
+          <div className="editor-empty-card">
+            <h1>No capture loaded</h1>
+            <p>Record a website first, then open it in the editor.</p>
+            <button type="button" onClick={() => navigate("/")}>
+              Back to Recorder
+            </button>
+          </div>
+        </main>
+      );
+    }
+
+    return (
+      <EditorPage
+        jobId={editorSession.jobId}
+        sourceVideoUrl={editorSession.sourceUrl}
+        targetUrl={editorSession.targetUrl}
+        width={editorSession.width}
+        height={editorSession.height}
+        scrollStrategy={editorSession.scrollStrategy}
+        onBack={() => navigate("/")}
+      />
+    );
+  }
 
   return (
     <main className="app-container">
@@ -240,7 +293,6 @@ export default function App() {
         <UpcomingFeatures />
       ) : (
         <form id="form" className="app-grid" onSubmit={handleSubmit}>
-          {/* Left column: Settings panels & visual easing canvas */}
           <div className="grid-left">
             <TargetPageForm
               url={url}
@@ -291,7 +343,6 @@ export default function App() {
             </section>
           </div>
 
-          {/* Right column: Execution control & mockup preview */}
           <div className="grid-right">
             <div className="panel sticky-panel">
               <div className="panel-title">Capture & Live Output</div>
@@ -358,28 +409,8 @@ export default function App() {
                 height={height}
                 isSubmitting={isSubmitting}
                 statusType={statusType}
+                onOpenEditor={resultVideo ? openEditor : undefined}
               />
-
-              {resultVideo && (
-                <VideoEditor
-                  jobId={resultVideo.jobId}
-                  sourceVideoUrl={resultVideo.sourceUrl}
-                  onEdited={({ videoUrl, durationMs }) => {
-                    setResultVideo((current) =>
-                      current
-                        ? {
-                            ...current,
-                            url: videoUrl,
-                            duration: `${(durationMs / 1000).toFixed(1)}s`,
-                            isEdited: true,
-                          }
-                        : current,
-                    );
-                    setStatusType("success");
-                    setStatusText("Edited video exported successfully.");
-                  }}
-                />
-              )}
             </div>
           </div>
         </form>
