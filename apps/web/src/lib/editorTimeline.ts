@@ -19,9 +19,7 @@ export function buildTimelineBlocks(
   pauses: EditorPauseInput[],
 ): TimelineBlock[] {
   const sorted = [...pauses]
-    .filter(
-      (pause) => pause.atMs >= trimStartMs && pause.atMs <= trimEndMs,
-    )
+    .filter((pause) => pause.atMs >= trimStartMs && pause.atMs <= trimEndMs)
     .sort((a, b) => a.atMs - b.atMs);
 
   const blocks: TimelineBlock[] = [];
@@ -92,13 +90,35 @@ export function findBlockAtExportMs(
       return block;
     }
   }
-  if (
-    blocks.length > 0 &&
-    exportMs >= blocks[blocks.length - 1].exportEndMs
-  ) {
+  if (blocks.length > 0 && exportMs >= blocks[blocks.length - 1].exportEndMs) {
     return blocks[blocks.length - 1];
   }
   return blocks[0] ?? null;
+}
+
+export function findPlayBlockAtSourceMs(
+  sourceMs: number,
+  blocks: TimelineBlock[],
+): TimelineBlock | null {
+  for (const block of blocks) {
+    if (
+      block.type === "play" &&
+      sourceMs >= block.sourceStartMs &&
+      sourceMs < block.sourceEndMs
+    ) {
+      return block;
+    }
+  }
+  return null;
+}
+
+export function blockAfter(
+  block: TimelineBlock,
+  blocks: TimelineBlock[],
+): TimelineBlock | null {
+  const index = blocks.indexOf(block);
+  if (index < 0) return null;
+  return blocks[index + 1] ?? null;
 }
 
 export function exportMsToPlayback(
@@ -125,7 +145,7 @@ export function sourceMsToExportMs(
 ): number {
   for (const block of blocks) {
     if (block.type === "play") {
-      if (sourceMs >= block.sourceStartMs && sourceMs <= block.sourceEndMs) {
+      if (sourceMs >= block.sourceStartMs && sourceMs < block.sourceEndMs) {
         return block.exportStartMs + (sourceMs - block.sourceStartMs);
       }
       continue;

@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import EditorTimeline from "../components/EditorTimeline";
+import { useEditorPlayback } from "../hooks/useEditorPlayback";
 import {
   buildTimelineBlocks,
   exportMsToPlayback,
@@ -113,21 +114,22 @@ export default function EditorPage({
     [exportDurationMs],
   );
 
-  const syncVideoToExportMs = useCallback(
-    (nextExportMs: number) => {
-      const video = videoRef.current;
-      const duration = exportDurationMsRef.current;
-      if (!video || previewMode !== "edit" || duration <= 0) return;
-
-      const clamped = Math.min(duration, Math.max(0, nextExportMs));
-      const { sourceMs } = exportMsToPlayback(clamped, blocksRef.current);
-      video.pause();
-      video.currentTime = sourceMs / 1000;
-      exportMsRef.current = clamped;
-      setExportMs(clamped);
-    },
-    [previewMode],
-  );
+  const {
+    seekToExportMs,
+    startPlayback,
+    pausePlayback,
+    handleTimeUpdate: handleEditTimeUpdate,
+    stopPlayback,
+  } = useEditorPlayback({
+    videoRef,
+    blocksRef,
+    exportDurationMsRef,
+    exportMsRef,
+    setExportMs,
+    previewMode,
+    isPlaying,
+    setIsPlaying,
+  });
 
   useEffect(() => {
     const video = videoRef.current;
@@ -147,8 +149,11 @@ export default function EditorPage({
     };
 
     const handleTimeUpdate = () => {
-      if (previewMode !== "export") return;
-      setExportMs(Math.round(video.currentTime * 1000));
+      if (previewMode === "export") {
+        setExportMs(Math.round(video.currentTime * 1000));
+        return;
+      }
+      handleEditTimeUpdate();
     };
 
     video.addEventListener("loadedmetadata", handleLoaded);
@@ -157,58 +162,19 @@ export default function EditorPage({
       video.removeEventListener("loadedmetadata", handleLoaded);
       video.removeEventListener("timeupdate", handleTimeUpdate);
     };
-  }, [activeVideoUrl, previewMode]);
-
-  useEffect(() => {
-    if (!isPlaying || previewMode !== "edit" || exportDurationMs <= 0) {
-      return;
-    }
-
-    let frameId = 0;
-    let last = performance.now();
-
-    const tick = (now: number) => {
-      const delta = now - last;
-      last = now;
-
-      const duration = exportDurationMsRef.current;
-      let next = exportMsRef.current + delta;
-
-      if (next >= duration) {
-        next = duration;
-        setIsPlaying(false);
-      }
-
-      const video = videoRef.current;
-      if (video) {
-        const { sourceMs } = exportMsToPlayback(next, blocksRef.current);
-        video.pause();
-        video.currentTime = sourceMs / 1000;
-      }
-
-      exportMsRef.current = next;
-      setExportMs(next);
-
-      if (next < duration) {
-        frameId = requestAnimationFrame(tick);
-      }
-    };
-
-    frameId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frameId);
-  }, [isPlaying, previewMode, exportDurationMs]);
+  }, [activeVideoUrl, previewMode, handleEditTimeUpdate]);
 
   useEffect(() => {
     if (exportMs > exportDurationMs) {
-      syncVideoToExportMs(exportDurationMs);
+      seekToExportMs(exportDurationMs);
     }
-  }, [exportDurationMs, exportMs, syncVideoToExportMs]);
+  }, [exportDurationMs, exportMs, seekToExportMs]);
 
   useEffect(() => {
     if (!isPlaying && previewMode === "edit" && exportDurationMs > 0) {
-      syncVideoToExportMs(exportMsRef.current);
+      seekToExportMs(exportMsRef.current);
     }
-  }, [blocks, isPlaying, previewMode, exportDurationMs, syncVideoToExportMs]);
+  }, [blocks, isPlaying, previewMode, exportDurationMs, seekToExportMs]);
 
   const togglePlayback = useCallback(() => {
     const video = videoRef.current;
@@ -222,16 +188,12 @@ export default function EditorPage({
     }
 
     if (isPlaying) {
-      setIsPlaying(false);
-      video.pause();
+      pausePlayback();
       return;
     }
 
-    if (exportMsRef.current >= exportDurationMs) {
-      syncVideoToExportMs(0);
-    }
-    setIsPlaying(true);
-  }, [exportDurationMs, isPlaying, previewMode, syncVideoToExportMs]);
+    startPlayback();
+  }, [isPlaying, previewMode, pausePlayback, startPlayback]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -261,7 +223,7 @@ export default function EditorPage({
           trimEndMs - 100,
         );
         setTrimStartMs(Math.max(0, next));
-        syncVideoToExportMs(sourceMsToExportMs(next, blocks));
+        seekToExportMs(sourceMsToExportMs(next, blocks));
         return;
       }
 
@@ -271,7 +233,7 @@ export default function EditorPage({
           trimStartMs + 100,
         );
         setTrimEndMs(Math.min(sourceDurationMs, next));
-        syncVideoToExportMs(
+        seekToExportMs(
           sourceMsToExportMs(Math.min(sourceDurationMs, next), blocks),
         );
         return;
@@ -304,7 +266,7 @@ export default function EditorPage({
           pause.id === pauseId ? { ...pause, atMs: nextAt } : pause,
         ),
       );
-      syncVideoToExportMs(sourceMsToExportMs(nextAt, blocks));
+      seekToExportMs(sourceMsToExportMs(nextAt, blocks));
     };
 
     const handleUp = () => setDragTarget(null);
@@ -321,7 +283,7 @@ export default function EditorPage({
     exportMsFromClientX,
     sourceDurationMs,
     sourceMsFromClientX,
-    syncVideoToExportMs,
+    seekToExportMs,
     trimEndMs,
     trimStartMs,
   ]);
@@ -390,7 +352,7 @@ export default function EditorPage({
       );
       return;
     }
-    syncVideoToExportMs(exportMsRef.current + deltaMs);
+    seekToExportMs(exportMsRef.current + deltaMs);
   };
 
   return (
@@ -433,9 +395,9 @@ export default function EditorPage({
                 type="button"
                 className={previewMode === "edit" ? "is-active" : ""}
                 onClick={() => {
+                  stopPlayback();
                   setPreviewMode("edit");
-                  setIsPlaying(false);
-                  syncVideoToExportMs(exportMsRef.current);
+                  seekToExportMs(exportMsRef.current);
                 }}
               >
                 Edit preview
@@ -444,8 +406,8 @@ export default function EditorPage({
                 type="button"
                 className={previewMode === "export" ? "is-active" : ""}
                 onClick={() => {
+                  stopPlayback();
                   setPreviewMode("export");
-                  setIsPlaying(false);
                 }}
               >
                 Export preview
@@ -575,6 +537,7 @@ export default function EditorPage({
               key={activeVideoUrl}
               src={activeVideoUrl}
               playsInline
+              preload="auto"
               className="editor-monitor-video"
               onClick={togglePlayback}
             />
@@ -656,7 +619,7 @@ export default function EditorPage({
             selectedPauseId={selectedPauseId}
             dragTarget={dragTarget}
             timelineRef={timelineRef}
-            onSeekExport={syncVideoToExportMs}
+            onSeekExport={seekToExportMs}
             onTrimStartDrag={() => setDragTarget("trim-start")}
             onTrimEndDrag={() => setDragTarget("trim-end")}
             onPauseDrag={(pauseId) => {
@@ -670,8 +633,7 @@ export default function EditorPage({
             onSelectPause={(pauseId) => {
               setSelectedPauseId(pauseId);
               const pause = pauses.find((entry) => entry.id === pauseId);
-              if (pause)
-                syncVideoToExportMs(sourceMsToExportMs(pause.atMs, blocks));
+              if (pause) seekToExportMs(sourceMsToExportMs(pause.atMs, blocks));
             }}
           />
         )}
