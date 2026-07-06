@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect } from "react";
-import Logo from "./components/Logo";
+import AppTopbar from "./components/AppTopbar";
+import { LORDICON } from "./lib/icons";
+import LordIcon from "./components/LordIcon";
+import InfoTooltip from "./components/InfoTooltip";
 import TargetPageForm from "./components/TargetPageForm";
 import ScrollPhysicsForm from "./components/ScrollPhysicsForm";
 import VirtualScrollForm, {
   type ScrollModeOption,
 } from "./components/VirtualScrollForm";
-import BezierVisualizer from "./components/BezierVisualizer";
+
 import ProgressCard from "./components/ProgressCard";
 import BrowserMockup from "./components/BrowserMockup";
 import UpcomingFeatures from "./components/UpcomingFeatures";
@@ -47,7 +50,6 @@ export default function App() {
   const [height, setHeight] = useState(1080);
   const [quality, setQuality] = useState("high");
   const [fastMode, setFastMode] = useState(false);
-
   const [selectedCurve, setSelectedCurve] = useState("ease-in-out");
   const [customBezier, setCustomBezier] = useState<
     [number, number, number, number]
@@ -234,15 +236,27 @@ export default function App() {
     }
   };
 
+  const hasEditorSession = !!editorSession || !!resultVideo;
+
   if (currentPath === "/editor") {
     if (!editorSession) {
       return (
-        <main className="editor-empty">
-          <div className="editor-empty-card">
+        <main className="app-shell">
+          <AppTopbar
+            currentPath="/editor"
+            onNavigate={navigate}
+            hasEditorSession={false}
+          />
+          <div className="product-empty">
+            <LordIcon src={LORDICON.editor} size={48} trigger="loop" />
             <h1>No capture loaded</h1>
             <p>Record a website first, then open it in the editor.</p>
-            <button type="button" onClick={() => navigate("/")}>
-              Back to Recorder
+            <button
+              type="button"
+              className="product-btn"
+              onClick={() => navigate("/")}
+            >
+              Go to Recorder
             </button>
           </div>
         </main>
@@ -257,150 +271,124 @@ export default function App() {
         width={editorSession.width}
         height={editorSession.height}
         scrollStrategy={editorSession.scrollStrategy}
-        onBack={() => navigate("/")}
+        onNavigate={navigate}
       />
     );
   }
 
   return (
-    <main className="app-container">
-      <header className="app-header">
-        <div className="header-brand">
-          <Logo isRecording={isSubmitting} />
-          <p className="subtitle">
-            Record smooth scroll-through videos of any webpage as MP4.
-          </p>
-          <div className="header-pills">
-            <span className="header-pill">60 fps</span>
-            <span className="header-pill">MP4 export</span>
-            <span className="header-pill">Scroll physics</span>
-          </div>
-        </div>
-        <nav className="header-nav">
-          <button
-            type="button"
-            className={`nav-link ${currentPath === "/" || currentPath === "" ? "active" : ""}`}
-            onClick={() => navigate("/")}
-          >
-            Recorder
-          </button>
-          <button
-            type="button"
-            className={`nav-link ${currentPath === "/upcoming" ? "active" : ""}`}
-            onClick={() => navigate("/upcoming")}
-          >
-            Roadmap
-          </button>
-        </nav>
-      </header>
+    <main className="app-shell">
+      <AppTopbar
+        currentPath={currentPath}
+        onNavigate={navigate}
+        isRecording={isSubmitting}
+        hasEditorSession={hasEditorSession}
+      />
 
-      {currentPath === "/upcoming" ? (
-        <UpcomingFeatures />
-      ) : (
-        <form id="form" className="app-grid" onSubmit={handleSubmit}>
-          <div className="grid-left">
-            <TargetPageForm
-              url={url}
-              setUrl={setUrl}
-              devicePreset={devicePreset}
-              setDevicePreset={handleDevicePresetChange}
-              quality={quality}
-              setQuality={setQuality}
-              fastMode={fastMode}
-            />
-
-            <section className="panel">
-              <div className="panel-title">Scroll Physics</div>
-
-              <ScrollPhysicsForm
-                selectedCurve={selectedCurve}
-                setSelectedCurve={setSelectedCurve}
-                customBezier={customBezier}
-                setCustomBezier={setCustomBezier}
-                customInputText={customInputText}
-                setCustomInputText={setCustomInputText}
-              />
-
-              <div style={{ marginTop: "1.5rem" }}>
-                <VirtualScrollForm
-                  scrollMode={scrollMode}
-                  setScrollMode={setScrollMode}
-                  virtualScrollCycles={virtualScrollCycles}
-                  setVirtualScrollCycles={setVirtualScrollCycles}
-                  useFixedDuration={useFixedDuration}
-                  setUseFixedDuration={setUseFixedDuration}
-                  virtualScrollDurationMs={virtualScrollDurationMs}
-                  setVirtualScrollDurationMs={setVirtualScrollDurationMs}
-                  fastMode={fastMode}
-                />
-              </div>
-
-              <div style={{ marginTop: "1.5rem" }}>
-                <BezierVisualizer
-                  selectedCurve={selectedCurve}
-                  setSelectedCurve={setSelectedCurve}
-                  customBezier={customBezier}
-                  setCustomBezier={setCustomBezier}
-                  customInputText={customInputText}
-                  setCustomInputText={setCustomInputText}
-                />
-              </div>
-            </section>
-          </div>
-
-          <div className="grid-right">
-            <div className="panel capture-panel sticky-panel">
-              <div className="capture-panel-head">
-                <div>
-                  <div className="panel-title capture-panel-title">
-                    Live Output
-                  </div>
-                  <p className="capture-panel-desc">
-                    Preview the captured scroll recording as it renders.
-                  </p>
-                </div>
-                <span
-                  className={`capture-status-badge capture-status-${isSubmitting ? "recording" : resultVideo ? "ready" : "idle"}`}
-                >
-                  <span className="capture-status-dot" />
-                  {isSubmitting
-                    ? "Recording"
-                    : resultVideo
-                      ? "Ready"
-                      : "Standby"}
-                </span>
-              </div>
-
-              <BrowserMockup
+      <div className="app-content">
+        {currentPath === "/upcoming" ? (
+          <UpcomingFeatures />
+        ) : (
+          <form id="form" className="recorder-page" onSubmit={handleSubmit}>
+            <div className="recorder-narrow">
+              <TargetPageForm
                 url={url}
-                videoUrl={resultVideo?.url || null}
-                duration={resultVideo?.duration || null}
-                scrollStrategy={resultVideo?.scrollStrategy}
-                isEdited={resultVideo?.isEdited}
-                width={width}
-                height={height}
-                isSubmitting={isSubmitting}
-                statusType={statusType}
-                onOpenEditor={resultVideo ? openEditor : undefined}
+                setUrl={setUrl}
+                devicePreset={devicePreset}
+                setDevicePreset={handleDevicePresetChange}
               />
+            </div>
 
-              <div className="capture-controls">
-                <button type="submit" id="submit" disabled={isSubmitting}>
-                  <span className="loader-circle"></span>
+            <div
+              className={`recorder-stage${width < height ? " is-portrait-stage" : ""}`}
+            >
+              <section className="recorder-preview" aria-label="Preview">
+                <BrowserMockup
+                  url={url}
+                  videoUrl={resultVideo?.url || null}
+                  duration={resultVideo?.duration || null}
+                  scrollStrategy={resultVideo?.scrollStrategy}
+                  width={width}
+                  height={height}
+                  isSubmitting={isSubmitting}
+                />
+              </section>
+
+              <aside
+                className="recorder-options"
+                aria-label="Recording options"
+              >
+                <h2 className="recorder-options-title">Recording options</h2>
+                <div className="recorder-options-body">
+                  <ScrollPhysicsForm
+                    selectedCurve={selectedCurve}
+                    setSelectedCurve={setSelectedCurve}
+                    customBezier={customBezier}
+                    setCustomBezier={setCustomBezier}
+                    customInputText={customInputText}
+                    setCustomInputText={setCustomInputText}
+                  />
+
+                  <VirtualScrollForm
+                    scrollMode={scrollMode}
+                    setScrollMode={setScrollMode}
+                    virtualScrollCycles={virtualScrollCycles}
+                    setVirtualScrollCycles={setVirtualScrollCycles}
+                    useFixedDuration={useFixedDuration}
+                    setUseFixedDuration={setUseFixedDuration}
+                    virtualScrollDurationMs={virtualScrollDurationMs}
+                    setVirtualScrollDurationMs={setVirtualScrollDurationMs}
+                    fastMode={fastMode}
+                  />
+
+                  <div
+                    className={`field quality-field${fastMode ? " is-disabled" : ""}`}
+                  >
+                    <div className="field-label-row">
+                      <label htmlFor="quality">Quality</label>
+                      {fastMode && (
+                        <InfoTooltip text="Quality is fixed in fast mode." />
+                      )}
+                    </div>
+                    <select
+                      id="quality"
+                      name="quality"
+                      value={quality}
+                      onChange={(e) => setQuality(e.target.value)}
+                      disabled={fastMode}
+                    >
+                      <option value="high">High</option>
+                      <option value="medium">Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </div>
+                </div>
+              </aside>
+            </div>
+
+            <div className="recorder-narrow">
+              <section
+                className="recorder-actions"
+                aria-label="Capture controls"
+              >
+                <button
+                  type="submit"
+                  id="submit"
+                  className="recorder-capture-btn"
+                  disabled={isSubmitting || !url.trim()}
+                >
+                  <span className="loader-circle" />
                   <span id="buttonText">
-                    {isSubmitting ? "Recording..." : "Start Capture"}
+                    {isSubmitting
+                      ? "Recording…"
+                      : resultVideo
+                        ? "Record again"
+                        : "Start capture"}
                   </span>
                 </button>
 
-                <div className="toggle-row capture-toggle">
-                  <div className="toggle-copy">
-                    <strong>Fast Hydration Mode</strong>
-                    <span>
-                      Skips heavy page hydration delays and speeds up scrolling
-                      dynamics.
-                    </span>
-                  </div>
-                  <label className="toggle" aria-label="Fast mode">
+                <div className="recorder-actions-meta">
+                  <label className="recorder-fast-toggle" htmlFor="fastMode">
                     <input
                       type="checkbox"
                       id="fastMode"
@@ -417,26 +405,45 @@ export default function App() {
                         );
                       }}
                     />
-                    <span className="toggle-slider"></span>
+                    <span>Fast mode</span>
+                    <InfoTooltip text="Quicker capture with lower quality output." />
                   </label>
                 </div>
-              </div>
 
-              {statusType === "error" && (
-                <p className="status error" id="status" aria-live="polite">
-                  {statusText}
-                </p>
-              )}
+                {isSubmitting && (
+                  <ProgressCard
+                    percent={progressPercent}
+                    status={progressStatus}
+                    elapsed={elapsedTime}
+                  />
+                )}
 
-              <ProgressCard
-                percent={progressPercent}
-                status={progressStatus}
-                elapsed={elapsedTime}
-              />
+                {statusType === "error" && (
+                  <p className="status error" id="status" aria-live="polite">
+                    {statusText}
+                  </p>
+                )}
+
+                {resultVideo && !isSubmitting && (
+                  <div className="recorder-success">
+                    <p>
+                      Your scroll video is ready. Trim it and add pause holds in
+                      the editor.
+                    </p>
+                    <button
+                      type="button"
+                      className="recorder-editor-btn"
+                      onClick={openEditor}
+                    >
+                      Open in editor
+                    </button>
+                  </div>
+                )}
+              </section>
             </div>
-          </div>
-        </form>
-      )}
+          </form>
+        )}
+      </div>
     </main>
   );
 }

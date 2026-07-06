@@ -1,3 +1,4 @@
+import { Laptop, Monitor, Smartphone, Tablet } from "lucide-react";
 import React from "react";
 
 interface TargetPageFormProps {
@@ -5,16 +6,13 @@ interface TargetPageFormProps {
   setUrl: (u: string) => void;
   devicePreset: string;
   setDevicePreset: (p: string) => void;
-  quality: string;
-  setQuality: (q: string) => void;
-  fastMode: boolean;
 }
 
 const DEVICE_PRESETS = [
-  { value: "1920x1080", label: "Desktop", detail: "1920 × 1080" },
-  { value: "1440x900", label: "Laptop", detail: "1440 × 900" },
-  { value: "768x1024", label: "Tablet", detail: "768 × 1024" },
-  { value: "390x844", label: "Mobile", detail: "390 × 844" },
+  { value: "1920x1080", label: "Desktop", Icon: Monitor },
+  { value: "1440x900", label: "Laptop", Icon: Laptop },
+  { value: "768x1024", label: "Tablet", Icon: Tablet },
+  { value: "390x844", label: "Mobile", Icon: Smartphone },
 ] as const;
 
 export default function TargetPageForm({
@@ -22,24 +20,11 @@ export default function TargetPageForm({
   setUrl,
   devicePreset,
   setDevicePreset,
-  quality,
-  setQuality,
-  fastMode,
 }: TargetPageFormProps) {
   return (
-    <section className="panel target-panel">
-      <div className="panel-hero">
-        <span className="panel-step">Step 1</span>
-        <div className="panel-hero-copy">
-          <h2 className="panel-hero-title">Target Page</h2>
-          <p className="panel-hero-desc">
-            Enter the URL and viewport for your scroll capture.
-          </p>
-        </div>
-      </div>
-
-      <div className="field url-field">
-        <label htmlFor="url">Target URL</label>
+    <section className="recorder-setup" aria-label="Capture setup">
+      <div className="recorder-field">
+        <label htmlFor="url">Website URL</label>
         <div className="url-input-wrap">
           <svg
             className="url-input-icon"
@@ -59,35 +44,43 @@ export default function TargetPageForm({
             type="url"
             id="url"
             name="url"
-            className="url-input"
-            placeholder="https://example.com"
+            className="url-input recorder-url-input"
+            placeholder="https://yoursite.com"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             required
+            autoComplete="url"
           />
         </div>
       </div>
 
-      <div className="field">
-        <label>Device Viewport</label>
+      <div className="recorder-field">
+        <span className="recorder-field-label" id="viewport-label">
+          Screen size
+        </span>
         <div
-          className="device-preset-grid"
+          className="recorder-device-row"
           role="radiogroup"
-          aria-label="Device viewport"
+          aria-labelledby="viewport-label"
         >
-          {DEVICE_PRESETS.map((preset) => (
-            <button
-              key={preset.value}
-              type="button"
-              role="radio"
-              aria-checked={devicePreset === preset.value}
-              className={`device-preset-card${devicePreset === preset.value ? " is-active" : ""}`}
-              onClick={() => setDevicePreset(preset.value)}
-            >
-              <span className="device-preset-label">{preset.label}</span>
-              <span className="device-preset-detail">{preset.detail}</span>
-            </button>
-          ))}
+          {DEVICE_PRESETS.map((preset) => {
+            const isActive = devicePreset === preset.value;
+            return (
+              <button
+                key={preset.value}
+                type="button"
+                role="radio"
+                aria-checked={isActive}
+                aria-label={preset.label}
+                title={preset.value.replace("x", " × ")}
+                className={`recorder-device-btn${isActive ? " is-active" : ""}`}
+                onClick={() => setDevicePreset(preset.value)}
+              >
+                <preset.Icon size={16} strokeWidth={1.75} aria-hidden />
+                <span>{preset.label}</span>
+              </button>
+            );
+          })}
         </div>
         <select
           id="devicePreset"
@@ -100,33 +93,10 @@ export default function TargetPageForm({
         >
           {DEVICE_PRESETS.map((preset) => (
             <option key={preset.value} value={preset.value}>
-              {preset.label} ({preset.detail})
+              {preset.label}
             </option>
           ))}
         </select>
-      </div>
-
-      <div
-        className={`field quality-field${fastMode ? " is-disabled" : ""}`}
-        id="qualityField"
-      >
-        <label htmlFor="quality">Render Quality</label>
-        <select
-          id="quality"
-          name="quality"
-          value={quality}
-          onChange={(e) => setQuality(e.target.value)}
-          disabled={fastMode}
-        >
-          <option value="high">High — 2× capture, crisp detail</option>
-          <option value="medium">Medium — balanced speed & quality</option>
-          <option value="low">Low — fastest encode</option>
-        </select>
-        <p className="hint" id="qualityHint">
-          {fastMode
-            ? "Fast mode uses quick encoding and skips high-quality capture."
-            : "High quality samples at 2× scale for crisp renders."}
-        </p>
       </div>
     </section>
   );

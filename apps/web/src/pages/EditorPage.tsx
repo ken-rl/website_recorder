@@ -5,16 +5,25 @@ import React, {
   useRef,
   useState,
 } from "react";
-import EditorTimeline from "../components/EditorTimeline";
-import { useEditorPlayback } from "../hooks/useEditorPlayback";
+import AppTopbar from "../components/AppTopbar";
+import LordIcon from "../components/LordIcon";
+import EditorTimeline, {
+  type EditorTimelineHandle,
+} from "../timeline/components/EditorTimeline";
+import { usePauseDrag } from "../timeline/hooks/use-pause-drag";
+import { usePlaybackClock } from "../timeline/hooks/use-playback-clock";
+import { useTimelineSeek } from "../timeline/hooks/use-timeline-seek";
+import { useTrimDrag } from "../timeline/hooks/use-trim-drag";
+import { MAX_HOLD_MS, MIN_HOLD_MS } from "../timeline/utils";
 import {
   buildTimelineBlocks,
-  clampPauseAtMs,
+  clampSourceMs,
   exportMsToPlayback,
   exportMsToSourceMs,
   getExportDurationMs,
   sourceMsToExportMs,
 } from "../lib/editorTimeline";
+import { LORDICON } from "../lib/icons";
 
 interface EditorPause {
   id: string;
@@ -29,7 +38,7 @@ interface EditorPageProps {
   width: number;
   height: number;
   scrollStrategy?: "document" | "virtual";
-  onBack: () => void;
+  onNavigate: (path: string) => void;
 }
 
 function formatTime(ms: number) {
@@ -50,15 +59,14 @@ export default function EditorPage({
   width,
   height,
   scrollStrategy,
-  onBack,
+  onNavigate,
 }: EditorPageProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const timelineHandleRef = useRef<EditorTimelineHandle>(null);
   const exportMsRef = useRef(0);
   const blocksRef = useRef<ReturnType<typeof buildTimelineBlocks>>([]);
   const exportDurationMsRef = useRef(0);
-  const pauseDragOffsetRef = useRef(0);
-  const didDragRef = useRef(false);
   const pausesRef = useRef<EditorPause[]>([]);
   const trimStartMsRef = useRef(0);
   const trimEndMsRef = useRef(0);
@@ -72,17 +80,59 @@ export default function EditorPage({
   const [selectedPauseId, setSelectedPauseId] = useState<string | null>(null);
   const [defaultHoldMs, setDefaultHoldMs] = useState(1500);
   const [isPlaying, setIsPlaying] = useState(false);
+  const isPlayingRef = useRef(false);
   const [previewMode, setPreviewMode] = useState<"edit" | "export">("edit");
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState("");
   const [exportedUrl, setExportedUrl] = useState<string | null>(null);
-  const [dragTarget, setDragTarget] = useState<string | null>(null);
 
   const selectedPause = pauses.find((pause) => pause.id === selectedPauseId);
 
+  const seekToExportMsRef = useRef<(ms: number) => void>(() => {});
+  const stopPlaybackRef = useRef<() => void>(() => {});
+
+  const trimDrag = useTrimDrag({
+    timelineRef,
+    trimStartMs,
+    trimEndMs,
+    sourceDurationMsRef,
+    trimStartMsRef,
+    trimEndMsRef,
+    pausesRef,
+    blocksRef,
+    exportMsRef,
+    setTrimStartMs,
+    setTrimEndMs,
+    seekToExportMs: (ms) => seekToExportMsRef.current(ms),
+    stopPlayback: () => stopPlaybackRef.current(),
+  });
+
+  const displayTrimStartMs = trimDrag.displayTrimStartMs;
+  const displayTrimEndMs = trimDrag.displayTrimEndMs;
+
+  const pauseDrag = usePauseDrag({
+    timelineRef,
+    sourceDurationMsRef,
+    trimStartMsRef,
+    trimEndMsRef,
+    pausesRef,
+    blocksRef,
+    setPauses,
+    seekToExportMs: (ms) => seekToExportMsRef.current(ms),
+    stopPlayback: () => stopPlaybackRef.current(),
+    onSelectPause: setSelectedPauseId,
+  });
+
+  const effectivePauses = pauseDrag.previewPauses ?? pauses;
+
   const blocks = useMemo(
-    () => buildTimelineBlocks(trimStartMs, trimEndMs, pauses),
-    [trimStartMs, trimEndMs, pauses],
+    () =>
+      buildTimelineBlocks(
+        displayTrimStartMs,
+        displayTrimEndMs,
+        effectivePauses,
+      ),
+    [displayTrimEndMs, displayTrimStartMs, effectivePauses],
   );
 
   const exportDurationMs = useMemo(() => getExportDurationMs(blocks), [blocks]);
@@ -98,29 +148,9 @@ export default function EditorPage({
   const activeVideoUrl =
     previewMode === "export" && exportedUrl ? exportedUrl : sourceVideoUrl;
 
-  const exportMsFromClientX = useCallback(
-    (clientX: number) => {
-      const timeline = timelineRef.current;
-      if (!timeline || exportDurationMs <= 0) return 0;
-      const rect = timeline.getBoundingClientRect();
-      const ratio = Math.min(
-        1,
-        Math.max(0, (clientX - rect.left) / rect.width),
-      );
-      return Math.round(ratio * exportDurationMs);
-    },
-    [exportDurationMs],
-  );
-
-  const sourceMsFromExportClientX = useCallback(
-    (clientX: number) => {
-      return exportMsToSourceMs(
-        exportMsFromClientX(clientX),
-        blocksRef.current,
-      );
-    },
-    [exportMsFromClientX],
-  );
+  const handlePlayheadUpdate = useCallback((percent: number) => {
+    timelineHandleRef.current?.setPlayheadPercent(percent);
+  }, []);
 
   const {
     seekToExportMs,
@@ -128,15 +158,41 @@ export default function EditorPage({
     pausePlayback,
     handleTimeUpdate: handleEditTimeUpdate,
     stopPlayback,
-  } = useEditorPlayback({
+    updatePlayhead,
+  } = usePlaybackClock({
     videoRef,
     blocksRef,
     exportDurationMsRef,
     exportMsRef,
+    sourceDurationMsRef,
     setExportMs,
     previewMode,
     isPlaying,
     setIsPlaying,
+    onPlayheadUpdate: handlePlayheadUpdate,
+  });
+
+  seekToExportMsRef.current = seekToExportMs;
+  stopPlaybackRef.current = stopPlayback;
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  const isInteractionBlocked = useCallback(
+    () => trimDrag.isDragging || pauseDrag.isDragging,
+    [pauseDrag.isDragging, trimDrag.isDragging],
+  );
+
+  const timelineSeek = useTimelineSeek({
+    timelineRef,
+    sourceDurationMsRef,
+    trimStartMsRef,
+    trimEndMsRef,
+    blocksRef,
+    seekToExportMs,
+    stopPlayback,
+    isInteractionBlocked,
   });
 
   useEffect(() => {
@@ -173,16 +229,33 @@ export default function EditorPage({
   }, [activeVideoUrl, previewMode, handleEditTimeUpdate]);
 
   useEffect(() => {
-    if (exportMs > exportDurationMs) {
-      seekToExportMs(exportDurationMs);
+    if (previewMode !== "edit" || exportDurationMs <= 0 || isPlaying) return;
+
+    const currentSource = exportMsToSourceMs(exportMsRef.current, blocks);
+    const clampedSource = clampSourceMs(currentSource, trimStartMs, trimEndMs);
+    const nextExport = Math.min(
+      sourceMsToExportMs(clampedSource, blocks),
+      exportDurationMs,
+    );
+
+    if (Math.abs(nextExport - exportMsRef.current) > 1) {
+      seekToExportMs(nextExport);
     }
-  }, [exportDurationMs, exportMs, seekToExportMs]);
+  }, [
+    blocks,
+    exportDurationMs,
+    isPlaying,
+    previewMode,
+    seekToExportMs,
+    trimEndMs,
+    trimStartMs,
+  ]);
 
   useEffect(() => {
-    if (!isPlaying && previewMode === "edit" && exportDurationMs > 0) {
-      seekToExportMs(exportMsRef.current);
+    if (!isPlaying && !timelineSeek.isScrubbing) {
+      updatePlayhead(exportMs);
     }
-  }, [blocks, isPlaying, previewMode, exportDurationMs, seekToExportMs]);
+  }, [exportMs, isPlaying, timelineSeek.isScrubbing, updatePlayhead]);
 
   const togglePlayback = useCallback(() => {
     const video = videoRef.current;
@@ -195,13 +268,13 @@ export default function EditorPage({
       return;
     }
 
-    if (isPlaying) {
+    if (isPlayingRef.current) {
       pausePlayback();
       return;
     }
 
     startPlayback();
-  }, [isPlaying, previewMode, pausePlayback, startPlayback]);
+  }, [previewMode, pausePlayback, startPlayback]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -221,109 +294,19 @@ export default function EditorPage({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [togglePlayback]);
 
-  useEffect(() => {
-    if (!dragTarget) return;
-
-    const handleMove = (event: MouseEvent) => {
-      didDragRef.current = true;
-
-      if (dragTarget === "trim-start") {
-        const next = Math.min(
-          sourceMsFromExportClientX(event.clientX),
-          trimEndMsRef.current - 100,
-        );
-        const trimStart = Math.max(0, next);
-        setTrimStartMs(trimStart);
-        const nextBlocks = buildTimelineBlocks(
-          trimStart,
-          trimEndMsRef.current,
-          pausesRef.current,
-        );
-        seekToExportMs(sourceMsToExportMs(trimStart, nextBlocks));
-        return;
-      }
-
-      if (dragTarget === "trim-end") {
-        const next = Math.max(
-          sourceMsFromExportClientX(event.clientX),
-          trimStartMsRef.current + 100,
-        );
-        const trimEnd = Math.min(sourceDurationMsRef.current, next);
-        setTrimEndMs(trimEnd);
-        const nextBlocks = buildTimelineBlocks(
-          trimStartMsRef.current,
-          trimEnd,
-          pausesRef.current,
-        );
-        seekToExportMs(sourceMsToExportMs(trimEnd, nextBlocks));
-        return;
-      }
-
-      if (dragTarget.startsWith("resize-")) {
-        const pauseId = dragTarget.slice("resize-".length);
-        const block = blocksRef.current.find(
-          (entry) => entry.pauseId === pauseId,
-        );
-        if (!block) return;
-        const exportAtX = exportMsFromClientX(event.clientX);
-        const nextHold = Math.min(
-          30000,
-          Math.max(100, exportAtX - block.exportStartMs),
-        );
-        const nextPauses = pausesRef.current.map((pause) =>
-          pause.id === pauseId ? { ...pause, holdMs: nextHold } : pause,
-        );
-        pausesRef.current = nextPauses;
-        setPauses(nextPauses);
-        return;
-      }
-
-      const pauseId = dragTarget;
-      const nextAt = clampPauseAtMs(
-        sourceMsFromExportClientX(event.clientX) + pauseDragOffsetRef.current,
-        pauseId,
-        trimStartMsRef.current,
-        trimEndMsRef.current,
-        pausesRef.current,
-      );
-      const nextPauses = pausesRef.current.map((pause) =>
-        pause.id === pauseId ? { ...pause, atMs: nextAt } : pause,
-      );
-      const nextBlocks = buildTimelineBlocks(
-        trimStartMsRef.current,
-        trimEndMsRef.current,
-        nextPauses,
-      );
-      pausesRef.current = nextPauses;
-      blocksRef.current = nextBlocks;
-      setPauses(nextPauses);
-      seekToExportMs(sourceMsToExportMs(nextAt, nextBlocks));
-    };
-
-    const handleUp = () => {
-      setDragTarget(null);
-      pauseDragOffsetRef.current = 0;
-    };
-
-    window.addEventListener("mousemove", handleMove);
-    window.addEventListener("mouseup", handleUp);
-    return () => {
-      window.removeEventListener("mousemove", handleMove);
-      window.removeEventListener("mouseup", handleUp);
-    };
-  }, [
-    dragTarget,
-    exportMsFromClientX,
-    sourceMsFromExportClientX,
-    seekToExportMs,
-  ]);
-
   const addPauseAtPlayhead = () => {
+    stopPlayback();
     const { sourceMs } = exportMsToPlayback(exportMsRef.current, blocks);
     const atMs = Math.min(trimEndMs, Math.max(trimStartMs, sourceMs));
     const id = createPauseId();
-    setPauses((current) => [...current, { id, atMs, holdMs: defaultHoldMs }]);
+    const nextPauses = [
+      ...pausesRef.current,
+      { id, atMs, holdMs: defaultHoldMs },
+    ];
+    const nextBlocks = buildTimelineBlocks(trimStartMs, trimEndMs, nextPauses);
+    setPauses(nextPauses);
     setSelectedPauseId(id);
+    seekToExportMs(sourceMsToExportMs(atMs, nextBlocks));
   };
 
   const removePause = (id: string) => {
@@ -335,7 +318,10 @@ export default function EditorPage({
     setPauses((current) =>
       current.map((pause) =>
         pause.id === id
-          ? { ...pause, holdMs: Math.min(30000, Math.max(100, holdMs)) }
+          ? {
+              ...pause,
+              holdMs: Math.min(MAX_HOLD_MS, Math.max(MIN_HOLD_MS, holdMs)),
+            }
           : pause,
       ),
     );
@@ -386,85 +372,68 @@ export default function EditorPage({
   };
 
   return (
-    <div className="editor-workspace">
-      <header className="editor-topbar">
-        <div className="editor-topbar-left">
-          <button type="button" className="editor-back-btn" onClick={onBack}>
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-            Recorder
-          </button>
-          <div className="editor-project-meta">
-            <span className="editor-project-label">Editor</span>
-            <span className="editor-project-url" title={targetUrl}>
-              {targetUrl || "Untitled capture"}
+    <main className="app-shell app-shell-editor">
+      <AppTopbar
+        currentPath="/editor"
+        onNavigate={onNavigate}
+        hasEditorSession
+        actions={
+          <>
+            {scrollStrategy && (
+              <span className={`product-chip product-chip-${scrollStrategy}`}>
+                {scrollStrategy === "virtual" ? "Virtual" : "Document"}
+              </span>
+            )}
+            <span className="product-chip">
+              {width}×{height}
             </span>
-          </div>
-        </div>
-
-        <div className="editor-topbar-right">
-          {scrollStrategy && (
-            <span className={`editor-chip editor-chip-${scrollStrategy}`}>
-              {scrollStrategy === "virtual"
-                ? "Virtual scroll"
-                : "Document scroll"}
-            </span>
-          )}
-          <span className="editor-chip">
-            {width}×{height}
-          </span>
-          {exportedUrl && (
-            <div className="editor-preview-toggle">
-              <button
-                type="button"
-                className={previewMode === "edit" ? "is-active" : ""}
-                onClick={() => {
-                  stopPlayback();
-                  setPreviewMode("edit");
-                  seekToExportMs(exportMsRef.current);
-                }}
+            {exportedUrl && (
+              <div className="product-segmented">
+                <button
+                  type="button"
+                  className={previewMode === "edit" ? "is-active" : ""}
+                  onClick={() => {
+                    stopPlayback();
+                    setPreviewMode("edit");
+                    seekToExportMs(exportMsRef.current);
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className={previewMode === "export" ? "is-active" : ""}
+                  onClick={() => {
+                    stopPlayback();
+                    setPreviewMode("export");
+                  }}
+                >
+                  Export
+                </button>
+              </div>
+            )}
+            {exportedUrl ? (
+              <a
+                className="product-btn product-btn-ghost"
+                href={exportedUrl}
+                download="recording-edited.mp4"
               >
-                Edit preview
-              </button>
-              <button
-                type="button"
-                className={previewMode === "export" ? "is-active" : ""}
-                onClick={() => {
-                  stopPlayback();
-                  setPreviewMode("export");
-                }}
-              >
-                Export preview
-              </button>
-            </div>
-          )}
-          {exportedUrl ? (
-            <a
-              className="editor-download-btn"
-              href={exportedUrl}
-              download="recording-edited.mp4"
+                Download
+              </a>
+            ) : (
+              <span className="product-muted">Unsaved</span>
+            )}
+            <button
+              type="button"
+              className="product-btn product-btn-primary"
+              onClick={handleExport}
+              disabled={isExporting || sourceDurationMs <= 0}
             >
-              Download export
-            </a>
-          ) : (
-            <span className="editor-unsaved">Unsaved edits</span>
-          )}
-          <button
-            type="button"
-            className="editor-export-btn"
-            onClick={handleExport}
-            disabled={isExporting || sourceDurationMs <= 0}
-          >
-            {isExporting ? "Rendering..." : "Export MP4"}
-          </button>
-        </div>
-      </header>
+              {isExporting ? "Rendering…" : "Export MP4"}
+            </button>
+          </>
+        }
+      />
 
       <div className="editor-body">
         <aside className="editor-sidebar">
@@ -491,17 +460,7 @@ export default function EditorPage({
               type="button"
               className="editor-tool-btn editor-tool-btn-active"
             >
-              <span className="editor-tool-icon" aria-hidden>
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
-                  <path d="M13 13l6 6" />
-                </svg>
-              </span>
+              <LordIcon src={LORDICON.select} size={18} trigger="hover" />
               Select
             </button>
             <button
@@ -510,12 +469,7 @@ export default function EditorPage({
               onClick={addPauseAtPlayhead}
               disabled={sourceDurationMs <= 0 || previewMode === "export"}
             >
-              <span className="editor-tool-icon" aria-hidden>
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <rect x="6" y="5" width="4" height="14" rx="1" />
-                  <rect x="14" y="5" width="4" height="14" rx="1" />
-                </svg>
-              </span>
+              <LordIcon src={LORDICON.pause} size={18} trigger="hover" />
               Add pause
               <kbd className="editor-tool-kbd">P</kbd>
             </button>
@@ -530,11 +484,11 @@ export default function EditorPage({
                   <strong>{formatTime(selectedPause.atMs)}</strong>
                 </div>
                 <label className="editor-inspector-field">
-                  Hold duration (ms)
+                  Hold duration
                   <input
                     type="number"
-                    min={100}
-                    max={30000}
+                    min={MIN_HOLD_MS}
+                    max={MAX_HOLD_MS}
                     step={100}
                     value={selectedPause.holdMs}
                     onChange={(event) =>
@@ -556,22 +510,24 @@ export default function EditorPage({
             ) : (
               <div className="editor-inspector-card editor-inspector-empty">
                 <p>
-                  Select a pause block on the timeline, or add one at the
-                  playhead.
+                  Select a pause on the timeline, or add one at the playhead.
                 </p>
                 <label className="editor-inspector-field">
-                  Default hold (ms)
+                  Default hold
                   <input
                     type="number"
-                    min={100}
-                    max={30000}
+                    min={MIN_HOLD_MS}
+                    max={MAX_HOLD_MS}
                     step={100}
                     value={defaultHoldMs}
                     onChange={(event) =>
                       setDefaultHoldMs(
                         Math.min(
-                          30000,
-                          Math.max(100, Number(event.target.value) || 1500),
+                          MAX_HOLD_MS,
+                          Math.max(
+                            MIN_HOLD_MS,
+                            Number(event.target.value) || 1500,
+                          ),
                         ),
                       )
                     }
@@ -580,21 +536,13 @@ export default function EditorPage({
               </div>
             )}
           </section>
-
-          <section className="editor-sidebar-section editor-sidebar-hint">
-            <p>
-              Orange blocks are pause holds in the exported video. Drag a block
-              to move it, or drag the right edge to change hold length. Press{" "}
-              <kbd>Space</kbd> to preview.
-            </p>
-          </section>
         </aside>
 
         <main className="editor-stage">
           <div className="editor-stage-label">
-            <span className="editor-stage-eyebrow">Program monitor</span>
+            <span className="editor-stage-eyebrow">Monitor</span>
             <span className="editor-stage-mode">
-              {previewMode === "export" ? "Export preview" : "Edit preview"}
+              {previewMode === "export" ? "Export" : "Edit"}
             </span>
           </div>
           <div
@@ -648,7 +596,7 @@ export default function EditorPage({
             </button>
             <div className="editor-timecode">
               <span className="editor-timecode-current">
-                {formatTime(previewMode === "export" ? exportMs : exportMs)}
+                {formatTime(exportMs)}
               </span>
               <span className="editor-timecode-sep">/</span>
               <span className="editor-timecode-duration">
@@ -661,9 +609,7 @@ export default function EditorPage({
               </span>
             </div>
             {previewMode === "edit" && (
-              <span className="editor-timecode editor-timecode-mode">
-                Edit preview
-              </span>
+              <span className="editor-timecode editor-timecode-mode">Edit</span>
             )}
           </div>
         </main>
@@ -673,7 +619,8 @@ export default function EditorPage({
         <div className="editor-timeline-toolbar">
           <span className="editor-timeline-title">Timeline</span>
           <span className="editor-timeline-meta">
-            Source {formatTime(trimStartMs)}–{formatTime(trimEndMs)} · Export{" "}
+            Source {formatTime(displayTrimStartMs)}–
+            {formatTime(displayTrimEndMs)} · Export{" "}
             {formatTime(exportDurationMs)}
             {pauses.length > 0 &&
               ` · ${pauses.length} pause${pauses.length === 1 ? "" : "s"}`}
@@ -682,39 +629,33 @@ export default function EditorPage({
 
         {sourceDurationMs > 0 && previewMode === "edit" && (
           <EditorTimeline
+            ref={timelineHandleRef}
             blocks={blocks}
-            exportDurationMs={exportDurationMs}
+            sourceDurationMs={sourceDurationMs}
+            trimStartMs={displayTrimStartMs}
+            trimEndMs={displayTrimEndMs}
             exportMs={exportMs}
+            isPlaying={isPlaying}
+            isScrubbing={timelineSeek.isScrubbing}
             selectedPauseId={selectedPauseId}
-            dragTarget={dragTarget}
+            trimDragHandle={trimDrag.dragHandle}
+            pauseDragId={pauseDrag.dragPauseId}
+            pauseDragMode={pauseDrag.dragMode}
             timelineRef={timelineRef}
-            onSeekExport={(exportMs) => {
-              if (didDragRef.current) {
-                didDragRef.current = false;
-                return;
-              }
-              seekToExportMs(exportMs);
-            }}
-            onTrimStartDrag={() => setDragTarget("trim-start")}
-            onTrimEndDrag={() => setDragTarget("trim-end")}
-            onPauseDrag={(pauseId, clientX) => {
-              const pause = pauses.find((entry) => entry.id === pauseId);
-              if (!pause) return;
-              stopPlayback();
-              pauseDragOffsetRef.current =
-                pause.atMs - sourceMsFromExportClientX(clientX);
-              setDragTarget(pauseId);
-              setSelectedPauseId(pauseId);
-            }}
-            onPauseResize={(pauseId) => {
-              stopPlayback();
-              setDragTarget(`resize-${pauseId}`);
-              setSelectedPauseId(pauseId);
-            }}
+            onTrackMouseDown={timelineSeek.startTrackSeek}
+            onPlayheadMouseDown={timelineSeek.startPlayheadScrub}
+            onTrimStartDrag={trimDrag.startTrimStartDrag}
+            onTrimEndDrag={trimDrag.startTrimEndDrag}
+            onPauseDrag={pauseDrag.startMoveDrag}
+            onPauseResize={pauseDrag.startResizeDrag}
             onSelectPause={(pauseId) => {
               setSelectedPauseId(pauseId);
-              const pause = pauses.find((entry) => entry.id === pauseId);
-              if (pause) seekToExportMs(sourceMsToExportMs(pause.atMs, blocks));
+              const pause = effectivePauses.find(
+                (entry) => entry.id === pauseId,
+              );
+              if (pause) {
+                seekToExportMs(sourceMsToExportMs(pause.atMs, blocks));
+              }
             }}
           />
         )}
@@ -735,6 +676,6 @@ export default function EditorPage({
           Export rendered with pause holds baked in.
         </div>
       )}
-    </div>
+    </main>
   );
 }

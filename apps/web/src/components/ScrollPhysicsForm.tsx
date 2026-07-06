@@ -1,4 +1,5 @@
 import React from "react";
+import FieldLabel from "./FieldLabel";
 
 interface ScrollPhysicsFormProps {
   selectedCurve: string;
@@ -17,8 +18,9 @@ export default function ScrollPhysicsForm({
   customInputText,
   setCustomInputText,
 }: ScrollPhysicsFormProps) {
-
-  const handleBezierTextInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBezierTextInputChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const val = e.target.value;
     setCustomInputText(val);
     if (selectedCurve === "custom") {
@@ -30,9 +32,11 @@ export default function ScrollPhysicsForm({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+    <div className="scroll-physics-form">
       <div className="field">
-        <label htmlFor="curveSelect">Timeline Interpolation Curve</label>
+        <FieldLabel htmlFor="curveSelect">
+          Timeline Interpolation Curve
+        </FieldLabel>
         <select
           id="curveSelect"
           value={selectedCurve}
@@ -40,7 +44,9 @@ export default function ScrollPhysicsForm({
             const val = e.target.value;
             setSelectedCurve(val);
             if (val === "custom") {
-              setCustomInputText(customBezier.map((n) => n.toFixed(2)).join(", "));
+              setCustomInputText(
+                customBezier.map((n) => n.toFixed(2)).join(", "),
+              );
             }
           }}
         >
@@ -55,8 +61,16 @@ export default function ScrollPhysicsForm({
         </select>
       </div>
 
-      <div className={`field${selectedCurve !== "custom" ? " hidden" : ""}`} id="customBezierField">
-        <label htmlFor="customBezier">Custom Cubic Bezier</label>
+      <div
+        className={`field${selectedCurve !== "custom" ? " hidden" : ""}`}
+        id="customBezierField"
+      >
+        <FieldLabel
+          htmlFor="customBezier"
+          hint="Standard CSS cubic-bezier parameters, e.g. 0.42, 0, 0.58, 1"
+        >
+          Custom Cubic Bezier
+        </FieldLabel>
         <input
           type="text"
           id="customBezier"
@@ -65,9 +79,6 @@ export default function ScrollPhysicsForm({
           onChange={handleBezierTextInputChange}
           placeholder="x1, y1, x2, y2"
         />
-        <p className="hint">
-          Standard CSS cubic-bezier parameters, e.g. 0.42, 0, 0.58, 1
-        </p>
       </div>
     </div>
   );

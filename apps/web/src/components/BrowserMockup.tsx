@@ -5,12 +5,9 @@ interface BrowserMockupProps {
   videoUrl: string | null;
   duration: string | null;
   scrollStrategy?: "document" | "virtual";
-  isEdited?: boolean;
-  onOpenEditor?: () => void;
   width: number;
   height: number;
   isSubmitting: boolean;
-  statusType: string;
 }
 
 export default function BrowserMockup({
@@ -18,23 +15,26 @@ export default function BrowserMockup({
   videoUrl,
   duration,
   scrollStrategy,
-  isEdited,
-  onOpenEditor,
   width,
   height,
   isSubmitting,
 }: BrowserMockupProps) {
-  const isMobile = width < height;
+  const isPortrait = width < height;
   const displayUrl = url || "https://example.com";
+  const previewState = videoUrl ? "ready" : isSubmitting ? "recording" : "idle";
+  const previewVars = {
+    "--preview-w": String(width),
+    "--preview-h": String(height),
+  } as React.CSSProperties;
 
   return (
-    <div className="result-container capture-window">
+    <div
+      className={`result-container capture-window${isPortrait ? " is-portrait-device" : " is-landscape-device"}`}
+      style={previewVars}
+    >
       <div
-        className={`browser-mockup capture-browser${isMobile ? " is-mobile" : ""}${isSubmitting ? " is-recording" : ""}${videoUrl ? " has-video" : ""}`}
-        style={{
-          maxWidth: isMobile ? "280px" : "100%",
-          margin: isMobile ? "0 auto" : "0",
-        }}
+        key={`${width}x${height}`}
+        className={`browser-mockup capture-browser is-state-${previewState}${isPortrait ? " is-mobile is-portrait" : " is-landscape"}${isSubmitting ? " is-recording" : ""}${videoUrl ? " has-video" : ""}`}
       >
         <div className="browser-header">
           <div className="browser-dots" aria-hidden>
@@ -82,7 +82,7 @@ export default function BrowserMockup({
         </div>
 
         <div
-          className="browser-content"
+          className={`browser-content${isPortrait ? " is-portrait-preview" : " is-landscape-preview"}`}
           style={{ aspectRatio: `${width} / ${height}` }}
         >
           {isSubmitting && <div className="browser-scanline" aria-hidden />}
@@ -91,11 +91,11 @@ export default function BrowserMockup({
             <div className="browser-media">
               <video id="player" src={videoUrl} controls autoPlay playsInline />
             </div>
-          ) : (
-            <div className="browser-placeholder">
+          ) : isSubmitting ? (
+            <div className="browser-placeholder browser-placeholder-recording">
               <div className="placeholder-visual">
                 <svg
-                  className={`placeholder-icon${isSubmitting ? " pulsating" : ""}`}
+                  className="placeholder-icon pulsating"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -108,60 +108,34 @@ export default function BrowserMockup({
                   <line x1="12" y1="17" x2="12" y2="21" />
                   <circle cx="12" cy="10" r="3" />
                 </svg>
-                {isSubmitting && (
-                  <span className="placeholder-recording-ring" aria-hidden />
-                )}
+                <span className="placeholder-recording-ring" aria-hidden />
               </div>
-              <div className="placeholder-title">
-                {isSubmitting ? "Capturing active view" : "Awaiting capture"}
-              </div>
-              <div className="placeholder-desc">
-                {isSubmitting
-                  ? "Playwright is scrolling and recording the target URL."
-                  : "Set your target URL, then press Start Capture."}
-              </div>
+              <div className="placeholder-title">Recording…</div>
+            </div>
+          ) : (
+            <div className="browser-placeholder browser-placeholder-idle">
+              <span className="idle-viewport-badge">
+                {width} × {height}
+              </span>
+              <div className="placeholder-title">Ready to capture</div>
+              <p className="idle-preview-url">{displayUrl}</p>
             </div>
           )}
-        </div>
-
-        <div className="browser-footer-bar">
-          <span className="browser-footer-label">Viewport</span>
-          <span className="browser-footer-value">
-            {width} × {height}
-          </span>
         </div>
       </div>
 
       {duration && (
         <div className="meta capture-meta">
-          <span id="duration">Completed in {duration}</span>
-          <div className="meta-actions">
-            <span className="meta-badges">
-              {scrollStrategy && (
-                <span
-                  className={`scroll-strategy-badge scroll-strategy-${scrollStrategy}`}
-                >
-                  {scrollStrategy === "virtual"
-                    ? "Virtual scroll"
-                    : "Document scroll"}
-                </span>
-              )}
-              {isEdited && (
-                <span className="scroll-strategy-badge scroll-strategy-edited">
-                  Edited
-                </span>
-              )}
+          <span id="duration">{duration}</span>
+          {scrollStrategy && (
+            <span
+              className={`scroll-strategy-badge scroll-strategy-${scrollStrategy}`}
+            >
+              {scrollStrategy === "virtual"
+                ? "Virtual scroll"
+                : "Document scroll"}
             </span>
-            {onOpenEditor && (
-              <button
-                type="button"
-                className="open-editor-btn"
-                onClick={onOpenEditor}
-              >
-                Open in Editor
-              </button>
-            )}
-          </div>
+          )}
         </div>
       )}
     </div>

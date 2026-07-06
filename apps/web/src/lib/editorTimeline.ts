@@ -195,6 +195,9 @@ export function sourceMsToExportMs(
       if (sourceMs >= block.sourceStartMs && sourceMs < block.sourceEndMs) {
         return block.exportStartMs + (sourceMs - block.sourceStartMs);
       }
+      if (sourceMs === block.sourceEndMs) {
+        return block.exportEndMs;
+      }
       continue;
     }
 
@@ -204,10 +207,108 @@ export function sourceMsToExportMs(
   }
 
   const last = blocks[blocks.length - 1];
-  return last?.exportEndMs ?? sourceMs;
+  return last?.exportEndMs ?? 0;
 }
 
 export function exportPercent(exportMs: number, exportDurationMs: number) {
   if (exportDurationMs <= 0) return 0;
   return (exportMs / exportDurationMs) * 100;
+}
+
+export function sourcePercent(sourceMs: number, sourceDurationMs: number) {
+  if (sourceDurationMs <= 0) return 0;
+  return (sourceMs / sourceDurationMs) * 100;
+}
+
+export function sourceMsFromRatio(ratio: number, sourceDurationMs: number) {
+  const clamped = Math.min(1, Math.max(0, ratio));
+  return Math.round(clamped * sourceDurationMs);
+}
+
+/** Playhead position on the full source timeline (pauses pin to source frame). */
+export function exportMsToSourcePlayheadPercent(
+  exportMs: number,
+  sourceDurationMs: number,
+  blocks: TimelineBlock[],
+) {
+  if (sourceDurationMs <= 0) return 0;
+  const { sourceMs } = exportMsToPlayback(exportMs, blocks);
+  return sourcePercent(sourceMs, sourceDurationMs);
+}
+
+export function clampSourceMs(
+  sourceMs: number,
+  trimStartMs: number,
+  trimEndMs: number,
+) {
+  return Math.min(trimEndMs, Math.max(trimStartMs, sourceMs));
+}
+
+export interface SourcePlaybackPosition {
+  block: TimelineBlock;
+  atEnd: boolean;
+  skippedFreeze?: TimelineBlock;
+}
+
+export function resolveSourcePlaybackPosition(
+  sourceMs: number,
+  blocks: TimelineBlock[],
+  endToleranceMs = 40,
+): SourcePlaybackPosition | null {
+  for (const block of blocks) {
+    if (
+      block.type === "play" &&
+      sourceMs >= block.sourceStartMs &&
+      sourceMs < block.sourceEndMs - endToleranceMs
+    ) {
+      return { block, atEnd: false };
+    }
+  }
+
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+    if (block.type === "play") {
+      if (
+        sourceMs >= block.sourceEndMs - endToleranceMs &&
+        sourceMs <= block.sourceEndMs + endToleranceMs
+      ) {
+        return { block, atEnd: true };
+      }
+      if (sourceMs > block.sourceEndMs + endToleranceMs) {
+        const next = blocks[i + 1];
+        if (next?.type === "freeze") {
+          const afterFreeze = blocks[i + 2];
+          if (
+            afterFreeze?.type === "play" &&
+            sourceMs >= afterFreeze.sourceStartMs
+          ) {
+            return { block, atEnd: true, skippedFreeze: next };
+          }
+        }
+      }
+    }
+  }
+
+  for (const block of blocks) {
+    if (
+      block.type === "play" &&
+      sourceMs >= block.sourceStartMs &&
+      sourceMs < block.sourceEndMs
+    ) {
+      return { block, atEnd: false };
+    }
+  }
+
+  return null;
+}
+
+export function sourceMsFromTrimRatio(
+  ratio: number,
+  trimStartMs: number,
+  trimEndMs: number,
+): number {
+  if (trimEndMs <= trimStartMs) return trimStartMs;
+  return Math.round(
+    trimStartMs + Math.min(1, Math.max(0, ratio)) * (trimEndMs - trimStartMs),
+  );
 }

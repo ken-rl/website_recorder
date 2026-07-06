@@ -9,14 +9,55 @@ export interface Curve {
 }
 
 export const CURVES: Curve[] = [
-  { id: "linear", label: "Linear", desc: "Constant speed", bezier: [0, 0, 1, 1] },
-  { id: "ease-in", label: "Ease in", desc: "Slow start", bezier: [0.65, 0, 1, 0.45] },
-  { id: "ease-out", label: "Ease out", desc: "Slow end", bezier: [0, 0, 0.58, 1] },
-  { id: "ease-in-out", label: "Ease in-out", desc: "Slow start & end", bezier: [0.42, 0, 0.58, 1] },
-  { id: "ease-in-cubic", label: "In cubic", desc: "Strong slow start", bezier: [0.55, 0.055, 0.675, 0.19] },
-  { id: "ease-out-cubic", label: "Out cubic", desc: "Strong slow end", bezier: [0.215, 0.61, 0.355, 1] },
-  { id: "ease-in-out-cubic", label: "In-out cubic", desc: "Heavy easing", bezier: [0.645, 0.045, 0.355, 1] },
-  { id: "custom", label: "Custom", desc: "Cubic bezier input", bezier: [0.42, 0, 0.58, 1], wide: true },
+  {
+    id: "linear",
+    label: "Linear",
+    desc: "Constant speed",
+    bezier: [0, 0, 1, 1],
+  },
+  {
+    id: "ease-in",
+    label: "Ease in",
+    desc: "Slow start",
+    bezier: [0.65, 0, 1, 0.45],
+  },
+  {
+    id: "ease-out",
+    label: "Ease out",
+    desc: "Slow end",
+    bezier: [0, 0, 0.58, 1],
+  },
+  {
+    id: "ease-in-out",
+    label: "Ease in-out",
+    desc: "Slow start & end",
+    bezier: [0.42, 0, 0.58, 1],
+  },
+  {
+    id: "ease-in-cubic",
+    label: "In cubic",
+    desc: "Strong slow start",
+    bezier: [0.55, 0.055, 0.675, 0.19],
+  },
+  {
+    id: "ease-out-cubic",
+    label: "Out cubic",
+    desc: "Strong slow end",
+    bezier: [0.215, 0.61, 0.355, 1],
+  },
+  {
+    id: "ease-in-out-cubic",
+    label: "In-out cubic",
+    desc: "Heavy easing",
+    bezier: [0.645, 0.045, 0.355, 1],
+  },
+  {
+    id: "custom",
+    label: "Custom",
+    desc: "Cubic bezier input",
+    bezier: [0.42, 0, 0.58, 1],
+    wide: true,
+  },
 ];
 
 interface BezierVisualizerProps {
@@ -26,6 +67,7 @@ interface BezierVisualizerProps {
   setCustomBezier: (b: [number, number, number, number]) => void;
   customInputText: string;
   setCustomInputText: (t: string) => void;
+  embedded?: boolean;
 }
 
 export default function BezierVisualizer({
@@ -35,6 +77,7 @@ export default function BezierVisualizer({
   setCustomBezier,
   customInputText,
   setCustomInputText,
+  embedded = false,
 }: BezierVisualizerProps) {
   const [hoveredHandle, setHoveredHandle] = useState<number | null>(null);
   const activeDragHandle = useRef<number | null>(null);
@@ -50,7 +93,10 @@ export default function BezierVisualizer({
     return match ? match.bezier : [0, 0, 1, 1];
   };
 
-  function sampleCurveY(bezier: [number, number, number, number], linearProgress: number) {
+  function sampleCurveY(
+    bezier: [number, number, number, number],
+    linearProgress: number,
+  ) {
     const [x1, y1, x2, y2] = bezier;
 
     function sampleX(t: number) {
@@ -65,7 +111,11 @@ export default function BezierVisualizer({
     }
 
     function sampleDx(t: number) {
-      return 3 * (1 - t) * (1 - t) * x1 + 6 * (1 - t) * t * (x2 - x1) + 3 * t * t * (1 - x2);
+      return (
+        3 * (1 - t) * (1 - t) * x1 +
+        6 * (1 - t) * t * (x2 - x1) +
+        3 * t * t * (1 - x2)
+      );
     }
 
     if (linearProgress <= 0) return 0;
@@ -90,7 +140,12 @@ export default function BezierVisualizer({
     return sampleYVal(Math.min(1, Math.max(0, param)));
   }
 
-  function curvePoints(bezier: [number, number, number, number], width: number, height: number, padding: number) {
+  function curvePoints(
+    bezier: [number, number, number, number],
+    width: number,
+    height: number,
+    padding: number,
+  ) {
     const points = [];
     const innerW = width - padding * 2;
     const innerH = height - padding * 2;
@@ -210,7 +265,8 @@ export default function BezierVisualizer({
       ctx.stroke();
 
       // 6. Draw handles
-      let g1 = hoveredHandle === 1 || activeDragHandle.current === 1 ? 0.35 : 0.15;
+      let g1 =
+        hoveredHandle === 1 || activeDragHandle.current === 1 ? 0.35 : 0.15;
       ctx.fillStyle = `rgba(255, 255, 255, ${g1})`;
       ctx.beginPath();
       ctx.arc(cx1, cy1, 10, 0, Math.PI * 2);
@@ -221,7 +277,8 @@ export default function BezierVisualizer({
       ctx.arc(cx1, cy1, 4.5, 0, Math.PI * 2);
       ctx.fill();
 
-      let g2 = hoveredHandle === 2 || activeDragHandle.current === 2 ? 0.35 : 0.15;
+      let g2 =
+        hoveredHandle === 2 || activeDragHandle.current === 2 ? 0.35 : 0.15;
       ctx.fillStyle = `rgba(255, 255, 255, ${g2})`;
       ctx.beginPath();
       ctx.arc(cx2, cy2, 10, 0, Math.PI * 2);
@@ -303,7 +360,8 @@ export default function BezierVisualizer({
       ctx.strokeRect(simX, simY, simW, simH);
 
       const sbHeight = ((simH - headerH) / pageHeight) * (simH - headerH);
-      const sbY = simY + headerH + (scrollY / maxScroll) * (simH - headerH - sbHeight);
+      const sbY =
+        simY + headerH + (scrollY / maxScroll) * (simH - headerH - sbHeight);
       ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
       ctx.fillRect(simX + simW - 3, sbY, 1.5, sbHeight);
 
@@ -314,18 +372,22 @@ export default function BezierVisualizer({
     render();
 
     return () => {
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (animationFrameRef.current)
+        cancelAnimationFrame(animationFrameRef.current);
     };
   }, [selectedCurve, customBezier, hoveredHandle]);
 
-  function getPosFromEvent(e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) {
+  function getPosFromEvent(
+    e:
+      React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+  ) {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
-    
+
     let clientX = 0;
     let clientY = 0;
-    
+
     if ("touches" in e) {
       if (e.touches.length === 0) return null;
       clientX = e.touches[0].clientX;
@@ -344,7 +406,10 @@ export default function BezierVisualizer({
     };
   }
 
-  function handleInteractionStart(e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) {
+  function handleInteractionStart(
+    e:
+      React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+  ) {
     const pos = getPosFromEvent(e);
     if (!pos) return;
 
@@ -371,7 +436,10 @@ export default function BezierVisualizer({
     }
   }
 
-  function handleInteractionMove(e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) {
+  function handleInteractionMove(
+    e:
+      React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+  ) {
     const pos = getPosFromEvent(e);
     if (!pos) return;
 
@@ -432,7 +500,9 @@ export default function BezierVisualizer({
   }
 
   return (
-    <div className="curve-preview">
+    <div
+      className={`curve-preview${embedded ? " curve-preview-embedded" : ""}`}
+    >
       <div className="curve-preview-head">
         <strong id="previewLabel">
           {CURVES.find((c) => c.id === selectedCurve)?.label || "Custom"}
@@ -460,7 +530,10 @@ export default function BezierVisualizer({
           onTouchCancel={handleInteractionEnd}
         />
       </div>
-      <p className="canvas-tip">Drag the white handle points on the grid to visually customize the curve.</p>
+      <p className="canvas-tip">
+        Drag the white handle points on the grid to visually customize the
+        curve.
+      </p>
     </div>
   );
 }

@@ -1,4 +1,6 @@
 import React from "react";
+import FieldLabel from "./FieldLabel";
+import InfoTooltip from "./InfoTooltip";
 
 export type ScrollModeOption = "auto" | "document" | "virtual";
 
@@ -30,7 +32,12 @@ export default function VirtualScrollForm({
   return (
     <div className="virtual-scroll-form">
       <div className="field">
-        <label htmlFor="scrollMode">Scroll Strategy</label>
+        <FieldLabel
+          htmlFor="scrollMode"
+          hint="Auto picks document scrolling for normal pages, or virtual wheel scrolling for fixed-viewport and infinite-loop sites like WebGL experiences. Virtual capture uses a visible browser window when needed for smooth video."
+        >
+          Scroll Strategy
+        </FieldLabel>
         <select
           id="scrollMode"
           value={scrollMode}
@@ -40,19 +47,18 @@ export default function VirtualScrollForm({
           <option value="document">Document scroll</option>
           <option value="virtual">Virtual scroll (wheel input)</option>
         </select>
-        <p className="hint">
-          Auto picks document scrolling for normal pages, or virtual wheel
-          scrolling for fixed-viewport and infinite-loop sites like WebGL
-          experiences. Virtual capture uses a visible browser window when needed
-          for smooth video.
-        </p>
       </div>
 
       <div
         className={`virtual-scroll-options${showVirtualOptions ? "" : " hidden"}`}
       >
         <div className="field">
-          <label htmlFor="virtualScrollCycles">Virtual scroll cycles</label>
+          <FieldLabel
+            htmlFor="virtualScrollCycles"
+            hint={`Viewport-heights of scroll to replay. Default is ${fastMode ? "6" : "8"} cycles (~${fastMode ? "4.5" : "10"}s). Use Linear curve for smoothest infinite-loop captures.`}
+          >
+            Virtual scroll cycles
+          </FieldLabel>
           <input
             type="number"
             id="virtualScrollCycles"
@@ -66,11 +72,6 @@ export default function VirtualScrollForm({
               )
             }
           />
-          <p className="hint">
-            Viewport-heights of scroll to replay. Default is{" "}
-            {fastMode ? "6" : "8"} cycles (~{fastMode ? "4.5" : "10"}s). Use
-            Linear curve for smoothest infinite-loop captures.
-          </p>
         </div>
 
         <div className="field">
@@ -82,6 +83,7 @@ export default function VirtualScrollForm({
               onChange={(e) => setUseFixedDuration(e.target.checked)}
             />
             <span>Use fixed scroll duration (ms)</span>
+            <InfoTooltip text="Optional override. Leave unchecked to derive duration from cycles and scroll speed." />
           </label>
           <input
             type="number"
@@ -100,10 +102,6 @@ export default function VirtualScrollForm({
               )
             }
           />
-          <p className="hint">
-            Optional override. Leave unchecked to derive duration from cycles
-            and scroll speed.
-          </p>
         </div>
       </div>
     </div>
