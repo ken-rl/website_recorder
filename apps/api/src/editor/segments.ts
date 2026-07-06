@@ -20,7 +20,7 @@ export function buildEditSegments(
   pauses: EditorPause[],
 ): EditSegment[] {
   const sorted = [...pauses]
-    .filter((pause) => pause.atMs > trimStartMs && pause.atMs < trimEndMs)
+    .filter((pause) => pause.atMs >= trimStartMs && pause.atMs <= trimEndMs)
     .sort((a, b) => a.atMs - b.atMs);
 
   const deduped: EditorPause[] = [];

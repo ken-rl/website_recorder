@@ -126,16 +126,22 @@ async function extractFreezeSegment(
   try {
     await runFfmpeg([
       "-y",
-      "-ss",
-      atSec,
       "-i",
       inputPath,
+      "-ss",
+      atSec,
       "-frames:v",
       "1",
       "-q:v",
       "2",
       framePath,
     ]);
+
+    const freezeFilters = [
+      scale,
+      `fps=${DEFAULT_FPS}`,
+      "format=yuv420p",
+    ].filter(Boolean);
 
     await runFfmpeg([
       "-y",
@@ -156,7 +162,9 @@ async function extractFreezeSegment(
       String(encode.crf),
       "-pix_fmt",
       "yuv420p",
-      ...(filters.length ? ["-vf", filters.join(",")] : []),
+      "-vsync",
+      "cfr",
+      ...(freezeFilters.length ? ["-vf", freezeFilters.join(",")] : []),
       outputPath,
     ]);
   } finally {
