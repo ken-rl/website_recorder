@@ -51,14 +51,23 @@ export async function recordWebsite(
   const profile = resolveRecordingProfile(request);
   const { pixelsPerFrame, preRecordingDelayMs, encode, hydrateFast } = profile;
   const deviceScaleFactor = encode.deviceScaleFactor;
-  const framerate = request.videoConfig.framerate ?? DEFAULT_FRAMERATE;
+  const outputFramerate = request.videoConfig.framerate ?? DEFAULT_FRAMERATE;
   const animation = request.animationConfig ?? {};
   const pauseTriggers = animation.pauseTriggers ?? [];
   const scrollCurve = resolveScrollCurve(animation.scrollCurve);
   const removeOverlays = animation.removeOverlayElements ?? true;
   const captureMode = animation.captureMode ?? "export";
 
-  console.log(`Capture mode: ${captureMode}`);
+  // For export mode: each screenshot corresponds to one scroll step (pixelsPerFrame px).
+  // The scroll animation targets SCROLL_FPS (60) steps/sec. So the effective capture rate is
+  // SCROLL_FPS / pixelsPerFrame frames per second of source video duration.
+  // e.g. pixelsPerFrame=2 → 30 fps (half the steps per second), pixelsPerFrame=4 → 15 fps.
+  // ffmpeg resamples this to the output framerate.
+  const SCROLL_FPS = 60;
+  const captureFps = Math.max(1, Math.round(SCROLL_FPS / pixelsPerFrame));
+
+  console.log(`Capture mode: ${captureMode}, pixelsPerFrame: ${pixelsPerFrame}, captureFps: ${captureFps}`);
+
 
   const startedAt = Date.now();
   const launch = resolveBrowserLaunch(animation);
@@ -94,7 +103,8 @@ export async function recordWebsite(
       headless: captureHeadless,
       launchArgs: launchArgsForHeadless(captureHeadless),
       deviceScaleFactor,
-      framerate,
+      framerate: outputFramerate,
+      captureFps,
       captureMode,
     });
 
@@ -125,7 +135,7 @@ export async function recordWebsite(
   await transcodeToMp4(
     capture.rawVideoPath,
     mp4Path,
-    framerate,
+    outputFramerate,
     targetWidth,
     targetHeight,
     encode,
@@ -230,6 +240,7 @@ async function runRecordSession(options: {
   launchArgs: string[];
   deviceScaleFactor: number;
   framerate: number;
+  captureFps: number;
   captureMode: "preview" | "export";
 }): Promise<CaptureSessionResult> {
   const {
@@ -247,6 +258,7 @@ async function runRecordSession(options: {
     launchArgs,
     deviceScaleFactor,
     framerate,
+    captureFps,
     captureMode,
   } = options;
 
@@ -273,14 +285,11 @@ async function runRecordSession(options: {
       framerate,
     });
   }
-
   // Export mode: Screenshot-based frame capture for high quality
+  // Use the logical viewport + deviceScaleFactor (not a physically scaled viewport at scale 1).
+  // Playwright's page.screenshot() honours deviceScaleFactor and returns physical-resolution images.
   const framesDir = path.join(outputDir, ".frames");
-  const scaledViewport = {
-    width: viewport.width * deviceScaleFactor,
-    height: viewport.height * deviceScaleFactor,
-  };
-  const recordContextOptions = buildContextOptions(scaledViewport, 1);
+  const recordContextOptions = buildContextOptions(viewport, deviceScaleFactor);
 
   try {
     await fs.mkdir(framesDir, { recursive: true });
@@ -292,7 +301,7 @@ async function runRecordSession(options: {
 
     const frameRecorder = new FrameRecorder({
       outputDir: framesDir,
-      fps: framerate,
+      fps: captureFps,
       scaleFactor: deviceScaleFactor,
       qualityJpeg: 95,
       parallelWorkers: 3,
@@ -324,8 +333,8 @@ async function runRecordSession(options: {
         bezier: scrollCurve,
         scrollMode: animation.scrollMode,
         animationConfig: animation,
-        viewportWidth: scaledViewport.width,
-        viewportHeight: scaledViewport.height,
+        viewportWidth: viewport.width,
+        viewportHeight: viewport.height,
         fastMode: animation.fastMode ?? false,
         frameRecorder,
       });
@@ -335,9 +344,10 @@ async function runRecordSession(options: {
       await page.close();
       await recordContext.close();
 
-      // Stitch frames into video (already captured at scaled resolution)
+      // Stitch captured frames into a raw video at capture FPS;
+      // transcodeToMp4 will resample to the output framerate.
       const tempRawVideoPath = path.join(outputDir, "raw_frames.mp4");
-      await stitchFramesToVideo(framesDir, tempRawVideoPath, framerate, {
+      await stitchFramesToVideo(framesDir, tempRawVideoPath, captureFps, {
         preset: "fast",
       });
       rawVideoPath = tempRawVideoPath;
