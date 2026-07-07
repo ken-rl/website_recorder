@@ -22,10 +22,12 @@ const HEADLESS_ARGS = [
 const HEADED_ARGS = [
   ...SHARED_ARGS,
   "--enable-gpu",
-  // Keep the OS window compact — Playwright controls the actual capture viewport
-  // via context options, so this only affects the visible window chrome.
-  "--window-size=900,700",
-  "--window-position=0,0",
+  // Push the window completely off-screen so it doesn't appear to the user.
+  // --window-size must NOT be set here — Playwright controls the viewport
+  // via context options and any OS-level size constraint causes a mismatch
+  // that glitches the capture and can hang the browser on close.
+  "--window-position=-20000,-20000",
+  "--start-minimized",
 ] as const;
 
 /**
