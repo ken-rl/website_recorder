@@ -19,7 +19,14 @@ const HEADLESS_ARGS = [
 ] as const;
 
 /** Real GPU — required for smooth WebGL scroll-scrubbing captures. */
-const HEADED_ARGS = [...SHARED_ARGS, "--enable-gpu"] as const;
+const HEADED_ARGS = [
+  ...SHARED_ARGS,
+  "--enable-gpu",
+  // Keep the OS window compact — Playwright controls the actual capture viewport
+  // via context options, so this only affects the visible window chrome.
+  "--window-size=900,700",
+  "--window-position=0,0",
+] as const;
 
 /**
  * WebGL scroll-scrubbing sites run their render loop at only a few fps in
