@@ -65,6 +65,7 @@ export default function App() {
   const [height, setHeight] = useState(1080);
   const [quality, setQuality] = useState("high");
   const [fastMode, setFastMode] = useState(false);
+  const [captureMode, setCaptureMode] = useState<"preview" | "export">("export");
   const [selectedCurve, setSelectedCurve] = useState("ease-in-out");
   const [customBezier, setCustomBezier] = useState<
     [number, number, number, number]
@@ -200,6 +201,7 @@ export default function App() {
       },
       animationConfig: {
         fastMode,
+        captureMode,
         pixelsPerFrame: fastMode ? 12 : 4,
         preRecordingDelayMs: fastMode ? 500 : 2000,
         scrollCurve:
@@ -351,6 +353,47 @@ export default function App() {
               {/* Top Controls Bento Card */}
               <div className="sidebar-section-card recorder-controls-card">
                 <div className="controls-card-left">
+                  {/* Capture Mode segmented control */}
+                  <div className="capture-mode-field">
+                    <span className="capture-mode-label">Mode</span>
+                    <div
+                      className="capture-mode-segmented"
+                      role="radiogroup"
+                      aria-label="Capture mode"
+                    >
+                      <button
+                        type="button"
+                        id="captureModeExport"
+                        role="radio"
+                        aria-checked={captureMode === "export"}
+                        className={`capture-mode-btn${captureMode === "export" ? " is-active" : ""}`}
+                        onClick={() => setCaptureMode("export")}
+                        title="High-quality screenshot-based capture"
+                      >
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden width="12" height="12">
+                          <rect x="1" y="2" width="14" height="10" rx="1.5" />
+                          <path d="M5 14h6M8 12v2" />
+                          <circle cx="8" cy="7" r="2" />
+                        </svg>
+                        Export
+                      </button>
+                      <button
+                        type="button"
+                        id="captureModePreview"
+                        role="radio"
+                        aria-checked={captureMode === "preview"}
+                        className={`capture-mode-btn${captureMode === "preview" ? " is-active" : ""}`}
+                        onClick={() => setCaptureMode("preview")}
+                        title="Fast Playwright video recording"
+                      >
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden width="12" height="12">
+                          <polygon points="3,2 13,8 3,14" />
+                        </svg>
+                        Preview
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="quality-field-horizontal">
                     <label htmlFor="quality">Quality</label>
                     <select
@@ -358,13 +401,13 @@ export default function App() {
                       name="quality"
                       value={quality}
                       onChange={(e) => setQuality(e.target.value)}
-                      disabled={fastMode}
+                      disabled={fastMode || captureMode === "preview"}
                     >
                       <option value="high">High</option>
                       <option value="medium">Medium</option>
                       <option value="low">Low</option>
                     </select>
-                    {fastMode && (
+                    {(fastMode || captureMode === "preview") && (
                       <span className="quality-fixed-badge">Fixed</span>
                     )}
                   </div>

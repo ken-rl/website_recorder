@@ -22,6 +22,8 @@ import {
 } from "../config/browserLaunch.js";
 import { resolveRecordingProfile } from "../config/recordingProfile.js";
 import { removeFileIfExists, transcodeToMp4 } from "../transcode/ffmpeg.js";
+import { FrameRecorder } from "../capture/frameRecorder.js";
+import { stitchFramesToVideo } from "../capture/stitchFrames.js";
 import type {
   AnimationConfig,
   RecordRequest,
@@ -54,6 +56,9 @@ export async function recordWebsite(
   const pauseTriggers = animation.pauseTriggers ?? [];
   const scrollCurve = resolveScrollCurve(animation.scrollCurve);
   const removeOverlays = animation.removeOverlayElements ?? true;
+  const captureMode = animation.captureMode ?? "export";
+
+  console.log(`Capture mode: ${captureMode}`);
 
   const startedAt = Date.now();
   const launch = resolveBrowserLaunch(animation);
@@ -89,6 +94,8 @@ export async function recordWebsite(
       headless: captureHeadless,
       launchArgs: launchArgsForHeadless(captureHeadless),
       deviceScaleFactor,
+      framerate,
+      captureMode,
     });
 
     const shouldRetryHeaded =
@@ -222,6 +229,8 @@ async function runRecordSession(options: {
   headless: boolean;
   launchArgs: string[];
   deviceScaleFactor: number;
+  framerate: number;
+  captureMode: "preview" | "export";
 }): Promise<CaptureSessionResult> {
   const {
     request,
@@ -237,31 +246,160 @@ async function runRecordSession(options: {
     headless,
     launchArgs,
     deviceScaleFactor,
+    framerate,
+    captureMode,
   } = options;
 
   let browser: Browser | null = null;
   let rawVideoPath = "";
   let scrollStrategy: ResolvedScrollStrategy = "document";
 
-  const contextOptions = buildContextOptions(viewport, deviceScaleFactor);
+  if (captureMode === "preview") {
+    // Fast mode: Use Playwright's recordVideo
+    return recordWithPlaywrightVideo({
+      request,
+      outputDir,
+      animation,
+      viewport,
+      pixelsPerFrame,
+      preRecordingDelayMs,
+      pauseTriggers,
+      scrollCurve,
+      removeOverlays,
+      storageState,
+      headless,
+      launchArgs,
+      deviceScaleFactor,
+      framerate,
+    });
+  }
+
+  // Export mode: Screenshot-based frame capture for high quality
+  const framesDir = path.join(outputDir, ".frames");
+  const scaledViewport = {
+    width: viewport.width * deviceScaleFactor,
+    height: viewport.height * deviceScaleFactor,
+  };
+  const recordContextOptions = buildContextOptions(scaledViewport, 1);
 
   try {
-    const recordLaunchArgs = [
-      ...launchArgs.filter(
-        (arg) => !arg.startsWith("--force-device-scale-factor"),
-      ),
-      `--force-device-scale-factor=${deviceScaleFactor}`,
-    ];
+    await fs.mkdir(framesDir, { recursive: true });
+
+    const recordLaunchArgs = launchArgs.filter(
+      (arg) => !arg.startsWith("--force-device-scale-factor"),
+    );
     browser = await chromium.launch({ headless, args: recordLaunchArgs });
 
+    const frameRecorder = new FrameRecorder({
+      outputDir: framesDir,
+      fps: framerate,
+      scaleFactor: deviceScaleFactor,
+      qualityJpeg: 95,
+      parallelWorkers: 3,
+    });
+
     const recordContext = await browser.newContext({
-      ...contextOptions,
+      ...recordContextOptions,
+      storageState,
+    });
+    const page = await recordContext.newPage();
+    await page.addInitScript("window.__name = (target) => target");
+
+    try {
+      await gotoReachablePage(page, request.targetUrl);
+      await ensureOnTargetUrl(page, request.targetUrl);
+      await page.evaluate("window.__name = (target) => target");
+      await dismissCookieBanners(page);
+      await sanitizeDom(page, removeOverlays);
+      await primeLazyAssets(page);
+
+      await page.evaluate(() =>
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" }),
+      );
+      await ensureOnTargetUrl(page, request.targetUrl);
+      await page.waitForTimeout(preRecordingDelayMs);
+      scrollStrategy = await runScroll(page, {
+        pixelsPerFrame,
+        pauseTriggers: pauseTriggers ?? [],
+        bezier: scrollCurve,
+        scrollMode: animation.scrollMode,
+        animationConfig: animation,
+        viewportWidth: scaledViewport.width,
+        viewportHeight: scaledViewport.height,
+        fastMode: animation.fastMode ?? false,
+        frameRecorder,
+      });
+      console.log(`Scroll strategy: ${scrollStrategy}`);
+      await page.waitForTimeout(500);
+    } finally {
+      await page.close();
+      await recordContext.close();
+
+      // Stitch frames into video (already captured at scaled resolution)
+      const tempRawVideoPath = path.join(outputDir, "raw_frames.mp4");
+      await stitchFramesToVideo(framesDir, tempRawVideoPath, framerate, {
+        preset: "fast",
+      });
+      rawVideoPath = tempRawVideoPath;
+    }
+  } finally {
+    await browser?.close();
+    // Clean up frames directory
+    await fs.rm(framesDir, { recursive: true, force: true });
+  }
+
+  return { rawVideoPath, scrollStrategy };
+}
+
+async function recordWithPlaywrightVideo(options: {
+  request: RecordRequest;
+  outputDir: string;
+  animation: AnimationConfig;
+  viewport: RecordRequest["videoConfig"]["viewport"];
+  pixelsPerFrame: number;
+  preRecordingDelayMs: number;
+  pauseTriggers: AnimationConfig["pauseTriggers"];
+  scrollCurve: ReturnType<typeof resolveScrollCurve>;
+  removeOverlays: boolean;
+  storageState: Awaited<ReturnType<BrowserContext["storageState"]>>;
+  headless: boolean;
+  launchArgs: string[];
+  deviceScaleFactor: number;
+  framerate: number;
+}): Promise<CaptureSessionResult> {
+  const {
+    request,
+    outputDir,
+    animation,
+    viewport,
+    pixelsPerFrame,
+    preRecordingDelayMs,
+    pauseTriggers,
+    scrollCurve,
+    removeOverlays,
+    storageState,
+    headless,
+    launchArgs,
+    deviceScaleFactor,
+    framerate,
+  } = options;
+
+  let browser: Browser | null = null;
+  let rawVideoPath = "";
+  let scrollStrategy: ResolvedScrollStrategy = "document";
+  const recordContextOptions = buildContextOptions(viewport, 1);
+
+  try {
+    browser = await chromium.launch({ headless, args: launchArgs });
+
+    const recordContext = await browser.newContext({
+      ...recordContextOptions,
       storageState,
       recordVideo: {
         dir: outputDir,
         size: {
-          width: viewport.width * deviceScaleFactor,
-          height: viewport.height * deviceScaleFactor,
+          width: viewport.width,
+          height: viewport.height,
         },
       },
     });

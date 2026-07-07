@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap");
 
 *,
 :before,
@@ -13,12 +13,12 @@
     --font-sans: "DM Sans", system-ui, -apple-system, sans-serif;
     --font-display: "DM Sans", system-ui, sans-serif;
     --font-mono: "JetBrains Mono", monospace;
-    
+
     --ui-radius: 8px;
     --radius: 12px;
     --radius-sm: 6px;
     --radius-lg: 16px;
-    
+
     --topbar-height: 56px;
     --workspace-sidebar-width: minmax(300px, 380px);
     --monitor-max-width: 960px;
@@ -32,42 +32,46 @@ html[data-theme="light"] {
     --surface: #ffffff;
     --surface-elevated: #f1f5f9;
     --surface-muted: #f8fafc;
-    --text: #090d16;          /* Darker primary text (almost black) */
-    --muted: #3e4e63;         /* Darker secondary/muted text (slate-700) */
+    --text: #090d16; /* Darker primary text (almost black) */
+    --muted: #3e4e63; /* Darker secondary/muted text (slate-700) */
     --border: #e2e8f0;
     --border-hover: #cbd5e1;
     --border-active: #94a3b8;
-    
+
     --accent: #2563eb;
     --accent-text: #ffffff;
     --accent-soft: rgba(37, 99, 235, 0.08);
     --accent-hover: #1d4ed8;
-    
+
     --error: #ef4444;
     --success: #10b981;
-    
+
     --playhead: #dc2626;
     --pause-block: #d97706;
-    
+
     --tl-track-bg: #ffffff;
     --tl-track-fill: #f1f5f9;
     --tl-track-line: #e2e8f0;
-    --tl-trim-line: #090d16;  /* Darker trim line */
+    --tl-trim-line: #090d16; /* Darker trim line */
     --tl-trim-ghost: rgba(0, 0, 0, 0.06);
     --tl-ruler-text: #3e4e63; /* Darker ruler text */
     --tl-pause-fill: rgba(217, 119, 6, 0.12);
     --tl-pause-line: rgba(217, 119, 6, 0.5);
-    
+
     --glow: rgba(37, 99, 235, 0.03);
     --glow-strong: rgba(37, 99, 235, 0.08);
-    
-    --shadow-soft: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.08);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+
+    --shadow-soft:
+        0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+    --shadow-md:
+        0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.08);
+    --shadow-lg:
+        0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
 }
 
 /* Dark Theme Variables (Default) */
-html[data-theme="dark"], :root:not([data-theme="light"]) {
+html[data-theme="dark"],
+:root:not([data-theme="light"]) {
     --bg: #09090b;
     --surface: #121214;
     --surface-elevated: #1a1a1e;
@@ -77,18 +81,18 @@ html[data-theme="dark"], :root:not([data-theme="light"]) {
     --border: #ffffff12;
     --border-hover: #ffffff22;
     --border-active: #ffffff33;
-    
+
     --accent: #3b82f6;
     --accent-text: #ffffff;
     --accent-soft: rgba(59, 130, 246, 0.15);
     --accent-hover: #60a5fa;
-    
+
     --error: #f87171;
     --success: #4ade80;
-    
+
     --playhead: #f4f4f5;
     --pause-block: #d97706;
-    
+
     --tl-track-bg: #09090b;
     --tl-track-fill: #1a1a1e;
     --tl-track-line: #ffffff10;
@@ -97,27 +101,29 @@ html[data-theme="dark"], :root:not([data-theme="light"]) {
     --tl-ruler-text: #8e8e93;
     --tl-pause-fill: rgba(217, 119, 6, 0.2);
     --tl-pause-line: rgba(245, 158, 11, 0.5);
-    
+
     --glow: rgba(255, 255, 255, 0.03);
     --glow-strong: rgba(255, 255, 255, 0.08);
-    
+
     --shadow-soft: none;
     --shadow-md: none;
     --shadow-lg: none;
 }
 
 /* Bind theme variables to ui and editor aliases */
-:root, html[data-theme="light"], html[data-theme="dark"] {
+:root,
+html[data-theme="light"],
+html[data-theme="dark"] {
     --ui-line: var(--border);
     --ui-fill: var(--surface-elevated);
     --ui-surface: var(--surface);
     --ui-muted: var(--muted);
-    
+
     --editor-line: var(--border);
     --editor-fill: var(--surface-elevated);
     --editor-surface: var(--surface);
     --editor-muted: var(--muted);
-    
+
     --ui-radius: 8px;
     --editor-radius: 8px;
 }
@@ -574,6 +580,68 @@ body > * {
     padding: 0.15rem 0.35rem;
     border-radius: var(--ui-radius);
     color: var(--muted);
+}
+/* ── Capture Mode toggle ─────────────────────────────────────────────── */
+.capture-mode-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.capture-mode-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    white-space: nowrap;
+}
+.capture-mode-segmented {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: var(--ui-radius);
+    background: var(--surface);
+    padding: 2px;
+    gap: 2px;
+}
+.capture-mode-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-family: var(--font-sans);
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.22rem 0.6rem;
+    border: none;
+    border-radius: calc(var(--ui-radius) - 2px);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease,
+        box-shadow 0.15s ease;
+    white-space: nowrap;
+    height: 26px;
+}
+.capture-mode-btn:hover:not(.is-active) {
+    background: var(--ui-fill);
+    color: var(--text);
+}
+/* Export = default accent (brand primary) */
+.capture-mode-btn.is-active[id="captureModeExport"] {
+    background: var(--brand, hsl(220 90% 56%));
+    color: #fff;
+    box-shadow: 0 1px 4px 0 hsl(220 90% 40% / 0.35);
+}
+/* Preview = amber/fast accent */
+.capture-mode-btn.is-active[id="captureModePreview"] {
+    background: hsl(38 95% 50%);
+    color: #fff;
+    box-shadow: 0 1px 4px 0 hsl(38 95% 35% / 0.35);
+}
+.capture-mode-btn svg {
+    flex-shrink: 0;
+    opacity: 0.8;
 }
 .recorder-capture-btn-sm,
 .recorder-editor-btn-sm {
@@ -2010,29 +2078,28 @@ button[type="submit"]:disabled .loader-circle {
 }
 .browser-content {
     background: #000;
+    height: 0;
     position: relative;
     overflow: hidden;
 }
 .browser-content.is-landscape-preview {
     width: min(100%, var(--monitor-max-width));
-    height: auto;
-    max-height: var(--monitor-max-height);
     margin-inline: auto;
 }
 .browser-content.is-portrait-preview {
     width: 100%;
-    height: auto;
-    max-height: var(--monitor-max-height);
 }
 .browser-media,
 .browser-placeholder {
-    width: 100%;
-    height: 100%;
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
 }
 .browser-media {
     line-height: 0;
+    object-fit: cover;
 }
 .browser-content video {
     object-fit: contain;
@@ -3308,7 +3375,7 @@ input[type="number"]:disabled {
     padding: 0;
 }
 .tl-zoom-handle-end::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 25%;
     bottom: 25%;

@@ -50,6 +50,8 @@ export interface AnimationConfig {
   virtualScrollDurationMs?: number;
   /** Skip deep hydration, scroll faster, and use quick encoding. */
   fastMode?: boolean;
+  /** Capture mode: 'preview' (fast, video) or 'export' (high-quality, screenshots) */
+  captureMode?: "preview" | "export";
 }
 
 export interface RecordRequest {

@@ -83,7 +83,7 @@ export default function BrowserMockup({
 
         <div
           className={`browser-content${isPortrait ? " is-portrait-preview" : " is-landscape-preview"}`}
-          style={{ aspectRatio: `${width} / ${height}` }}
+          style={{ paddingBottom: `${(height / width) * 100}%` }}
         >
           {isSubmitting && <div className="browser-scanline" aria-hidden />}
 
