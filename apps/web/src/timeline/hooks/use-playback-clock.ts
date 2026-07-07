@@ -133,9 +133,9 @@ export function usePlaybackClock({
           }
         }
 
-        video.playbackRate = targetSpeed * scale;
+        video.playbackRate = Math.max(0.15, targetSpeed * scale);
 
-        if (Math.abs(video.currentTime - targetSeconds) > 0.12) {
+        if (Math.abs(video.currentTime - targetSeconds) > 0.8) {
           video.currentTime = targetSeconds;
         }
         if (video.paused) {
