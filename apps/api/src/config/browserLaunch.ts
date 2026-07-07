@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import type { AnimationConfig } from "../types.js";
 
 export interface BrowserLaunchOptions {
@@ -38,6 +39,11 @@ const HEADED_ARGS = [
 export function resolveBrowserLaunch(
   animation: AnimationConfig,
 ): BrowserLaunchOptions {
+  // If running on a desktop environment but DISPLAY env variable is not inherited
+  // (e.g. VS Code / IDE background server process), auto-detect and restore it.
+  if (!process.env.DISPLAY && fs.existsSync("/tmp/.X11-unix/X0")) {
+    process.env.DISPLAY = ":0";
+  }
   if (process.env.RECORD_HEADED === "1") {
     return { headless: false, args: [...HEADED_ARGS] };
   }

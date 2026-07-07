@@ -5,6 +5,9 @@ import { resolveEncodeSettings } from "../transcode/quality.js";
 import { probeVideoDurationMs } from "../transcode/probe.js";
 import type { EditRequest, EditResult } from "../types.js";
 
+import { compileVideoFromFrames } from "../editor/compileVideo.js";
+import { transcodeToMp4 } from "../transcode/ffmpeg.js";
+
 const SOURCE_FILENAME = "output.mp4";
 const EDITED_FILENAME = "output-edited.mp4";
 const PROJECT_FILENAME = "edit-project.json";
@@ -16,20 +19,66 @@ export async function editVideo(
   const outputDir = path.resolve(outputRoot, request.jobId);
   const sourcePath = path.join(outputDir, SOURCE_FILENAME);
   const editedPath = path.join(outputDir, EDITED_FILENAME);
+  const metadataPath = path.join(outputDir, "frames-metadata.json");
+  const framesDir = path.join(outputDir, ".frames");
 
   await fs.access(sourcePath).catch(() => {
     throw new Error(`Recording not found for jobId: ${request.jobId}`);
   });
 
-  validateEditRequest(request, await probeVideoDurationMs(sourcePath));
+  let durationMs = 0;
+  const hasMetadata = await fs.access(metadataPath).then(() => true).catch(() => false);
 
-  const encode = resolveEncodeSettings("high", 1);
-  const { durationMs } = await renderEditedVideo(
-    sourcePath,
-    editedPath,
-    request,
-    encode,
-  );
+  if (hasMetadata) {
+    console.log(`Using linear frames metadata to perform instant scroll compile for jobId: ${request.jobId}`);
+    const metadataContent = await fs.readFile(metadataPath, "utf-8");
+    const metadata = JSON.parse(metadataContent);
+
+    const viewport = metadata.viewport;
+    const deviceScaleFactor = metadata.deviceScaleFactor ?? 1;
+    const targetWidth = viewport.width * deviceScaleFactor;
+    const targetHeight = viewport.height * deviceScaleFactor;
+
+    const targetDurationMs = request.durationMs ?? ((request.trimEndMs ?? 10000) - (request.trimStartMs ?? 0));
+    const bezier = request.bezier ?? [0.25, 0.1, 0.25, 1.0];
+
+    const tempRawPath = path.join(outputDir, "raw_edited.mp4");
+
+    await compileVideoFromFrames({
+      framesDir,
+      metadataPath,
+      outputPath: tempRawPath,
+      durationMs: targetDurationMs,
+      fps: 60,
+      bezier,
+      pauses: request.pauses ?? [],
+      width: targetWidth,
+      height: targetHeight,
+    });
+
+    const encode = resolveEncodeSettings("high", deviceScaleFactor);
+    await transcodeToMp4(
+      tempRawPath,
+      editedPath,
+      60,
+      targetWidth,
+      targetHeight,
+      encode,
+    );
+
+    await fs.unlink(tempRawPath).catch(() => undefined);
+    durationMs = targetDurationMs;
+  } else {
+    validateEditRequest(request, await probeVideoDurationMs(sourcePath));
+    const encode = resolveEncodeSettings("high", 1);
+    const result = await renderEditedVideo(
+      sourcePath,
+      editedPath,
+      request,
+      encode,
+    );
+    durationMs = result.durationMs;
+  }
 
   await fs.writeFile(
     path.join(outputDir, PROJECT_FILENAME),

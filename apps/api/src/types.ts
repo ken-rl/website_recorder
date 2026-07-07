@@ -99,6 +99,8 @@ export interface EditRequest {
   trimEndMs?: number;
   pauses?: EditorPause[];
   zooms?: EditorZoom[];
+  bezier?: [number, number, number, number];
+  durationMs?: number;
 }
 
 export interface EditResult {

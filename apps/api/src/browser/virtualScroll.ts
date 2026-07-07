@@ -31,26 +31,15 @@ async function waitUntil(deadlineMs: number) {
 export async function runVirtualScroll(
   page: Page,
   options: VirtualScrollOptions,
-) {
-  const { durationMs, viewportWidth, viewportHeight, wheelBudget, bezier, frameRecorder } =
+): Promise<{ frames: { file: string; progress: number }[] }> {
+  const { durationMs, viewportWidth, viewportHeight, wheelBudget, frameRecorder } =
     options;
   const centerX = Math.floor(viewportWidth / 2);
   const centerY = Math.floor(viewportHeight / 2);
   const tickMs = 1000 / WHEEL_TICK_HZ;
   const tickCount = Math.max(1, Math.ceil(durationMs / tickMs));
 
-  // If frame recording, start capturing frames in parallel
-  let captureInterval: NodeJS.Timeout | null = null;
-  if (frameRecorder) {
-    const frameDurationMs = 1000 / frameRecorder.getFps();
-    captureInterval = setInterval(async () => {
-      try {
-        await frameRecorder.writeFrame(page);
-      } catch (e) {
-        // Ignore frame capture errors
-      }
-    }, frameDurationMs);
-  }
+  const frames: { file: string; progress: number }[] = [];
 
   try {
     await page.mouse.move(centerX, centerY);
@@ -63,38 +52,32 @@ export async function runVirtualScroll(
       y: centerY,
     });
 
-    const startedAt = performance.now();
-    let lastEasedProgress = 0;
-    let wheelCarry = 0;
+    const wheelStep = wheelBudget / tickCount;
 
-    for (let tick = 1; tick <= tickCount; tick += 1) {
-      const elapsedMs = Math.min(durationMs, tick * tickMs);
-      const linearProgress = elapsedMs / durationMs;
-      const easedProgress = applyScrollCurve(linearProgress, bezier);
-      const progressDelta = easedProgress - lastEasedProgress;
-      lastEasedProgress = easedProgress;
+    for (let tick = 0; tick <= tickCount; tick += 1) {
+      const progress = tick / tickCount;
 
-      wheelCarry += progressDelta * wheelBudget;
-      const wheelDelta = Math.floor(wheelCarry);
-      wheelCarry -= wheelDelta;
-
-      if (wheelDelta > 0) {
+      if (tick > 0) {
         await cdp.send("Input.dispatchMouseEvent", {
           type: "mouseWheel",
           x: centerX,
           y: centerY,
           deltaX: 0,
-          deltaY: wheelDelta,
+          deltaY: Math.round(wheelStep),
         });
+        // Let the website JS process the event and render
+        await sleep(50);
       }
 
-      await waitUntil(startedAt + tick * tickMs);
+      if (frameRecorder) {
+        await frameRecorder.writeFrame(page);
+        const filename = `frame-${String(tick).padStart(6, "0")}.jpg`;
+        frames.push({ file: filename, progress });
+      }
     }
 
-    await sleep(150);
+    return { frames };
   } finally {
-    if (captureInterval) {
-      clearInterval(captureInterval);
-    }
+    // No interval to clean up since it's synchronous frame-by-frame
   }
 }

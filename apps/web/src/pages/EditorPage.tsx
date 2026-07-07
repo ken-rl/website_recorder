@@ -224,6 +224,72 @@ export default function EditorPage({
   const [exportError, setExportError] = useState("");
   const [exportedUrl, setExportedUrl] = useState<string | null>(null);
 
+  const [hasMetadata, setHasMetadata] = useState(false);
+  const [durationMs, setDurationMs] = useState(0);
+  const [curvePreset, setCurvePreset] = useState("ease-in-out");
+  const [customBezier, setCustomBezier] = useState<[number, number, number, number]>([0.25, 0.1, 0.25, 1.0]);
+
+  useEffect(() => {
+    fetch(`/outputs/${jobId}/frames-metadata.json`)
+      .then((res) => {
+        if (res.ok) {
+          setHasMetadata(true);
+          return res.json();
+        }
+        return null;
+      })
+      .then((meta) => {
+        if (meta) {
+          const initialDuration = Math.round((meta.frames.length / 60) * 1000);
+          setDurationMs(initialDuration);
+        }
+      })
+      .catch(() => {});
+  }, [jobId]);
+
+  useEffect(() => {
+    if (hasMetadata && durationMs > 0) {
+      setSourceDurationMs(durationMs);
+      sourceDurationMsRef.current = durationMs;
+      if (trimEndMs === 0 || trimEndMs > durationMs) {
+        setTrimEndMs(durationMs);
+        trimEndMsRef.current = durationMs;
+      }
+    }
+  }, [hasMetadata, durationMs]);
+
+  const handleDurationChange = (newVal: number) => {
+    const nextDurationMs = newVal * 1000;
+    setDurationMs(nextDurationMs);
+
+    setPauses((current) =>
+      current
+        .filter((p) => p.atMs < nextDurationMs)
+        .map((p) => {
+          if (p.atMs + p.holdMs > nextDurationMs) {
+            return { ...p, holdMs: nextDurationMs - p.atMs };
+          }
+          return p;
+        })
+    );
+
+    setZooms((current) =>
+      current
+        .filter((z) => z.atMs < nextDurationMs)
+        .map((z) => {
+          if (z.atMs + z.durationMs > nextDurationMs) {
+            return { ...z, durationMs: nextDurationMs - z.atMs };
+          }
+          return z;
+        })
+    );
+
+    if (trimEndMs > nextDurationMs) {
+      setTrimEndMs(nextDurationMs);
+      trimEndMsRef.current = nextDurationMs;
+    }
+  };
+
   const selectedPause = pauses.find((pause) => pause.id === selectedPauseId);
   const selectedZoom = zooms.find((zoom) => zoom.id === selectedZoomId);
 
@@ -640,6 +706,10 @@ export default function EditorPage({
             x,
             y,
           })),
+          ...(hasMetadata ? {
+            bezier: customBezier,
+            durationMs: durationMs,
+          } : {}),
         }),
       });
       const data = await res.json();
@@ -795,6 +865,107 @@ export default function EditorPage({
               )}
             </div>
           </div>
+
+          {hasMetadata && (
+            <section className="editor-sidebar-section">
+              <h3>Scroll Easing & Speed</h3>
+              <div className="editor-inspector-card">
+                <label className="editor-inspector-field">
+                  Duration (seconds)
+                  <input
+                    type="number"
+                    min={2}
+                    max={40}
+                    step={0.5}
+                    value={Math.round((durationMs / 1000) * 2) / 2}
+                    onChange={(e) => handleDurationChange(Math.max(2, Number(e.target.value)))}
+                  />
+                </label>
+
+                <label className="editor-inspector-field">
+                  Easing Curve
+                  <select
+                    value={curvePreset}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCurvePreset(val);
+                      if (val === "linear") setCustomBezier([0.0, 0.0, 1.0, 1.0]);
+                      else if (val === "ease-in") setCustomBezier([0.42, 0.0, 1.0, 1.0]);
+                      else if (val === "ease-out") setCustomBezier([0.0, 0.0, 0.58, 1.0]);
+                      else if (val === "ease-in-out") setCustomBezier([0.42, 0.0, 0.58, 1.0]);
+                      else if (val === "ease-in-cubic") setCustomBezier([0.55, 0.055, 0.675, 0.19]);
+                      else if (val === "ease-out-cubic") setCustomBezier([0.215, 0.61, 0.355, 1.0]);
+                      else if (val === "ease-in-out-cubic") setCustomBezier([0.645, 0.045, 0.355, 1.0]);
+                    }}
+                    className="product-select"
+                    style={{ width: "100%", marginTop: "4px" }}
+                  >
+                    <option value="ease-in-out">Ease In Out</option>
+                    <option value="ease-in">Ease In</option>
+                    <option value="ease-out">Ease Out</option>
+                    <option value="linear">Linear</option>
+                    <option value="ease-in-cubic">Ease In Cubic</option>
+                    <option value="ease-out-cubic">Ease Out Cubic</option>
+                    <option value="ease-in-out-cubic">Ease In Out Cubic</option>
+                    <option value="custom">Custom Bezier</option>
+                  </select>
+                </label>
+
+                {curvePreset === "custom" && (
+                  <div className="editor-bezier-fields" style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <label className="editor-inspector-field" style={{ flex: 1 }}>
+                        x1
+                        <input
+                          type="number"
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          value={customBezier[0]}
+                          onChange={(e) => setCustomBezier([Number(e.target.value), customBezier[1], customBezier[2], customBezier[3]])}
+                        />
+                      </label>
+                      <label className="editor-inspector-field" style={{ flex: 1 }}>
+                        y1
+                        <input
+                          type="number"
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          value={customBezier[1]}
+                          onChange={(e) => setCustomBezier([customBezier[0], Number(e.target.value), customBezier[2], customBezier[3]])}
+                        />
+                      </label>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <label className="editor-inspector-field" style={{ flex: 1 }}>
+                        x2
+                        <input
+                          type="number"
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          value={customBezier[2]}
+                          onChange={(e) => setCustomBezier([customBezier[0], customBezier[1], Number(e.target.value), customBezier[3]])}
+                        />
+                      </label>
+                      <label className="editor-inspector-field" style={{ flex: 1 }}>
+                        y2
+                        <input
+                          type="number"
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          value={customBezier[3]}
+                          onChange={(e) => setCustomBezier([customBezier[0], customBezier[1], customBezier[2], Number(e.target.value)])}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
 
           <section className="editor-sidebar-section">
             <h3>Tools</h3>

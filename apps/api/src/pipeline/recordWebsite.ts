@@ -24,6 +24,7 @@ import { resolveRecordingProfile } from "../config/recordingProfile.js";
 import { removeFileIfExists, transcodeToMp4 } from "../transcode/ffmpeg.js";
 import { FrameRecorder } from "../capture/frameRecorder.js";
 import { stitchFramesToVideo } from "../capture/stitchFrames.js";
+import { compileVideoFromFrames } from "../editor/compileVideo.js";
 import type {
   AnimationConfig,
   RecordRequest,
@@ -86,9 +87,9 @@ export async function recordWebsite(
       console.log("Using headed Chromium for smooth virtual-scroll capture.");
     }
 
-    // For export mode, we can always run headless since screenshot-based captures
-    // don't need a display. This avoids OS-level window constraints and headed viewport scaling glitches.
-    const runHeadless = captureMode === "export" ? true : captureHeadless;
+    // Use the resolved headless setting (runs headed when DISPLAY is present to leverage
+    // the stable hardware GPU driver, and headless on CI/servers without display).
+    const runHeadless = captureHeadless;
 
     capture = await runRecordSession({
       request,
@@ -332,8 +333,8 @@ async function runRecordSession(options: {
         window.scrollTo({ top: 0, left: 0, behavior: "instant" }),
       );
       await ensureOnTargetUrl(page, request.targetUrl);
-      await page.waitForTimeout(preRecordingDelayMs);
-      scrollStrategy = await runScroll(page, {
+
+      const scrollResult = await runScroll(page, {
         pixelsPerFrame,
         pauseTriggers: pauseTriggers ?? [],
         bezier: scrollCurve,
@@ -344,24 +345,69 @@ async function runRecordSession(options: {
         fastMode: animation.fastMode ?? false,
         frameRecorder,
       });
+      scrollStrategy = scrollResult.scrollStrategy;
       console.log(`Scroll strategy: ${scrollStrategy}`);
+
+      if (scrollResult.frames) {
+        const metadataPath = path.join(outputDir, "frames-metadata.json");
+        await fs.writeFile(
+          metadataPath,
+          JSON.stringify(
+            {
+              scrollStrategy: scrollResult.scrollStrategy,
+              maxScroll: scrollResult.maxScroll,
+              frames: scrollResult.frames,
+              deviceScaleFactor,
+              viewport,
+            },
+            null,
+            2,
+          ),
+        );
+      }
       await page.waitForTimeout(500);
     } finally {
       await page.close().catch(() => undefined);
       await recordContext.close().catch(() => undefined);
 
-      // Stitch captured frames into a raw video at capture FPS;
-      // transcodeToMp4 will resample to the output framerate.
-      const tempRawVideoPath = path.join(outputDir, "raw_frames.mp4");
-      await stitchFramesToVideo(framesDir, tempRawVideoPath, captureFps, {
-        preset: "fast",
-      });
-      rawVideoPath = tempRawVideoPath;
+      if (captureMode === "export") {
+        const tempRawVideoPath = path.join(outputDir, "raw_frames.mp4");
+        const metadataPath = path.join(outputDir, "frames-metadata.json");
+
+        const metadataContent = await fs.readFile(metadataPath, "utf-8").catch(() => null);
+        if (metadataContent) {
+          const metadata = JSON.parse(metadataContent);
+          const initialDurationMs = (metadata.frames.length / framerate) * 1000;
+          await compileVideoFromFrames({
+            framesDir,
+            metadataPath,
+            outputPath: tempRawVideoPath,
+            durationMs: initialDurationMs,
+            fps: framerate,
+            bezier: scrollCurve,
+            pauses: [],
+          });
+          rawVideoPath = tempRawVideoPath;
+        } else {
+          await stitchFramesToVideo(framesDir, tempRawVideoPath, captureFps, {
+            preset: "fast",
+          });
+          rawVideoPath = tempRawVideoPath;
+        }
+      } else {
+        const tempRawVideoPath = path.join(outputDir, "raw_frames.mp4");
+        await stitchFramesToVideo(framesDir, tempRawVideoPath, captureFps, {
+          preset: "fast",
+        });
+        rawVideoPath = tempRawVideoPath;
+      }
     }
   } finally {
     await browser?.close();
-    // Clean up frames directory
-    await fs.rm(framesDir, { recursive: true, force: true });
+    // Do NOT delete framesDir for export mode so it can be edited post-capture.
+    if ((captureMode as string) === "preview") {
+      await fs.rm(framesDir, { recursive: true, force: true }).catch(() => undefined);
+    }
   }
 
   return { rawVideoPath, scrollStrategy };
@@ -435,7 +481,7 @@ async function recordWithPlaywrightVideo(options: {
       );
       await ensureOnTargetUrl(page, request.targetUrl);
       await page.waitForTimeout(preRecordingDelayMs);
-      scrollStrategy = await runScroll(page, {
+      const scrollResult = await runScroll(page, {
         pixelsPerFrame,
         pauseTriggers: pauseTriggers ?? [],
         bezier: scrollCurve,
@@ -445,6 +491,7 @@ async function recordWithPlaywrightVideo(options: {
         viewportHeight: viewport.height,
         fastMode: animation.fastMode ?? false,
       });
+      scrollStrategy = scrollResult.scrollStrategy;
       console.log(`Scroll strategy: ${scrollStrategy}`);
       await page.waitForTimeout(500);
     } finally {
