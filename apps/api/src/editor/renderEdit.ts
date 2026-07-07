@@ -31,7 +31,12 @@ export async function renderEditedVideo(
   }
 
   const size = await probeVideoSize(inputPath);
-  const segments = buildEditSegments(trimStartMs, trimEndMs, edit.pauses ?? []);
+  const segments = buildEditSegments(
+    trimStartMs,
+    trimEndMs,
+    edit.pauses ?? [],
+    edit.zooms ?? [],
+  );
   const tempDir = await fs.mkdtemp(
     path.join(os.tmpdir(), "websiterecorder-edit-"),
   );
@@ -49,6 +54,7 @@ export async function renderEditedVideo(
           segmentPath,
           segment.startMs,
           segment.endMs - segment.startMs,
+          segment.zoom,
           encode,
           size,
         );
@@ -58,6 +64,7 @@ export async function renderEditedVideo(
           segmentPath,
           segment.atMs,
           segment.holdMs,
+          segment.zoom,
           encode,
           size,
         );
@@ -74,18 +81,76 @@ export async function renderEditedVideo(
   }
 }
 
+function buildZoomFilter(
+  zoom: {
+    startScale: number;
+    endScale: number;
+    startX: number;
+    endX: number;
+    startY: number;
+    endY: number;
+  },
+  durationMs: number,
+): string {
+  const { startScale, endScale, startX, endX, startY, endY } = zoom;
+
+  const isConstant =
+    Math.abs(startScale - endScale) < 0.001 &&
+    Math.abs(startX - endX) < 0.001 &&
+    Math.abs(startY - endY) < 0.001;
+
+  if (isConstant) {
+    if (Math.abs(startScale - 1.0) < 0.001) {
+      return "";
+    }
+    return `crop=w='iw/${startScale.toFixed(3)}':h='ih/${startScale.toFixed(3)}':x='(iw-ow)*${startX.toFixed(3)}':y='(ih-oh)*${startY.toFixed(3)}'`;
+  }
+
+  const durationSec = durationMs / 1000;
+  const diffScale = (endScale - startScale).toFixed(3);
+  const diffX = (endX - startX).toFixed(3);
+  const diffY = (endY - startY).toFixed(3);
+
+  const scaleExpr = `(${startScale.toFixed(3)}+(${diffScale})*t/${durationSec.toFixed(3)})`;
+  const xExpr = `(${startX.toFixed(3)}+(${diffX})*t/${durationSec.toFixed(3)})`;
+  const yExpr = `(${startY.toFixed(3)}+(${diffY})*t/${durationSec.toFixed(3)})`;
+
+  return `crop=w='iw/${scaleExpr}':h='ih/${scaleExpr}':x='(iw-ow)*${xExpr}':y='(ih-oh)*${yExpr}'`;
+}
+
+function buildFreezeZoomFilter(zoom: {
+  scale: number;
+  x: number;
+  y: number;
+}): string {
+  const { scale, x, y } = zoom;
+  if (Math.abs(scale - 1.0) < 0.001) {
+    return "";
+  }
+  return `crop=w='iw/${scale.toFixed(3)}':h='ih/${scale.toFixed(3)}':x='(iw-ow)*${x.toFixed(3)}':y='(ih-oh)*${y.toFixed(3)}'`;
+}
+
 async function extractPlaySegment(
   inputPath: string,
   outputPath: string,
   startMs: number,
   durationMs: number,
+  zoom: {
+    startScale: number;
+    endScale: number;
+    startX: number;
+    endX: number;
+    startY: number;
+    endY: number;
+  },
   encode: EncodeSettings,
   size: { width: number; height: number } | null,
 ) {
   const startSec = (startMs / 1000).toFixed(3);
   const durationSec = (durationMs / 1000).toFixed(3);
+  const zoomFilter = buildZoomFilter(zoom, durationMs);
   const scale = size ? scaleFilter(size.width, size.height) : null;
-  const filters = [scale, `fps=${DEFAULT_FPS}`].filter(Boolean);
+  const filters = [zoomFilter, scale, `fps=${DEFAULT_FPS}`].filter(Boolean);
 
   await runFfmpeg([
     "-y",
@@ -114,14 +179,16 @@ async function extractFreezeSegment(
   outputPath: string,
   atMs: number,
   holdMs: number,
+  zoom: { scale: number; x: number; y: number },
   encode: EncodeSettings,
   size: { width: number; height: number } | null,
 ) {
   const framePath = `${outputPath}.jpg`;
   const atSec = (atMs / 1000).toFixed(3);
   const holdSec = (holdMs / 1000).toFixed(3);
+  const zoomFilter = buildFreezeZoomFilter(zoom);
   const scale = size ? scaleFilter(size.width, size.height) : null;
-  const filters = [scale, `fps=${DEFAULT_FPS}`].filter(Boolean);
+  const filters = [zoomFilter, scale, `fps=${DEFAULT_FPS}`].filter(Boolean);
 
   try {
     await runFfmpeg([
@@ -138,6 +205,7 @@ async function extractFreezeSegment(
     ]);
 
     const freezeFilters = [
+      zoomFilter,
       scale,
       `fps=${DEFAULT_FPS}`,
       "format=yuv420p",

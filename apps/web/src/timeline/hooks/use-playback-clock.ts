@@ -87,6 +87,39 @@ export function usePlaybackClock({
           video.currentTime = targetSeconds;
         }
       } else if (isPlayback) {
+        // Calculate dynamic easing speed around pauses
+        let targetSpeed = 1.0;
+        const blocks = blocksRef.current;
+        const currentBlockIndex = blocks.findIndex(
+          (b) => clamped >= b.exportStartMs && clamped <= b.exportEndMs,
+        );
+
+        if (currentBlockIndex !== -1) {
+          const currentBlock = blocks[currentBlockIndex];
+          const nextBlock = blocks[currentBlockIndex + 1];
+
+          // Decelerate when approaching next block if it is a freeze block (pause)
+          if (nextBlock && nextBlock.type === "freeze") {
+            const timeToPause = nextBlock.exportStartMs - clamped;
+            if (timeToPause > 0 && timeToPause < 300) {
+              const ratio = timeToPause / 300;
+              targetSpeed = Math.max(0.5, ratio);
+            }
+          }
+
+          // Accelerate when leaving previous block if it was a freeze block (pause)
+          const prevBlock = blocks[currentBlockIndex - 1];
+          if (prevBlock && prevBlock.type === "freeze") {
+            const timeSincePause = clamped - currentBlock.exportStartMs;
+            if (timeSincePause > 0 && timeSincePause < 300) {
+              const ratio = timeSincePause / 300;
+              targetSpeed = Math.max(0.5, ratio);
+            }
+          }
+        }
+
+        video.playbackRate = targetSpeed;
+
         if (Math.abs(video.currentTime - targetSeconds) > 0.12) {
           video.currentTime = targetSeconds;
         }
@@ -107,7 +140,7 @@ export function usePlaybackClock({
         updatePlayhead(clamped);
       }
     },
-    [exportDurationMsRef, exportMsRef, setExportMs, updatePlayhead, videoRef],
+    [blocksRef, exportDurationMsRef, exportMsRef, setExportMs, updatePlayhead, videoRef],
   );
 
   const stopPlayback = useCallback(() => {
@@ -131,7 +164,8 @@ export function usePlaybackClock({
 
       const duration = exportDurationMsRef.current;
       const elapsed = now - anchor.timestamp;
-      const nextExport = Math.min(duration, anchor.exportMs + elapsed);
+      const speed = videoRef.current ? videoRef.current.playbackRate : 1.0;
+      const nextExport = Math.min(duration, anchor.exportMs + elapsed * speed);
 
       applyExportPosition(nextExport, { isPlayback: true });
 
@@ -140,9 +174,10 @@ export function usePlaybackClock({
         return;
       }
 
+      playAnchorRef.current = { exportMs: nextExport, timestamp: now };
       rafRef.current = requestAnimationFrame(tickRef.current);
     },
-    [applyExportPosition, exportDurationMsRef, stopPlayback],
+    [applyExportPosition, exportDurationMsRef, stopPlayback, videoRef],
   );
 
   tickRef.current = tick;

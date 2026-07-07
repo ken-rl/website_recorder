@@ -16,6 +16,15 @@ export interface EditorTimelineHandle {
   setPlayheadPercent: (percent: number) => void;
 }
 
+interface EditorZoom {
+  id: string;
+  atMs: number;
+  durationMs: number;
+  scale: number;
+  x: number;
+  y: number;
+}
+
 interface EditorTimelineProps {
   blocks: TimelineBlock[];
   sourceDurationMs: number;
@@ -36,6 +45,11 @@ interface EditorTimelineProps {
   onPauseResize: (pauseId: string) => void;
   onSelectPause: (pauseId: string) => void;
   timelineRef: React.RefObject<HTMLDivElement | null>;
+  zooms: EditorZoom[];
+  selectedZoomId: string | null;
+  onSelectZoom: (zoomId: string) => void;
+  onZoomDrag: (zoomId: string, clientX: number) => void;
+  onZoomResize: (zoomId: string, clientX: number) => void;
 }
 
 function formatTime(ms: number) {
@@ -67,6 +81,11 @@ const EditorTimeline = forwardRef<EditorTimelineHandle, EditorTimelineProps>(
       onPauseResize,
       onSelectPause,
       timelineRef,
+      zooms,
+      selectedZoomId,
+      onSelectZoom,
+      onZoomDrag,
+      onZoomResize,
     },
     ref,
   ) {
@@ -148,7 +167,7 @@ const EditorTimeline = forwardRef<EditorTimelineHandle, EditorTimelineProps>(
               onMouseDown={(event) => {
                 if (
                   (event.target as HTMLElement).closest(
-                    ".tl-trim-handle, .tl-pause, .tl-playhead",
+                    ".tl-trim-handle, .tl-pause, .tl-playhead, .tl-zoom",
                   )
                 ) {
                   return;
@@ -241,6 +260,52 @@ const EditorTimeline = forwardRef<EditorTimelineHandle, EditorTimelineProps>(
                         event.stopPropagation();
                         event.preventDefault();
                         onPauseResize(pauseId);
+                      }}
+                    />
+                  </div>
+                );
+              })}
+
+              {zooms.map((zoom) => {
+                const left = sourcePercent(zoom.atMs, sourceDurationMs);
+                const width = pauseHoldWidthPercent(zoom.durationMs, sourceDurationMs);
+                const isSelected = selectedZoomId === zoom.id;
+                return (
+                  <div
+                    key={`zoom-${zoom.id}`}
+                    className={`tl-zoom${isSelected ? " is-selected" : ""}`}
+                    style={{
+                      left: `${left}%`,
+                      width: `${Math.max(width, 0.5)}%`,
+                    }}
+                    onMouseDown={(event) => {
+                      if (
+                        (event.target as HTMLElement).closest(
+                          ".tl-zoom-handle-end",
+                        )
+                      ) {
+                        return;
+                      }
+                      event.stopPropagation();
+                      event.preventDefault();
+                      onSelectZoom(zoom.id);
+                      onZoomDrag(zoom.id, event.clientX);
+                    }}
+                  >
+                    <div className="tl-zoom-anchor" aria-hidden />
+                    <div className="tl-zoom-body">
+                      <span className="tl-zoom-label">
+                        🔍 {zoom.scale.toFixed(1)}x
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="tl-zoom-handle-end"
+                      aria-label="Resize zoom duration"
+                      onMouseDown={(event) => {
+                        event.stopPropagation();
+                        event.preventDefault();
+                        onZoomResize(zoom.id, event.clientX);
                       }}
                     />
                   </div>

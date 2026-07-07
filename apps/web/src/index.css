@@ -23,7 +23,7 @@
     --workspace-sidebar-width: minmax(300px, 380px);
     --monitor-max-width: 960px;
     --monitor-max-height: calc(100vh - 260px);
-    --editor-timeline-track-height: 40px;
+    --editor-timeline-track-height: 56px;
 }
 
 /* Light Theme Variables */
@@ -2749,8 +2749,8 @@ input[type="number"]:disabled {
     min-width: 28px;
     display: flex;
     position: absolute;
-    top: 6px;
-    bottom: 6px;
+    top: 4px;
+    height: 22px;
     left: 0;
     border-radius: 2px;
     overflow: hidden;
@@ -3246,4 +3246,164 @@ input[type="number"]:disabled {
 }
 .animate-fade-in {
     animation: 0.4s cubic-bezier(0.16, 1, 0.3, 1) fadeIn;
+}
+
+/* Zoom timeline blocks & draggable monitor overlay */
+.tl-zoom {
+    position: absolute;
+    top: 30px;
+    height: 22px;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    border-radius: var(--ui-radius);
+    cursor: grab;
+    z-index: 15;
+    transition: box-shadow 0.12s ease;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    pointer-events: auto;
+}
+.tl-zoom.is-selected {
+    box-shadow: 0 0 0 2px var(--accent-soft);
+    background: var(--accent);
+    border-color: var(--accent);
+}
+.tl-zoom.is-selected .tl-zoom-label {
+    color: #ffffff;
+}
+.tl-zoom-anchor {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--accent);
+}
+.tl-zoom-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding-left: 0.35rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    user-select: none;
+}
+.tl-zoom-label {
+    font-size: 0.58rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.01em;
+}
+.tl-zoom-handle-end {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    cursor: ew-resize;
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+.tl-zoom-handle-end::after {
+    content: '';
+    position: absolute;
+    top: 25%;
+    bottom: 25%;
+    right: 1px;
+    width: 1px;
+    background: var(--border);
+    opacity: 0.8;
+}
+.tl-zoom.is-selected .tl-zoom-handle-end::after {
+    background: #ffffff;
+}
+
+/* Crop/Zoom Drag Overlay on Monitor Video */
+.zoom-box-overlay {
+    position: absolute;
+    border: 2px solid var(--accent);
+    background: rgba(37, 99, 235, 0.08);
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
+    cursor: move;
+    z-index: 50;
+    box-sizing: border-box;
+}
+.zoom-box-label {
+    position: absolute;
+    top: 0.4rem;
+    left: 0.4rem;
+    background: var(--accent);
+    color: #ffffff;
+    font-size: 0.62rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    padding: 0.15rem 0.35rem;
+    border-radius: 3px;
+    pointer-events: none;
+    box-shadow: var(--shadow-soft);
+}
+.zoom-box-handle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: #ffffff;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-sizing: border-box;
+    box-shadow: var(--shadow-soft);
+}
+.zoom-box-handle-nw {
+    top: 0;
+    left: 0;
+    cursor: nwse-resize;
+}
+.zoom-box-handle-ne {
+    top: 0;
+    left: 100%;
+    cursor: nesw-resize;
+}
+.zoom-box-handle-sw {
+    top: 100%;
+    left: 0;
+    cursor: nesw-resize;
+}
+.zoom-box-handle-se {
+    top: 100%;
+    left: 100%;
+    cursor: nwse-resize;
+}
+
+.editor-inspector-coords-display {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.74rem;
+    color: var(--text);
+    background: var(--surface-muted);
+    padding: 0.5rem 0.65rem;
+    border-radius: var(--ui-radius);
+    border: 1px solid var(--border);
+    margin-top: 0.5rem;
+}
+.editor-inspector-coords-display span {
+    font-weight: 600;
+    color: var(--muted);
+}
+.editor-inspector-coords-display div {
+    font-family: var(--font-mono);
+    font-weight: 700;
+}
+.zoom-inspector-hint {
+    font-size: 0.68rem;
+    color: var(--muted);
+    line-height: 1.45;
+    background: var(--glow-strong);
+    padding: 0.5rem 0.65rem;
+    border-radius: var(--ui-radius);
+    border-left: 2px solid var(--accent);
+    margin-top: 0.75rem;
 }

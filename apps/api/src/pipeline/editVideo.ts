@@ -53,6 +53,12 @@ function validateEditRequest(
     throw new Error("jobId is required");
   }
 
+  if (sourceDurationMs) {
+    if (request.trimEndMs === undefined || request.trimEndMs > sourceDurationMs) {
+      request.trimEndMs = sourceDurationMs;
+    }
+  }
+
   const trimStartMs = request.trimStartMs ?? 0;
   const trimEndMs = request.trimEndMs ?? sourceDurationMs ?? 0;
 
@@ -60,15 +66,14 @@ function validateEditRequest(
     throw new Error("trimStartMs must be >= 0");
   }
 
-  if (sourceDurationMs && trimEndMs > sourceDurationMs) {
-    throw new Error("trimEndMs exceeds source video duration");
-  }
-
   if (trimEndMs - trimStartMs < 100) {
     throw new Error("Trim range must be at least 100ms");
   }
 
   for (const pause of request.pauses ?? []) {
+    if (sourceDurationMs && pause.atMs > trimEndMs && pause.atMs - trimEndMs < 200) {
+      pause.atMs = trimEndMs;
+    }
     if (pause.atMs < trimStartMs || pause.atMs > trimEndMs) {
       throw new Error("Pause markers must fall within the trim range");
     }

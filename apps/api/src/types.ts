@@ -78,11 +78,25 @@ export interface EditorPause {
   holdMs: number;
 }
 
+export interface EditorZoom {
+  /** Position in the source video timeline (milliseconds). */
+  atMs: number;
+  /** Transition duration (milliseconds). */
+  durationMs: number;
+  /** Zoom level (e.g. 1.5). */
+  scale: number;
+  /** Target center X coordinate percentage (0 to 1). */
+  x: number;
+  /** Target center Y coordinate percentage (0 to 1). */
+  y: number;
+}
+
 export interface EditRequest {
   jobId: string;
   trimStartMs?: number;
   trimEndMs?: number;
   pauses?: EditorPause[];
+  zooms?: EditorZoom[];
 }
 
 export interface EditResult {
