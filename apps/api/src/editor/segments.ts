@@ -4,6 +4,7 @@ export interface PlaySegment {
   type: "play";
   startMs: number;
   endMs: number;
+  speedType?: "normal" | "decelerate" | "accelerate";
   zoom: {
     startScale: number;
     endScale: number;
@@ -82,9 +83,13 @@ export function buildEditSegments(
   splitPointsSet.add(trimEndMs);
 
   for (const pause of pauses) {
-    if (pause.atMs >= trimStartMs && pause.atMs <= trimEndMs) {
-      splitPointsSet.add(pause.atMs);
-    }
+    const p1 = pause.atMs - 300;
+    const p2 = pause.atMs;
+    const p3 = pause.atMs + 300;
+
+    if (p1 >= trimStartMs && p1 <= trimEndMs) splitPointsSet.add(p1);
+    if (p2 >= trimStartMs && p2 <= trimEndMs) splitPointsSet.add(p2);
+    if (p3 >= trimStartMs && p3 <= trimEndMs) splitPointsSet.add(p3);
   }
 
   for (const zoom of zooms) {
@@ -133,10 +138,22 @@ export function buildEditSegments(
     if (end > start) {
       const zoomStart = getZoomStateAt(start, sortedZooms);
       const zoomEnd = getZoomStateAt(end, sortedZooms);
+
+      let speedType: "normal" | "decelerate" | "accelerate" = "normal";
+      const isDecel = sortedPauses.some((p) => Math.abs(end - p.atMs) < 2);
+      const isAccel = sortedPauses.some((p) => Math.abs(start - p.atMs) < 2);
+
+      if (isDecel) {
+        speedType = "decelerate";
+      } else if (isAccel) {
+        speedType = "accelerate";
+      }
+
       segments.push({
         type: "play",
         startMs: start,
         endMs: end,
+        speedType,
         zoom: {
           startScale: zoomStart.scale,
           endScale: zoomEnd.scale,

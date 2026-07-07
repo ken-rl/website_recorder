@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { EditRequest } from "../types.js";
-import { probeVideoDurationMs, probeVideoSize } from "../transcode/probe.js";
+import { probeVideoDurationMs, probeVideoSize, probeVideoFps } from "../transcode/probe.js";
 import type { EncodeSettings } from "../transcode/quality.js";
 import { buildEditSegments } from "./segments.js";
 
@@ -31,6 +31,8 @@ export async function renderEditedVideo(
   }
 
   const size = await probeVideoSize(inputPath);
+  const fps = (await probeVideoFps(inputPath)) || 60;
+
   const segments = buildEditSegments(
     trimStartMs,
     trimEndMs,
@@ -57,6 +59,8 @@ export async function renderEditedVideo(
           segment.zoom,
           encode,
           size,
+          segment.speedType,
+          fps,
         );
       } else {
         await extractFreezeSegment(
@@ -67,13 +71,14 @@ export async function renderEditedVideo(
           segment.zoom,
           encode,
           size,
+          fps,
         );
       }
 
       segmentPaths.push(segmentPath);
     }
 
-    await concatSegments(segmentPaths, outputPath, encode);
+    await concatSegments(segmentPaths, outputPath, encode, fps);
     const durationMs = (await probeVideoDurationMs(outputPath)) ?? 0;
     return { durationMs };
   } finally {
@@ -91,13 +96,11 @@ function buildZoomFilter(
     endY: number;
   },
   durationMs: number,
+  fps: number,
 ): string {
-  const { startScale, endScale, startX, endX, startY, endY } = zoom;
+  const { startScale, endScale, startX, startY } = zoom;
 
-  const isConstant =
-    Math.abs(startScale - endScale) < 0.001 &&
-    Math.abs(startX - endX) < 0.001 &&
-    Math.abs(startY - endY) < 0.001;
+  const isConstant = Math.abs(startScale - endScale) < 0.001;
 
   if (isConstant) {
     if (Math.abs(startScale - 1.0) < 0.001) {
@@ -108,14 +111,13 @@ function buildZoomFilter(
 
   const durationSec = durationMs / 1000;
   const diffScale = (endScale - startScale).toFixed(3);
-  const diffX = (endX - startX).toFixed(3);
-  const diffY = (endY - startY).toFixed(3);
+  const totalFrames = Math.max(1, Math.round(durationSec * fps));
 
-  const scaleExpr = `(${startScale.toFixed(3)}+(${diffScale})*t/${durationSec.toFixed(3)})`;
-  const xExpr = `(${startX.toFixed(3)}+(${diffX})*t/${durationSec.toFixed(3)})`;
-  const yExpr = `(${startY.toFixed(3)}+(${diffY})*t/${durationSec.toFixed(3)})`;
+  const zExpr = `(${startScale.toFixed(3)}+(${diffScale})*min(on,${totalFrames})/${totalFrames})`;
+  const xExpr = `(${startX.toFixed(3)}*iw)-(iw/zoom)/2`;
+  const yExpr = `(${startY.toFixed(3)}*ih)-(ih/zoom)/2`;
 
-  return `crop=w='iw/${scaleExpr}':h='ih/${scaleExpr}':x='(iw-ow)*${xExpr}':y='(ih-oh)*${yExpr}'`;
+  return `zoompan=z='${zExpr}':x='${xExpr}':y='${yExpr}':d=1:fps=${fps}`;
 }
 
 function buildFreezeZoomFilter(zoom: {
@@ -145,21 +147,42 @@ async function extractPlaySegment(
   },
   encode: EncodeSettings,
   size: { width: number; height: number } | null,
+  speedType: "normal" | "decelerate" | "accelerate" = "normal",
+  fps: number = DEFAULT_FPS,
 ) {
   const startSec = (startMs / 1000).toFixed(3);
-  const durationSec = (durationMs / 1000).toFixed(3);
-  const zoomFilter = buildZoomFilter(zoom, durationMs);
-  const scale = size ? scaleFilter(size.width, size.height) : null;
-  const filters = [zoomFilter, scale, `fps=${DEFAULT_FPS}`].filter(Boolean);
+  const outputDurationMs = (speedType === "decelerate" || speedType === "accelerate")
+    ? durationMs * 1.5
+    : durationMs;
+  const outputDurationSec = (outputDurationMs / 1000).toFixed(3);
+  const filters: string[] = [];
+
+  if (size) {
+    filters.push(scaleFilter(size.width, size.height));
+  }
+
+  const durationSecVal = durationMs / 1000;
+  if (speedType === "decelerate") {
+    filters.push(`setpts='PTS*(1.0+0.5*(T/${durationSecVal.toFixed(3)}))'`);
+  } else if (speedType === "accelerate") {
+    filters.push(`setpts='PTS*(2.0-0.5*(T/${durationSecVal.toFixed(3)}))'`);
+  }
+
+  const zoomFilter = buildZoomFilter(zoom, durationMs, fps);
+  if (zoomFilter) {
+    filters.push(zoomFilter);
+  }
+
+  filters.push(`fps=${fps}`);
 
   await runFfmpeg([
     "-y",
-    "-i",
-    inputPath,
     "-ss",
     startSec,
+    "-i",
+    inputPath,
     "-t",
-    durationSec,
+    outputDurationSec,
     "-an",
     "-c:v",
     "libx264",
@@ -182,21 +205,22 @@ async function extractFreezeSegment(
   zoom: { scale: number; x: number; y: number },
   encode: EncodeSettings,
   size: { width: number; height: number } | null,
+  fps: number = DEFAULT_FPS,
 ) {
   const framePath = `${outputPath}.jpg`;
   const atSec = (atMs / 1000).toFixed(3);
   const holdSec = (holdMs / 1000).toFixed(3);
   const zoomFilter = buildFreezeZoomFilter(zoom);
   const scale = size ? scaleFilter(size.width, size.height) : null;
-  const filters = [zoomFilter, scale, `fps=${DEFAULT_FPS}`].filter(Boolean);
+  const filters = [zoomFilter, scale, `fps=${fps}`].filter(Boolean);
 
   try {
     await runFfmpeg([
       "-y",
-      "-i",
-      inputPath,
       "-ss",
       atSec,
+      "-i",
+      inputPath,
       "-frames:v",
       "1",
       "-q:v",
@@ -207,7 +231,7 @@ async function extractFreezeSegment(
     const freezeFilters = [
       zoomFilter,
       scale,
-      `fps=${DEFAULT_FPS}`,
+      `fps=${fps}`,
       "format=yuv420p",
     ].filter(Boolean);
 
@@ -216,7 +240,7 @@ async function extractFreezeSegment(
       "-loop",
       "1",
       "-framerate",
-      String(DEFAULT_FPS),
+      String(fps),
       "-i",
       framePath,
       "-t",
@@ -244,6 +268,7 @@ async function concatSegments(
   segmentPaths: string[],
   outputPath: string,
   encode: EncodeSettings,
+  fps: number = DEFAULT_FPS,
 ) {
   if (segmentPaths.length === 1) {
     await fs.copyFile(segmentPaths[0], outputPath);
