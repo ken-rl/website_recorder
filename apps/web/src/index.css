@@ -1,4 +1,5 @@
-@import "https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap";
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+
 *,
 :before,
 :after {
@@ -6,56 +7,140 @@
     margin: 0;
     padding: 0;
 }
+
+/* Global Variables & Shared Settings */
 :root {
-    --bg: #070708;
-    --surface: #09090b;
-    --surface-elevated: #131316;
-    --surface-muted: #131316;
-    --text: #fafafa;
-    --muted: #52525b;
-    --border: #ffffff10;
-    --border-hover: #ffffff1f;
-    --border-active: #ffffff2e;
-    --accent: #fff;
-    --accent-text: #070708;
-    --accent-soft: #ffffff0f;
-    --accent-hover: #e4e4e7;
-    --error: #f87171;
-    --success: #4ade80;
-    --playhead: #f4f4f5;
-    --pause-block: #d97706;
-    --tl-track-bg: #09090b;
-    --tl-track-fill: #131316;
-    --tl-track-line: #ffffff10;
-    --tl-trim-line: #ffffffd9;
-    --tl-trim-ghost: #00000080;
-    --tl-ruler-text: #52525b;
-    --tl-pause-fill: #d9770647;
-    --tl-pause-line: #f59e0b8c;
-    --ui-line: var(--tl-track-line);
-    --ui-fill: var(--tl-track-fill);
-    --ui-surface: var(--tl-track-bg);
-    --ui-muted: var(--tl-ruler-text);
-    --ui-radius: 4px;
-    --editor-line: var(--ui-line);
-    --editor-fill: var(--ui-fill);
-    --editor-surface: var(--ui-surface);
-    --editor-muted: var(--ui-muted);
-    --editor-radius: var(--ui-radius);
-    --radius: 6px;
-    --radius-sm: 4px;
-    --radius-lg: 6px;
-    --font-sans: "Outfit", system-ui, -apple-system, sans-serif;
-    --font-display: "Outfit", system-ui, sans-serif;
-    --glow: #ffffff0d;
-    --glow-strong: #ffffff1a;
+    --font-sans: "DM Sans", system-ui, -apple-system, sans-serif;
+    --font-display: "DM Sans", system-ui, sans-serif;
     --font-mono: "JetBrains Mono", monospace;
-    --shadow-soft: none;
-    --topbar-height: 52px;
+    
+    --ui-radius: 8px;
+    --radius: 12px;
+    --radius-sm: 6px;
+    --radius-lg: 16px;
+    
+    --topbar-height: 56px;
     --workspace-sidebar-width: minmax(300px, 380px);
     --monitor-max-width: 960px;
     --monitor-max-height: calc(100vh - 260px);
     --editor-timeline-track-height: 40px;
+}
+
+/* Light Theme Variables */
+html[data-theme="light"] {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --surface-elevated: #f1f5f9;
+    --surface-muted: #f8fafc;
+    --text: #090d16;          /* Darker primary text (almost black) */
+    --muted: #3e4e63;         /* Darker secondary/muted text (slate-700) */
+    --border: #e2e8f0;
+    --border-hover: #cbd5e1;
+    --border-active: #94a3b8;
+    
+    --accent: #2563eb;
+    --accent-text: #ffffff;
+    --accent-soft: rgba(37, 99, 235, 0.08);
+    --accent-hover: #1d4ed8;
+    
+    --error: #ef4444;
+    --success: #10b981;
+    
+    --playhead: #dc2626;
+    --pause-block: #d97706;
+    
+    --tl-track-bg: #ffffff;
+    --tl-track-fill: #f1f5f9;
+    --tl-track-line: #e2e8f0;
+    --tl-trim-line: #090d16;  /* Darker trim line */
+    --tl-trim-ghost: rgba(0, 0, 0, 0.06);
+    --tl-ruler-text: #3e4e63; /* Darker ruler text */
+    --tl-pause-fill: rgba(217, 119, 6, 0.12);
+    --tl-pause-line: rgba(217, 119, 6, 0.5);
+    
+    --glow: rgba(37, 99, 235, 0.03);
+    --glow-strong: rgba(37, 99, 235, 0.08);
+    
+    --shadow-soft: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+
+/* Dark Theme Variables (Default) */
+html[data-theme="dark"], :root:not([data-theme="light"]) {
+    --bg: #09090b;
+    --surface: #121214;
+    --surface-elevated: #1a1a1e;
+    --surface-muted: #1e1e24;
+    --text: #fafafa;
+    --muted: #8e8e93;
+    --border: #ffffff12;
+    --border-hover: #ffffff22;
+    --border-active: #ffffff33;
+    
+    --accent: #3b82f6;
+    --accent-text: #ffffff;
+    --accent-soft: rgba(59, 130, 246, 0.15);
+    --accent-hover: #60a5fa;
+    
+    --error: #f87171;
+    --success: #4ade80;
+    
+    --playhead: #f4f4f5;
+    --pause-block: #d97706;
+    
+    --tl-track-bg: #09090b;
+    --tl-track-fill: #1a1a1e;
+    --tl-track-line: #ffffff10;
+    --tl-trim-line: #ffffffd9;
+    --tl-trim-ghost: rgba(0, 0, 0, 0.4);
+    --tl-ruler-text: #8e8e93;
+    --tl-pause-fill: rgba(217, 119, 6, 0.2);
+    --tl-pause-line: rgba(245, 158, 11, 0.5);
+    
+    --glow: rgba(255, 255, 255, 0.03);
+    --glow-strong: rgba(255, 255, 255, 0.08);
+    
+    --shadow-soft: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+}
+
+/* Bind theme variables to ui and editor aliases */
+:root, html[data-theme="light"], html[data-theme="dark"] {
+    --ui-line: var(--border);
+    --ui-fill: var(--surface-elevated);
+    --ui-surface: var(--surface);
+    --ui-muted: var(--muted);
+    
+    --editor-line: var(--border);
+    --editor-fill: var(--surface-elevated);
+    --editor-surface: var(--surface);
+    --editor-muted: var(--muted);
+    
+    --ui-radius: 8px;
+    --editor-radius: 8px;
+}
+
+/* Theme Toggle Button Style */
+.theme-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--ui-radius);
+    border: 1px solid var(--ui-line);
+    background: var(--ui-surface);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+    flex-shrink: 0;
+}
+.theme-toggle-btn:hover {
+    border-color: var(--border-hover);
+    background: var(--ui-fill);
 }
 body {
     font-family: var(--font-sans);
@@ -247,15 +332,17 @@ body > * {
 .product-btn:hover:not(:disabled) {
     border-color: var(--border-hover);
     background: var(--ui-fill);
+    box-shadow: var(--shadow-soft);
 }
 .product-btn-primary {
-    color: var(--text);
-    background: var(--ui-fill);
-    border-color: #ffffff2e;
+    color: var(--accent-text);
+    background: var(--accent);
+    border-color: var(--accent);
 }
 .product-btn-primary:hover:not(:disabled) {
-    border-color: #ffffff47;
-    background: #1a1a1f;
+    border-color: var(--accent-hover);
+    background: var(--accent-hover);
+    box-shadow: var(--shadow-md);
 }
 .product-btn-primary:disabled {
     opacity: 0.45;
@@ -378,61 +465,177 @@ body > * {
 }
 .recorder-page {
     flex: 1;
+    display: grid;
+    grid-template-columns: 440px 1fr;
+    gap: 1.25rem;
+    min-height: 0;
+    height: calc(100vh - var(--topbar-height));
+    margin: 0;
+    padding: 1.25rem;
+    background: var(--bg);
+    overflow: hidden;
+}
+.recorder-sidebar-panel {
+    background: transparent;
+    display: flex;
     flex-direction: column;
+    gap: 1rem;
+    overflow-y: auto;
+    height: 100%;
+    padding: 0;
+    padding-right: 4px;
+}
+.recorder-sidebar-panel::-webkit-scrollbar {
+    width: 6px;
+}
+.recorder-sidebar-panel::-webkit-scrollbar-track {
+    background: transparent;
+}
+.recorder-sidebar-panel::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+.recorder-preview-panel {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    width: 100%;
+    height: auto;
+}
+.recorder-main-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow-y: auto;
+    height: 100%;
+    padding: 0;
+    padding-right: 4px;
+}
+.recorder-main-panel::-webkit-scrollbar {
+    width: 6px;
+}
+.recorder-main-panel::-webkit-scrollbar-track {
+    background: transparent;
+}
+.recorder-main-panel::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+.recorder-controls-card {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+.controls-card-left {
+    display: flex;
     align-items: center;
     gap: 1.5rem;
-    min-height: 0;
-    padding: 2rem 1.25rem 2.75rem;
-    display: flex;
-    overflow-y: auto;
+    flex-wrap: wrap;
 }
-.recorder-narrow {
-    flex-direction: column;
-    gap: 1.15rem;
-    width: 100%;
-    max-width: 480px;
+.controls-card-right {
     display: flex;
-}
-.recorder-header {
-    justify-content: center;
-    display: flex;
-}
-.recorder-header h1 {
-    letter-spacing: -0.025em;
     align-items: center;
-    gap: 0.4rem;
-    font-size: 1.5rem;
-    font-weight: 600;
-    line-height: 1.2;
-    display: inline-flex;
+    gap: 0.75rem;
 }
-.recorder-stage {
-    grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
-    align-items: start;
-    gap: 1rem;
-    width: 100%;
-    max-width: 1180px;
-    display: grid;
-}
-.recorder-stage.is-portrait-stage {
-    grid-template-columns: auto minmax(260px, 300px);
-    justify-content: center;
-    width: fit-content;
-    max-width: 100%;
-}
-.recorder-stage.is-portrait-stage .recorder-preview {
-    width: auto;
-    flex: none;
-}
-.recorder-options {
-    border: 1px solid var(--ui-line);
-    background: var(--ui-surface);
-    border-radius: var(--ui-radius);
-    flex-direction: column;
-    min-width: 0;
+.quality-field-horizontal {
     display: flex;
-    position: sticky;
-    top: 0.75rem;
+    align-items: center;
+    gap: 0.5rem;
+}
+.quality-field-horizontal label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+}
+.quality-field-horizontal select {
+    width: auto;
+    padding: 0.35rem 2rem 0.35rem 0.75rem;
+    font-size: 0.74rem;
+    font-family: var(--font-sans);
+    height: 32px;
+}
+.quality-fixed-badge {
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    background: var(--border);
+    padding: 0.15rem 0.35rem;
+    border-radius: var(--ui-radius);
+    color: var(--muted);
+}
+.recorder-capture-btn-sm,
+.recorder-editor-btn-sm {
+    font-family: var(--font-sans);
+    font-size: 0.74rem;
+    padding: 0.45rem 1rem;
+    font-weight: 600;
+    border-radius: var(--ui-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    height: 32px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    transition: all 0.12s ease;
+}
+.recorder-capture-btn-sm:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.status-indicator-card {
+    padding: 1rem 1.5rem;
+}
+.sidebar-section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    box-shadow: var(--shadow-soft);
+}
+.sidebar-section-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.015em;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+@media (max-width: 960px) {
+    .recorder-page {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
+        padding: 1rem;
+        gap: 1rem;
+    }
+    .recorder-sidebar-panel {
+        height: auto;
+        overflow: visible;
+        padding-right: 0;
+    }
+    .recorder-preview-panel {
+        height: auto;
+        overflow: visible;
+        padding: 0;
+        border-radius: 0;
+    }
 }
 .recorder-options-title {
     letter-spacing: 0.1em;
@@ -612,10 +815,10 @@ body > * {
     background: var(--ui-fill);
 }
 .recorder-device-btn.is-active {
-    color: var(--text);
-    background: var(--ui-fill);
-    border-color: #ffffff2e;
-    box-shadow: inset 0 0 0 1px var(--ui-line);
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    box-shadow: none;
 }
 .recorder-preview {
     justify-content: center;
@@ -714,8 +917,8 @@ body > * {
 
 .recorder-success {
     text-align: center;
-    border: 1px solid #22c55e40;
-    background: #22c55e0a;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    background: rgba(16, 185, 129, 0.08);
     border-radius: var(--ui-radius);
     flex-direction: column;
     align-items: center;
@@ -724,25 +927,25 @@ body > * {
     display: flex;
 }
 .recorder-success p {
-    color: #86efaccc;
+    color: var(--success);
     margin-bottom: 0;
     font-size: 0.74rem;
     line-height: 1.45;
 }
 .recorder-editor-btn {
     font-family: var(--font-mono);
-    color: var(--text);
+    color: var(--accent-text);
     cursor: pointer;
-    background: var(--ui-fill);
-    border: 1px solid #ffffff2e;
+    background: var(--accent);
+    border: 1px solid var(--accent);
     border-radius: var(--ui-radius);
     padding: 0.45rem 0.85rem;
     font-size: 0.7rem;
-    font-weight: 500;
+    font-weight: 600;
 }
 .recorder-editor-btn:hover {
-    border-color: #ffffff47;
-    background: #1a1a1f;
+    border-color: var(--accent-hover);
+    background: var(--accent-hover);
 }
 .recorder-preview .capture-meta {
     justify-content: center;
@@ -1223,9 +1426,9 @@ input[type="url"]:focus,
 input[type="text"]:focus,
 input[type="number"]:focus,
 select:focus {
-    border-color: #ffffff2e;
+    border-color: var(--accent);
     background: var(--bg);
-    box-shadow: none;
+    box-shadow: 0 0 0 2px var(--accent-soft);
 }
 select {
     appearance: none;
@@ -1568,14 +1771,14 @@ button[type="submit"]:disabled .loader-circle {
     background: var(--ui-surface);
 }
 .status.error {
-    color: #f87171cc;
-    background: #ef44440a;
-    border: 1px solid #ef444433;
+    color: var(--error);
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
 }
 .status.success {
-    color: #86efaccc;
-    background: #22c55e0a;
-    border: 1px solid #22c55e33;
+    color: var(--success);
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.2);
 }
 .progress-card {
     background: var(--ui-surface);

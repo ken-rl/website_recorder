@@ -1,5 +1,6 @@
 import React from "react";
 import FieldLabel from "./FieldLabel";
+import BezierVisualizer from "./BezierVisualizer";
 
 interface ScrollPhysicsFormProps {
   selectedCurve: string;
@@ -59,6 +60,18 @@ export default function ScrollPhysicsForm({
           <option value="ease-in-out-cubic">In-Out Cubic (Heavy easing)</option>
           <option value="custom">Custom (Visual Handle Editor)</option>
         </select>
+      </div>
+
+      <div className="field curve-visualizer-container">
+        <BezierVisualizer
+          selectedCurve={selectedCurve}
+          setSelectedCurve={setSelectedCurve}
+          customBezier={customBezier}
+          setCustomBezier={setCustomBezier}
+          customInputText={customInputText}
+          setCustomInputText={setCustomInputText}
+          embedded={true}
+        />
       </div>
 
       <div

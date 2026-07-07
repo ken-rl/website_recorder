@@ -8,6 +8,8 @@ outputs/*
 
 apps/api/outputs/*
 
+docs/*
+
 *.webm
 *.log
 

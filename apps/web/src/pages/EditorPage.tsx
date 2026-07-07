@@ -39,6 +39,8 @@ interface EditorPageProps {
   height: number;
   scrollStrategy?: "document" | "virtual";
   onNavigate: (path: string) => void;
+  theme: "light" | "dark";
+  onToggleTheme: () => void;
 }
 
 function formatTime(ms: number) {
@@ -60,6 +62,8 @@ export default function EditorPage({
   height,
   scrollStrategy,
   onNavigate,
+  theme,
+  onToggleTheme,
 }: EditorPageProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -377,6 +381,8 @@ export default function EditorPage({
         currentPath="/editor"
         onNavigate={onNavigate}
         hasEditorSession
+        theme={theme}
+        onToggleTheme={onToggleTheme}
         actions={
           <>
             {scrollStrategy && (

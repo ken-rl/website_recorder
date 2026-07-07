@@ -1,4 +1,5 @@
 import React from "react";
+import { Sun, Moon } from "lucide-react";
 import LordIcon from "./LordIcon";
 import { LORDICON } from "../lib/icons";
 
@@ -8,6 +9,8 @@ interface AppTopbarProps {
   isRecording?: boolean;
   hasEditorSession?: boolean;
   actions?: React.ReactNode;
+  theme: "light" | "dark";
+  onToggleTheme: () => void;
 }
 
 export default function AppTopbar({
@@ -16,6 +19,8 @@ export default function AppTopbar({
   isRecording = false,
   hasEditorSession = false,
   actions,
+  theme,
+  onToggleTheme,
 }: AppTopbarProps) {
   const isRecorder = currentPath === "/" || currentPath === "";
   const isEditor = currentPath === "/editor";
@@ -32,7 +37,7 @@ export default function AppTopbar({
           src={LORDICON.logo}
           size={26}
           trigger={isRecording ? "loop" : "hover"}
-          colors="primary:#f4f4f5,secondary:#a1a1aa"
+          colors={theme === "light" ? "primary:#090d16,secondary:#3e4e63" : "primary:#f4f4f5,secondary:#a1a1aa"}
         />
         <span className="product-brand-text">
           <strong>Website Recorder</strong>
@@ -85,7 +90,18 @@ export default function AppTopbar({
         </button>
       </nav>
 
-      <div className="product-topbar-actions">{actions}</div>
+      <div className="product-topbar-actions">
+        <button
+          type="button"
+          className="theme-toggle-btn"
+          onClick={onToggleTheme}
+          title={theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
+          aria-label="Toggle Theme"
+        >
+          {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+        </button>
+        {actions}
+      </div>
     </header>
   );
 }

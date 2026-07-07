@@ -25,6 +25,21 @@ export default function App() {
     () => (window.location.pathname === "/editor" ? loadEditorSession() : null),
   );
 
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const saved = localStorage.getItem("theme");
+    if (saved === "light" || saved === "dark") return saved;
+    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+  };
+
   useEffect(() => {
     const handlePopState = () => {
       setCurrentPath(window.location.pathname);
@@ -246,6 +261,8 @@ export default function App() {
             currentPath="/editor"
             onNavigate={navigate}
             hasEditorSession={false}
+            theme={theme}
+            onToggleTheme={toggleTheme}
           />
           <div className="product-empty">
             <LordIcon src={LORDICON.editor} size={48} trigger="loop" />
@@ -272,6 +289,8 @@ export default function App() {
         height={editorSession.height}
         scrollStrategy={editorSession.scrollStrategy}
         onNavigate={navigate}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
     );
   }
@@ -283,6 +302,8 @@ export default function App() {
         onNavigate={navigate}
         isRecording={isSubmitting}
         hasEditorSession={hasEditorSession}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       <div className="app-content">
@@ -290,66 +311,48 @@ export default function App() {
           <UpcomingFeatures />
         ) : (
           <form id="form" className="recorder-page" onSubmit={handleSubmit}>
-            <div className="recorder-narrow">
-              <TargetPageForm
-                url={url}
-                setUrl={setUrl}
-                devicePreset={devicePreset}
-                setDevicePreset={handleDevicePresetChange}
-              />
+            <div className="recorder-sidebar-panel">
+              <div className="sidebar-section-card">
+                <h3 className="sidebar-section-title">Setup</h3>
+                <TargetPageForm
+                  url={url}
+                  setUrl={setUrl}
+                  devicePreset={devicePreset}
+                  setDevicePreset={handleDevicePresetChange}
+                />
+              </div>
+
+              <div className="sidebar-section-card">
+                <h3 className="sidebar-section-title">Scroll Settings</h3>
+                <ScrollPhysicsForm
+                  selectedCurve={selectedCurve}
+                  setSelectedCurve={setSelectedCurve}
+                  customBezier={customBezier}
+                  setCustomBezier={setCustomBezier}
+                  customInputText={customInputText}
+                  setCustomInputText={setCustomInputText}
+                />
+
+                <VirtualScrollForm
+                  scrollMode={scrollMode}
+                  setScrollMode={setScrollMode}
+                  virtualScrollCycles={virtualScrollCycles}
+                  setVirtualScrollCycles={setVirtualScrollCycles}
+                  useFixedDuration={useFixedDuration}
+                  setUseFixedDuration={setUseFixedDuration}
+                  virtualScrollDurationMs={virtualScrollDurationMs}
+                  setVirtualScrollDurationMs={setVirtualScrollDurationMs}
+                  fastMode={fastMode}
+                />
+              </div>
             </div>
 
-            <div
-              className={`recorder-stage${width < height ? " is-portrait-stage" : ""}`}
-            >
-              <section className="recorder-preview" aria-label="Preview">
-                <BrowserMockup
-                  url={url}
-                  videoUrl={resultVideo?.url || null}
-                  duration={resultVideo?.duration || null}
-                  scrollStrategy={resultVideo?.scrollStrategy}
-                  width={width}
-                  height={height}
-                  isSubmitting={isSubmitting}
-                />
-              </section>
-
-              <aside
-                className="recorder-options"
-                aria-label="Recording options"
-              >
-                <h2 className="recorder-options-title">Recording options</h2>
-                <div className="recorder-options-body">
-                  <ScrollPhysicsForm
-                    selectedCurve={selectedCurve}
-                    setSelectedCurve={setSelectedCurve}
-                    customBezier={customBezier}
-                    setCustomBezier={setCustomBezier}
-                    customInputText={customInputText}
-                    setCustomInputText={setCustomInputText}
-                  />
-
-                  <VirtualScrollForm
-                    scrollMode={scrollMode}
-                    setScrollMode={setScrollMode}
-                    virtualScrollCycles={virtualScrollCycles}
-                    setVirtualScrollCycles={setVirtualScrollCycles}
-                    useFixedDuration={useFixedDuration}
-                    setUseFixedDuration={setUseFixedDuration}
-                    virtualScrollDurationMs={virtualScrollDurationMs}
-                    setVirtualScrollDurationMs={setVirtualScrollDurationMs}
-                    fastMode={fastMode}
-                  />
-
-                  <div
-                    className={`field quality-field${fastMode ? " is-disabled" : ""}`}
-                  >
-                    <div className="field-label-row">
-                      <label htmlFor="quality">Quality</label>
-                      {fastMode && (
-                        <InfoTooltip text="Quality is fixed in fast mode." />
-                      )}
-                    </div>
+            <div className="recorder-main-panel">
+              {/* Top Controls Bento Card */}
+              <div className="sidebar-section-card recorder-controls-card">
+                <div className="controls-card-left">
+                  <div className="quality-field-horizontal">
+                    <label htmlFor="quality">Quality</label>
                     <select
                       id="quality"
                       name="quality"
@@ -361,33 +364,11 @@ export default function App() {
                       <option value="medium">Medium</option>
                       <option value="low">Low</option>
                     </select>
+                    {fastMode && (
+                      <span className="quality-fixed-badge">Fixed</span>
+                    )}
                   </div>
-                </div>
-              </aside>
-            </div>
 
-            <div className="recorder-narrow">
-              <section
-                className="recorder-actions"
-                aria-label="Capture controls"
-              >
-                <button
-                  type="submit"
-                  id="submit"
-                  className="recorder-capture-btn"
-                  disabled={isSubmitting || !url.trim()}
-                >
-                  <span className="loader-circle" />
-                  <span id="buttonText">
-                    {isSubmitting
-                      ? "Recording…"
-                      : resultVideo
-                        ? "Record again"
-                        : "Start capture"}
-                  </span>
-                </button>
-
-                <div className="recorder-actions-meta">
                   <label className="recorder-fast-toggle" htmlFor="fastMode">
                     <input
                       type="checkbox"
@@ -410,36 +391,67 @@ export default function App() {
                   </label>
                 </div>
 
-                {isSubmitting && (
-                  <ProgressCard
-                    percent={progressPercent}
-                    status={progressStatus}
-                    elapsed={elapsedTime}
-                  />
-                )}
+                <div className="controls-card-right">
+                  <button
+                    type="submit"
+                    id="submit"
+                    className="recorder-capture-btn-sm product-btn-primary"
+                    disabled={isSubmitting || !url.trim()}
+                  >
+                    {isSubmitting && <span className="loader-circle" />}
+                    <span id="buttonText">
+                      {isSubmitting
+                        ? "Recording…"
+                        : resultVideo
+                          ? "Record again"
+                          : "Start capture"}
+                    </span>
+                  </button>
 
-                {statusType === "error" && (
-                  <p className="status error" id="status" aria-live="polite">
-                    {statusText}
-                  </p>
-                )}
-
-                {resultVideo && !isSubmitting && (
-                  <div className="recorder-success">
-                    <p>
-                      Your scroll video is ready. Trim it and add pause holds in
-                      the editor.
-                    </p>
+                  {resultVideo && !isSubmitting && (
                     <button
                       type="button"
-                      className="recorder-editor-btn"
+                      className="recorder-editor-btn-sm product-btn"
                       onClick={openEditor}
                     >
                       Open in editor
                     </button>
-                  </div>
-                )}
-              </section>
+                  )}
+                </div>
+              </div>
+
+              {/* Progress & Error indicators if any */}
+              {(isSubmitting || statusType === "error") && (
+                <div className="sidebar-section-card status-indicator-card">
+                  {isSubmitting && (
+                    <ProgressCard
+                      percent={progressPercent}
+                      status={progressStatus}
+                      elapsed={elapsedTime}
+                    />
+                  )}
+                  {statusType === "error" && (
+                    <p className="status error" id="status" aria-live="polite">
+                      {statusText}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Bottom Video Playback Bento Card */}
+              <div className={`recorder-preview-panel${width < height ? " is-portrait-stage" : ""}`}>
+                <section className="recorder-preview" aria-label="Preview">
+                  <BrowserMockup
+                    url={url}
+                    videoUrl={resultVideo?.url || null}
+                    duration={resultVideo?.duration || null}
+                    scrollStrategy={resultVideo?.scrollStrategy}
+                    width={width}
+                    height={height}
+                    isSubmitting={isSubmitting}
+                  />
+                </section>
+              </div>
             </div>
           </form>
         )}
