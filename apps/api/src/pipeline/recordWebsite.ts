@@ -89,6 +89,10 @@ export async function recordWebsite(
       console.log("Using headed Chromium for smooth virtual-scroll capture.");
     }
 
+    // For export mode, we can always run headless since screenshot-based captures
+    // don't need a display. This avoids OS-level window constraints and headed viewport scaling glitches.
+    const runHeadless = captureMode === "export" ? true : captureHeadless;
+
     capture = await runRecordSession({
       request,
       outputDir,
@@ -100,8 +104,8 @@ export async function recordWebsite(
       scrollCurve,
       removeOverlays,
       storageState,
-      headless: captureHeadless,
-      launchArgs: launchArgsForHeadless(captureHeadless),
+      headless: runHeadless,
+      launchArgs: launchArgsForHeadless(runHeadless),
       deviceScaleFactor,
       framerate: outputFramerate,
       captureFps,
