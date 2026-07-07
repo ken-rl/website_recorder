@@ -79,8 +79,11 @@ export class FrameRecorder {
         fullPage: false,
       });
 
-      await fs.writeFile(framePath, buffer);
       task.resolve();
+      // Write the buffer to disk in the background to avoid blocking the scroll loop
+      fs.writeFile(framePath, buffer).catch((err) => {
+        console.error(`Failed to write frame ${task.frameNum} to disk:`, err);
+      });
     } catch (error) {
       task.reject(error as Error);
     }
