@@ -382,14 +382,23 @@ export default function App() {
 
               <div className="sidebar-section-card">
                 <h3 className="sidebar-section-title">Scroll Settings</h3>
-                <ScrollPhysicsForm
-                  selectedCurve={selectedCurve}
-                  setSelectedCurve={setSelectedCurve}
-                  customBezier={customBezier}
-                  setCustomBezier={setCustomBezier}
-                  customInputText={customInputText}
-                  setCustomInputText={setCustomInputText}
-                />
+                {renderTier === "draft" ? (
+                  <ScrollPhysicsForm
+                    selectedCurve={selectedCurve}
+                    setSelectedCurve={setSelectedCurve}
+                    customBezier={customBezier}
+                    setCustomBezier={setCustomBezier}
+                    customInputText={customInputText}
+                    setCustomInputText={setCustomInputText}
+                  />
+                ) : (
+                  <div className="linear-info-box" style={{ padding: "12px", background: "rgba(255, 255, 255, 0.03)", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "8px", fontSize: "0.85rem", color: "var(--text-muted)", lineHeight: "1.4" }}>
+                    <p style={{ margin: 0, fontWeight: "500", color: "var(--text-primary)", marginBottom: "4px" }}>
+                      Linear Capture (Eased Post-Record)
+                    </p>
+                    Scroll curves and speed are fully customizable and update in real-time inside the **Editor** once rendering completes.
+                  </div>
+                )}
 
                 <VirtualScrollForm
                   scrollMode={scrollMode}
