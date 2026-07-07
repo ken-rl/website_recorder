@@ -106,28 +106,11 @@ export async function compileVideoFromFrames(options: CompileVideoOptions): Prom
       const linearProgress = Math.min(1, Math.max(0, scrollTime / scrollDurationMs));
       const easedProgress = applyBezierCurve(linearProgress, bezier);
 
-      let selectedFrame = sourceFrames[0];
-      if (scrollStrategy === "document") {
-        const targetY = maxScroll * easedProgress;
-        let minDiff = Infinity;
-        for (const frame of sourceFrames) {
-          const diff = Math.abs(frame.y - targetY);
-          if (diff < minDiff) {
-            minDiff = diff;
-            selectedFrame = frame;
-          }
-        }
-      } else {
-        // virtual
-        let minDiff = Infinity;
-        for (const frame of sourceFrames) {
-          const diff = Math.abs(frame.progress - easedProgress);
-          if (diff < minDiff) {
-            minDiff = diff;
-            selectedFrame = frame;
-          }
-        }
-      }
+      const frameIndex = Math.min(
+        sourceFrames.length - 1,
+        Math.max(0, Math.round(easedProgress * (sourceFrames.length - 1)))
+      );
+      const selectedFrame = sourceFrames[frameIndex];
 
       outputFrameFiles.push(selectedFrame.file);
     }

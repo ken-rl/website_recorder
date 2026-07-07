@@ -8,6 +8,7 @@ import React, {
 import AppTopbar from "../components/AppTopbar";
 import BezierVisualizer, { CURVES } from "../components/BezierVisualizer";
 import LordIcon from "../components/LordIcon";
+import PortalPopover from "../components/PortalPopover";
 import EditorTimeline, {
   type EditorTimelineHandle,
 } from "../timeline/components/EditorTimeline";
@@ -231,6 +232,8 @@ export default function EditorPage({
   const [durationMs, setDurationMs] = useState(0);
   const [curvePreset, setCurvePreset] = useState("ease-in-out");
   const [customBezier, setCustomBezier] = useState<[number, number, number, number]>([0.25, 0.1, 0.25, 1.0]);
+  const curveTriggerRef = useRef<HTMLDivElement>(null);
+  const speedTriggerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch(`/outputs/${jobId}/frames-metadata.json`)
@@ -388,6 +391,8 @@ export default function EditorPage({
     isPlaying,
     setIsPlaying,
     onPlayheadUpdate: handlePlayheadUpdate,
+    hasMetadata,
+    customBezier,
   });
 
   seekToExportMsRef.current = seekToExportMs;
@@ -871,187 +876,185 @@ export default function EditorPage({
               )}
             </div>
           </div>          {hasMetadata && (
-            <section className="editor-sidebar-section" style={{ position: "relative" }}>
+            <section className="editor-sidebar-section">
               <h3>Scroll Easing & Speed</h3>
-              <div style={{ display: "flex", gap: "8px", position: "relative" }}>
+              <div style={{ display: "flex", gap: "8px" }}>
                 
-                {/* 1. Curve Popover Trigger */}
-                <div style={{ flex: 1, position: "static" }}>
+                {/* 1. Curve Popover Trigger (Hoverable) */}
+                <div
+                  ref={curveTriggerRef}
+                  style={{ flex: 1 }}
+                  onMouseEnter={() => setActivePopover("curve")}
+                  onMouseLeave={() => setActivePopover(null)}
+                >
                   <button
                     type="button"
                     className={`editor-tool-btn ${activePopover === "curve" ? "editor-tool-btn-active" : ""}`}
                     style={{ width: "100%", justifyContent: "center", display: "flex", flexDirection: "column", height: "64px", gap: "2px", textAlign: "center" }}
-                    onClick={() => setActivePopover(activePopover === "curve" ? null : "curve")}
                   >
                     <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: "600", letterSpacing: "0.05em" }}>Curve</span>
                     <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--text-primary)" }}>
                       {curvePreset === "custom" ? "Custom" : CURVES.find((c) => c.id === curvePreset)?.label || "Custom"}
                     </span>
                   </button>
-
-                  {activePopover === "curve" && (
-                    <div style={{
-                      position: "absolute",
-                      top: "76px",
-                      left: "0",
-                      right: "0",
-                      background: "var(--bg-bento, #18181b)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "8px",
-                      padding: "16px",
-                      zIndex: 100,
-                      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "12px"
-                    }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontWeight: "600", fontSize: "0.9rem", color: "var(--text-primary)" }}>Select Scroll Curve</span>
-                        <button
-                          type="button"
-                          style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "0.75rem", padding: "4px" }}
-                          onClick={() => setActivePopover(null)}
-                        >
-                          ✕
-                        </button>
-                      </div>
-
-                      <select
-                        value={curvePreset}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setCurvePreset(val);
-                          if (val === "linear") setCustomBezier([0.0, 0.0, 1.0, 1.0]);
-                          else if (val === "ease-in") setCustomBezier([0.42, 0.0, 1.0, 1.0]);
-                          else if (val === "ease-out") setCustomBezier([0.0, 0.0, 0.58, 1.0]);
-                          else if (val === "ease-in-out") setCustomBezier([0.42, 0.0, 0.58, 1.0]);
-                          else if (val === "ease-in-cubic") setCustomBezier([0.55, 0.055, 0.675, 0.19]);
-                          else if (val === "ease-out-cubic") setCustomBezier([0.215, 0.61, 0.355, 1.0]);
-                          else if (val === "ease-in-out-cubic") setCustomBezier([0.645, 0.045, 0.355, 1.0]);
-                        }}
-                        className="product-select"
-                        style={{ width: "100%", padding: "6px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "4px", color: "var(--text-primary)" }}
-                      >
-                        <option value="ease-in-out">Ease In Out</option>
-                        <option value="ease-in">Ease In</option>
-                        <option value="ease-out">Ease Out</option>
-                        <option value="linear">Linear</option>
-                        <option value="ease-in-cubic">Ease In Cubic</option>
-                        <option value="ease-out-cubic">Ease Out Cubic</option>
-                        <option value="ease-in-out-cubic">Ease In Out Cubic</option>
-                        <option value="custom">Custom Bezier</option>
-                      </select>
-
-                      <div style={{ background: "rgba(0,0,0,0.2)", borderRadius: "6px", padding: "8px" }}>
-                        <BezierVisualizer
-                          selectedCurve={curvePreset}
-                          setSelectedCurve={setCurvePreset}
-                          customBezier={customBezier}
-                          setCustomBezier={setCustomBezier}
-                          customInputText={customBezier.map(n => n.toFixed(2)).join(", ")}
-                          setCustomInputText={() => {}}
-                          embedded={true}
-                        />
-                      </div>
-                    </div>
-                  )}
                 </div>
 
-                {/* 2. Speed Popover Trigger */}
-                <div style={{ flex: 1, position: "static" }}>
+                <PortalPopover
+                  triggerRef={curveTriggerRef}
+                  open={activePopover === "curve"}
+                  onClose={() => setActivePopover(null)}
+                  align="right"
+                  offset={12}
+                >
+                  <div style={{
+                    width: "360px",
+                    background: "var(--surface, #1e1e2e)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "8px",
+                    padding: "16px",
+                    boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.2)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "12px"
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontWeight: "600", fontSize: "0.9rem", color: "var(--text-primary)" }}>Select Scroll Curve</span>
+                    </div>
+
+                    <select
+                      value={curvePreset}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCurvePreset(val);
+                        if (val === "linear") setCustomBezier([0.0, 0.0, 1.0, 1.0]);
+                        else if (val === "ease-in") setCustomBezier([0.42, 0.0, 1.0, 1.0]);
+                        else if (val === "ease-out") setCustomBezier([0.0, 0.0, 0.58, 1.0]);
+                        else if (val === "ease-in-out") setCustomBezier([0.42, 0.0, 0.58, 1.0]);
+                        else if (val === "ease-in-cubic") setCustomBezier([0.55, 0.055, 0.675, 0.19]);
+                        else if (val === "ease-out-cubic") setCustomBezier([0.215, 0.61, 0.355, 1.0]);
+                        else if (val === "ease-in-out-cubic") setCustomBezier([0.645, 0.045, 0.355, 1.0]);
+                      }}
+                      className="product-select"
+                      style={{ width: "100%", padding: "6px", background: "var(--bg-bento)", border: "1px solid var(--border)", borderRadius: "4px", color: "var(--text-primary)" }}
+                    >
+                      <option value="ease-in-out">Ease In Out</option>
+                      <option value="ease-in">Ease In</option>
+                      <option value="ease-out">Ease Out</option>
+                      <option value="linear">Linear</option>
+                      <option value="ease-in-cubic">Ease In Cubic</option>
+                      <option value="ease-out-cubic">Ease Out Cubic</option>
+                      <option value="ease-in-out-cubic">Ease In Out Cubic</option>
+                      <option value="custom">Custom Bezier</option>
+                    </select>
+
+                    <div style={{ background: "var(--bg-main)", border: "1px solid var(--border)", borderRadius: "6px", padding: "8px" }}>
+                      <BezierVisualizer
+                        selectedCurve={curvePreset}
+                        setSelectedCurve={setCurvePreset}
+                        customBezier={customBezier}
+                        setCustomBezier={setCustomBezier}
+                        customInputText={customBezier.map(n => n.toFixed(2)).join(", ")}
+                        setCustomInputText={() => {}}
+                        embedded={true}
+                      />
+                    </div>
+                  </div>
+                </PortalPopover>
+
+                {/* 2. Speed Popover Trigger (Hoverable) */}
+                <div
+                  ref={speedTriggerRef}
+                  style={{ flex: 1 }}
+                  onMouseEnter={() => setActivePopover("speed")}
+                  onMouseLeave={() => setActivePopover(null)}
+                >
                   <button
                     type="button"
                     className={`editor-tool-btn ${activePopover === "speed" ? "editor-tool-btn-active" : ""}`}
                     style={{ width: "100%", justifyContent: "center", display: "flex", flexDirection: "column", height: "64px", gap: "2px", textAlign: "center" }}
-                    onClick={() => setActivePopover(activePopover === "speed" ? null : "speed")}
                   >
                     <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: "600", letterSpacing: "0.05em" }}>Duration</span>
                     <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--text-primary)" }}>
                       {Math.round((durationMs / 1000) * 10) / 10}s
                     </span>
                   </button>
-
-                  {activePopover === "speed" && (
-                    <div style={{
-                      position: "absolute",
-                      top: "76px",
-                      left: "0",
-                      right: "0",
-                      background: "var(--bg-bento, #18181b)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "8px",
-                      padding: "16px",
-                      zIndex: 100,
-                      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "12px"
-                    }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontWeight: "600", fontSize: "0.9rem", color: "var(--text-primary)" }}>Duration & Speed</span>
-                        <button
-                          type="button"
-                          style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "0.75rem", padding: "4px" }}
-                          onClick={() => setActivePopover(null)}
-                        >
-                          ✕
-                        </button>
-                      </div>
-
-                      {/* Speed Presets */}
-                      <div>
-                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: "600", display: "block", marginBottom: "6px" }}>Speed Presets</span>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "4px" }}>
-                          {[0.25, 0.5, 1.0, 1.5, 2.0].map((preset) => {
-                            const initialDur = metaInitialDurationMs || 5433;
-                            const presetDurationSec = Math.max(2, (initialDur / preset) / 1000);
-                            return (
-                              <button
-                                key={preset}
-                                type="button"
-                                className="product-btn"
-                                style={{
-                                  padding: "6px 0",
-                                  fontSize: "0.75rem",
-                                  border: "1px solid var(--border)",
-                                  borderRadius: "4px",
-                                  background: "rgba(255, 255, 255, 0.02)",
-                                  cursor: "pointer",
-                                  color: "var(--text-primary)",
-                                  textAlign: "center"
-                                }}
-                                onClick={() => {
-                                  handleDurationChange(presetDurationSec);
-                                }}
-                              >
-                                {preset}x
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Slider Control */}
-                      <label className="editor-inspector-field" style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "4px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                          <span>Timeline Duration</span>
-                          <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>
-                            {Math.round((durationMs / 1000) * 10) / 10}s
-                          </span>
-                        </div>
-                        <input
-                          type="range"
-                          min={2}
-                          max={40}
-                          step={0.5}
-                          value={Math.round((durationMs / 1000) * 2) / 2}
-                          onChange={(e) => handleDurationChange(Math.max(2, Number(e.target.value)))}
-                          style={{ width: "100%", accentColor: "var(--text-primary)", height: "4px", background: "var(--border)", borderRadius: "2px", outline: "none", cursor: "pointer" }}
-                        />
-                      </label>
-                    </div>
-                  )}
                 </div>
+
+                <PortalPopover
+                  triggerRef={speedTriggerRef}
+                  open={activePopover === "speed"}
+                  onClose={() => setActivePopover(null)}
+                  align="right"
+                  offset={12}
+                >
+                  <div style={{
+                    width: "280px",
+                    background: "var(--surface, #1e1e2e)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "8px",
+                    padding: "16px",
+                    boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.2)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "12px"
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontWeight: "600", fontSize: "0.9rem", color: "var(--text-primary)" }}>Duration & Speed</span>
+                    </div>
+
+                    {/* Speed Presets */}
+                    <div>
+                      <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: "600", display: "block", marginBottom: "6px" }}>Speed Presets</span>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "4px" }}>
+                        {[0.25, 0.5, 1.0, 1.5, 2.0].map((preset) => {
+                          const initialDur = metaInitialDurationMs || 5433;
+                          const presetDurationSec = Math.max(2, (initialDur / preset) / 1000);
+                          return (
+                            <button
+                              key={preset}
+                              type="button"
+                              className="product-btn"
+                              style={{
+                                padding: "6px 0",
+                                fontSize: "0.75rem",
+                                border: "1px solid var(--border)",
+                                borderRadius: "4px",
+                                background: "var(--bg-bento)",
+                                cursor: "pointer",
+                                color: "var(--text-primary)",
+                                textAlign: "center"
+                              }}
+                              onClick={() => {
+                                handleDurationChange(presetDurationSec);
+                              }}
+                            >
+                              {preset}x
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Slider Control */}
+                    <label className="editor-inspector-field" style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "4px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                        <span>Timeline Duration</span>
+                        <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>
+                          {Math.round((durationMs / 1000) * 10) / 10}s
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={2}
+                        max={40}
+                        step={0.5}
+                        value={Math.round((durationMs / 1000) * 2) / 2}
+                        onChange={(e) => handleDurationChange(Math.max(2, Number(e.target.value)))}
+                        style={{ width: "100%", accentColor: "var(--text-primary)", height: "4px", background: "var(--border)", borderRadius: "2px", outline: "none", cursor: "pointer" }}
+                      />
+                    </label>
+                  </div>
+                </PortalPopover>
 
               </div>
             </section>

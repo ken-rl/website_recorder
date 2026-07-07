@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef } from "react";
 import {
   exportMsToPlayback,
   exportMsToSourcePlayheadPercent,
+  findBlockAtExportMs,
   type TimelineBlock,
 } from "../../lib/editorTimeline";
+import { sampleCurveY } from "../../components/BezierVisualizer";
 
 interface UsePlaybackClockOptions {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -16,6 +18,8 @@ interface UsePlaybackClockOptions {
   isPlaying: boolean;
   setIsPlaying: (playing: boolean) => void;
   onPlayheadUpdate?: (percent: number) => void;
+  hasMetadata?: boolean;
+  customBezier?: [number, number, number, number];
 }
 
 export function usePlaybackClock({
@@ -29,6 +33,8 @@ export function usePlaybackClock({
   isPlaying,
   setIsPlaying,
   onPlayheadUpdate,
+  hasMetadata = false,
+  customBezier = [0.25, 0.1, 0.25, 1.0],
 }: UsePlaybackClockOptions) {
   const rafRef = useRef(0);
   const playAnchorRef = useRef<{ exportMs: number; timestamp: number } | null>(
@@ -74,10 +80,29 @@ export function usePlaybackClock({
       }
 
       const clamped = Math.min(duration, Math.max(0, exportMs));
-      const { sourceMs, isFrozen } = exportMsToPlayback(
-        clamped,
-        blocksRef.current,
-      );
+      let sourceMs = 0;
+      let isFrozen = false;
+
+      if (hasMetadata && previewModeRef.current === "edit") {
+        const block = findBlockAtExportMs(clamped, blocksRef.current);
+        if (block) {
+          if (block.type === "freeze") {
+            sourceMs = block.sourceStartMs;
+            isFrozen = true;
+          } else {
+            const offset = clamped - block.exportStartMs;
+            const blockExportDuration = block.exportEndMs - block.exportStartMs;
+            const linearProgress = blockExportDuration > 0 ? offset / blockExportDuration : 0;
+            const easedProgress = sampleCurveY(customBezier, linearProgress);
+            const sourceOffset = easedProgress * (block.sourceEndMs - block.sourceStartMs);
+            sourceMs = block.sourceStartMs + sourceOffset;
+          }
+        }
+      } else {
+        const playback = exportMsToPlayback(clamped, blocksRef.current);
+        sourceMs = playback.sourceMs;
+        isFrozen = playback.isFrozen;
+      }
       const physicalDuration = video.duration;
       const scale = (previewModeRef.current === "edit" && physicalDuration && duration > 0)
         ? (physicalDuration * 1000) / duration

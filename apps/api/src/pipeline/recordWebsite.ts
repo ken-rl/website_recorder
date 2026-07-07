@@ -384,7 +384,7 @@ async function runRecordSession(options: {
             outputPath: tempRawVideoPath,
             durationMs: initialDurationMs,
             fps: framerate,
-            bezier: scrollCurve,
+            bezier: [0.0, 0.0, 1.0, 1.0], // Always compile linear preview video to allow real-time easing in editor
             pauses: [],
           });
           rawVideoPath = tempRawVideoPath;

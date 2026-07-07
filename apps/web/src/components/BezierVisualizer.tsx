@@ -70,6 +70,53 @@ interface BezierVisualizerProps {
   embedded?: boolean;
 }
 
+export function sampleCurveY(
+  bezier: [number, number, number, number],
+  linearProgress: number,
+) {
+  const [x1, y1, x2, y2] = bezier;
+
+  function sampleX(t: number) {
+    const inv = 1 - t;
+    return 3 * inv * inv * t * x1 + 3 * inv * t * t * x2 + t * t * t;
+  }
+
+  // Explicitly type parameter name inside functions to avoid compile issues
+  function sampleYVal(t: number) {
+    const inv = 1 - t;
+    return 3 * inv * inv * t * y1 + 3 * inv * t * t * y2 + t * t * t;
+  }
+
+  function sampleDx(t: number) {
+    return (
+      3 * (1 - t) * (1 - t) * x1 +
+      6 * (1 - t) * t * (x2 - x1) +
+      3 * t * t * (1 - x2)
+    );
+  }
+
+  if (linearProgress <= 0) return 0;
+  if (linearProgress >= 1) return 1;
+
+  let start = 0;
+  let end = 1;
+  let param = linearProgress;
+
+  for (let i = 0; i < 8; i += 1) {
+    param = (start + end) / 2;
+    if (sampleX(param) < linearProgress) start = param;
+    else end = param;
+  }
+
+  param = (start + end) / 2;
+  const dx = sampleDx(param);
+  if (Math.abs(dx) > 1e-6) {
+    param -= (sampleX(param) - linearProgress) / dx;
+  }
+
+  return sampleYVal(Math.min(1, Math.max(0, param)));
+}
+
 export default function BezierVisualizer({
   selectedCurve,
   setSelectedCurve,
@@ -92,53 +139,6 @@ export default function BezierVisualizer({
     const match = CURVES.find((c) => c.id === selectedCurve);
     return match ? match.bezier : [0, 0, 1, 1];
   };
-
-  function sampleCurveY(
-    bezier: [number, number, number, number],
-    linearProgress: number,
-  ) {
-    const [x1, y1, x2, y2] = bezier;
-
-    function sampleX(t: number) {
-      const inv = 1 - t;
-      return 3 * inv * inv * t * x1 + 3 * inv * t * t * x2 + t * t * t;
-    }
-
-    // Explicitly type parameter name inside functions to avoid compile issues
-    function sampleYVal(t: number) {
-      const inv = 1 - t;
-      return 3 * inv * inv * t * y1 + 3 * inv * t * t * y2 + t * t * t;
-    }
-
-    function sampleDx(t: number) {
-      return (
-        3 * (1 - t) * (1 - t) * x1 +
-        6 * (1 - t) * t * (x2 - x1) +
-        3 * t * t * (1 - x2)
-      );
-    }
-
-    if (linearProgress <= 0) return 0;
-    if (linearProgress >= 1) return 1;
-
-    let start = 0;
-    let end = 1;
-    let param = linearProgress;
-
-    for (let i = 0; i < 8; i += 1) {
-      param = (start + end) / 2;
-      if (sampleX(param) < linearProgress) start = param;
-      else end = param;
-    }
-
-    param = (start + end) / 2;
-    const dx = sampleDx(param);
-    if (Math.abs(dx) > 1e-6) {
-      param -= (sampleX(param) - linearProgress) / dx;
-    }
-
-    return sampleYVal(Math.min(1, Math.max(0, param)));
-  }
 
   function curvePoints(
     bezier: [number, number, number, number],
@@ -178,6 +178,13 @@ export default function BezierVisualizer({
       const innerW = 316;
       const innerH = 132;
 
+      const compStyle = window.getComputedStyle(canvas);
+      const textCol = compStyle.getPropertyValue("--text-primary").trim() || "#ffffff";
+      const isLightTheme = textCol.includes("0, 0, 0") || textCol.startsWith("#0") || textCol.startsWith("#1") || textCol.startsWith("#2") || textCol.startsWith("#3") || textCol.startsWith("#4") || textCol.startsWith("#5") || textCol.includes("rgb(17") || textCol.includes("rgb(34");
+      
+      const themeColor = isLightTheme ? "#111827" : "#ffffff";
+      const themeColorRgb = isLightTheme ? "17, 24, 39" : "255, 255, 255";
+
       const points = curvePoints(bezier, 364, height, padding);
 
       const totalFrames = 240;
@@ -201,7 +208,7 @@ export default function BezierVisualizer({
       ctx.clearRect(0, 0, width, height);
 
       // 1. Draw separator
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+      ctx.strokeStyle = `rgba(${themeColorRgb}, 0.1)`;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(380, 16);
@@ -209,7 +216,7 @@ export default function BezierVisualizer({
       ctx.stroke();
 
       // 2. Draw grids
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
+      ctx.strokeStyle = `rgba(${themeColorRgb}, 0.04)`;
       ctx.lineWidth = 1;
       for (let i = 1; i <= 3; i++) {
         const y = padding + (i / 4) * innerH;
@@ -236,7 +243,7 @@ export default function BezierVisualizer({
       const cx2 = padding + x2 * innerW;
       const cy2 = padding + (1 - y2) * innerH;
 
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+      ctx.strokeStyle = `rgba(${themeColorRgb}, 0.25)`;
       ctx.lineWidth = 1.25;
       ctx.setLineDash([3, 3]);
 
@@ -253,7 +260,7 @@ export default function BezierVisualizer({
       ctx.setLineDash([]);
 
       // 5. Draw curve
-      ctx.strokeStyle = "#ffffff";
+      ctx.strokeStyle = themeColor;
       ctx.lineWidth = 2.5;
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
@@ -267,35 +274,35 @@ export default function BezierVisualizer({
       // 6. Draw handles
       let g1 =
         hoveredHandle === 1 || activeDragHandle.current === 1 ? 0.35 : 0.15;
-      ctx.fillStyle = `rgba(255, 255, 255, ${g1})`;
+      ctx.fillStyle = `rgba(${themeColorRgb}, ${g1})`;
       ctx.beginPath();
       ctx.arc(cx1, cy1, 10, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = themeColor;
       ctx.beginPath();
       ctx.arc(cx1, cy1, 4.5, 0, Math.PI * 2);
       ctx.fill();
 
       let g2 =
         hoveredHandle === 2 || activeDragHandle.current === 2 ? 0.35 : 0.15;
-      ctx.fillStyle = `rgba(255, 255, 255, ${g2})`;
+      ctx.fillStyle = `rgba(${themeColorRgb}, ${g2})`;
       ctx.beginPath();
       ctx.arc(cx2, cy2, 10, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = themeColor;
       ctx.beginPath();
       ctx.arc(cx2, cy2, 4.5, 0, Math.PI * 2);
       ctx.fill();
 
       // 7. Draw marker
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = themeColor;
       ctx.beginPath();
       ctx.arc(marker.x, marker.y, 5, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+      ctx.fillStyle = `rgba(${themeColorRgb}, 0.15)`;
       ctx.beginPath();
       ctx.arc(marker.x, marker.y, 10, 0, Math.PI * 2);
       ctx.fill();
@@ -310,7 +317,7 @@ export default function BezierVisualizer({
       ctx.fillStyle = "var(--surface)";
       ctx.fillRect(simX, simY, simW, simH);
 
-      ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
+      ctx.fillStyle = `rgba(${themeColorRgb}, 0.03)`;
       ctx.fillRect(simX, simY, simW, headerH);
 
       ctx.strokeStyle = "var(--border)";
@@ -320,7 +327,7 @@ export default function BezierVisualizer({
       ctx.lineTo(simX + simW, simY + headerH);
       ctx.stroke();
 
-      ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+      ctx.fillStyle = `rgba(${themeColorRgb}, 0.2)`;
       for (let i = 0; i < 3; i++) {
         ctx.beginPath();
         ctx.arc(simX + 10 + i * 5, simY + headerH / 2, 1.5, 0, Math.PI * 2);
@@ -340,14 +347,14 @@ export default function BezierVisualizer({
         const elemY = simY + headerH + y - scrollY;
 
         if (y === 26 || y === 122 || y === 218) {
-          ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+          ctx.fillStyle = `rgba(${themeColorRgb}, 0.05)`;
           ctx.fillRect(simX + 10, elemY, simW - 20, 24);
           y += 18;
         } else if (y === 58 || y === 154 || y === 250) {
-          ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+          ctx.fillStyle = `rgba(${themeColorRgb}, 0.25)`;
           ctx.fillRect(simX + 10, elemY, 50, 4);
         } else {
-          ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+          ctx.fillStyle = `rgba(${themeColorRgb}, 0.12)`;
           const lineW = y % 3 === 0 ? 90 : y % 2 === 0 ? 75 : 105;
           ctx.fillRect(simX + 10, elemY, Math.min(lineW, simW - 20), 2.5);
         }
@@ -362,7 +369,7 @@ export default function BezierVisualizer({
       const sbHeight = ((simH - headerH) / pageHeight) * (simH - headerH);
       const sbY =
         simY + headerH + (scrollY / maxScroll) * (simH - headerH - sbHeight);
-      ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+      ctx.fillStyle = `rgba(${themeColorRgb}, 0.25)`;
       ctx.fillRect(simX + simW - 3, sbY, 1.5, sbHeight);
 
       previewFrame.current += 1;

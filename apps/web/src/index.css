@@ -754,10 +754,8 @@ body > * {
     font-weight: 500;
 }
 .info-tooltip {
-    z-index: 20;
     flex-shrink: 0;
     display: inline-flex;
-    position: relative;
 }
 .info-tooltip-trigger {
     color: var(--ui-muted);
@@ -780,64 +778,6 @@ body > * {
     color: var(--text);
     background: var(--ui-fill);
     outline: none;
-}
-.info-tooltip-content {
-    pointer-events: none;
-    visibility: hidden;
-    opacity: 0;
-    z-index: 30;
-    color: var(--text);
-    text-align: left;
-    white-space: normal;
-    background: var(--surface-elevated);
-    border: 1px solid var(--ui-line);
-    border-radius: var(--ui-radius);
-    width: max-content;
-    max-width: 240px;
-    padding: 0.5rem 0.6rem;
-    font-size: 0.68rem;
-    font-weight: 400;
-    line-height: 1.45;
-    transition:
-        opacity 0.12s ease,
-        visibility 0.12s ease;
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%);
-    box-shadow: 0 8px 24px #00000066;
-}
-.info-tooltip-content:after {
-    content: "";
-    border-top: 5px solid var(--surface-elevated);
-    border-left: 5px solid #0000;
-    border-right: 5px solid #0000;
-    width: 0;
-    height: 0;
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-}
-.info-tooltip:hover .info-tooltip-content,
-.info-tooltip:focus-within .info-tooltip-content {
-    visibility: visible;
-    opacity: 1;
-}
-.recorder-options .info-tooltip-content {
-    bottom: 50%;
-    left: auto;
-    right: calc(100% + 8px);
-    transform: translateY(50%);
-}
-.recorder-options .info-tooltip-content:after {
-    border-top: 5px solid #0000;
-    border-bottom: 5px solid #0000;
-    border-left: 5px solid var(--surface-elevated);
-    border-right: none;
-    top: 50%;
-    left: 100%;
-    transform: translateY(-50%);
 }
 .recorder-fast-toggle .info-tooltip {
     margin-left: -0.1rem;
