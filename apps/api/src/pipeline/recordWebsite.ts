@@ -58,13 +58,10 @@ export async function recordWebsite(
   const removeOverlays = animation.removeOverlayElements ?? true;
   const captureMode = animation.captureMode ?? "export";
 
-  // For export mode: each screenshot corresponds to one scroll step (pixelsPerFrame px).
-  // The scroll animation targets SCROLL_FPS (60) steps/sec. So the effective capture rate is
-  // SCROLL_FPS / pixelsPerFrame frames per second of source video duration.
-  // e.g. pixelsPerFrame=2 → 30 fps (half the steps per second), pixelsPerFrame=4 → 15 fps.
-  // ffmpeg resamples this to the output framerate.
-  const SCROLL_FPS = 60;
-  const captureFps = Math.max(1, Math.round(SCROLL_FPS / pixelsPerFrame));
+  // For export mode: each screenshot corresponds to one scroll step.
+  // To play the scroll animation at the correct real-time speed, we must
+  // stitch the frames at the target output framerate.
+  const captureFps = outputFramerate;
 
   console.log(`Capture mode: ${captureMode}, pixelsPerFrame: ${pixelsPerFrame}, captureFps: ${captureFps}`);
 
