@@ -97,6 +97,7 @@ function buildZoomFilter(
   },
   durationMs: number,
   fps: number,
+  size: { width: number; height: number } | null,
 ): string {
   const { startScale, endScale, startX, startY } = zoom;
 
@@ -113,11 +114,12 @@ function buildZoomFilter(
   const diffScale = (endScale - startScale).toFixed(3);
   const totalFrames = Math.max(1, Math.round(durationSec * fps));
 
+  const sizeStr = size ? `:s=${size.width}x${size.height}` : "";
   const zExpr = `(${startScale.toFixed(3)}+(${diffScale})*min(on,${totalFrames})/${totalFrames})`;
-  const xExpr = `(${startX.toFixed(3)}*iw)-(iw/zoom)/2`;
-  const yExpr = `(${startY.toFixed(3)}*ih)-(ih/zoom)/2`;
+  const xExpr = `trunc((${startX.toFixed(3)}*iw)-(iw/zoom)/2)`;
+  const yExpr = `trunc((${startY.toFixed(3)}*ih)-(ih/zoom)/2)`;
 
-  return `zoompan=z='${zExpr}':x='${xExpr}':y='${yExpr}':d=1:fps=${fps}`;
+  return `zoompan=z='${zExpr}':x='${xExpr}':y='${yExpr}':d=1:fps=${fps}${sizeStr}`;
 }
 
 function buildFreezeZoomFilter(zoom: {
@@ -168,7 +170,7 @@ async function extractPlaySegment(
     filters.push(`setpts='PTS*(2.0-0.5*(T/${durationSecVal.toFixed(3)}))'`);
   }
 
-  const zoomFilter = buildZoomFilter(zoom, durationMs, fps);
+  const zoomFilter = buildZoomFilter(zoom, durationMs, fps, size);
   if (zoomFilter) {
     filters.push(zoomFilter);
   }

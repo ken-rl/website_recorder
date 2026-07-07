@@ -88,6 +88,7 @@ export async function recordWebsite(
       storageState,
       headless: captureHeadless,
       launchArgs: launchArgsForHeadless(captureHeadless),
+      deviceScaleFactor,
     });
 
     const shouldRetryHeaded =
@@ -111,12 +112,15 @@ export async function recordWebsite(
   }
 
   const mp4Path = path.join(outputDir, "output.mp4");
+  const targetWidth = viewport.width * deviceScaleFactor;
+  const targetHeight = viewport.height * deviceScaleFactor;
+
   await transcodeToMp4(
     capture.rawVideoPath,
     mp4Path,
     framerate,
-    viewport.width,
-    viewport.height,
+    targetWidth,
+    targetHeight,
     encode,
   );
   await removeFileIfExists(capture.rawVideoPath);
@@ -217,6 +221,7 @@ async function runRecordSession(options: {
   storageState: Awaited<ReturnType<BrowserContext["storageState"]>>;
   headless: boolean;
   launchArgs: string[];
+  deviceScaleFactor: number;
 }): Promise<CaptureSessionResult> {
   const {
     request,
@@ -231,20 +236,21 @@ async function runRecordSession(options: {
     storageState,
     headless,
     launchArgs,
+    deviceScaleFactor,
   } = options;
 
   let browser: Browser | null = null;
   let rawVideoPath = "";
   let scrollStrategy: ResolvedScrollStrategy = "document";
 
-  const contextOptions = buildContextOptions(viewport, 1);
+  const contextOptions = buildContextOptions(viewport, deviceScaleFactor);
 
   try {
     const recordLaunchArgs = [
       ...launchArgs.filter(
         (arg) => !arg.startsWith("--force-device-scale-factor"),
       ),
-      "--force-device-scale-factor=1",
+      `--force-device-scale-factor=${deviceScaleFactor}`,
     ];
     browser = await chromium.launch({ headless, args: recordLaunchArgs });
 
@@ -253,7 +259,10 @@ async function runRecordSession(options: {
       storageState,
       recordVideo: {
         dir: outputDir,
-        size: { width: viewport.width, height: viewport.height },
+        size: {
+          width: viewport.width * deviceScaleFactor,
+          height: viewport.height * deviceScaleFactor,
+        },
       },
     });
     const page = await recordContext.newPage();

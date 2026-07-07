@@ -102,8 +102,13 @@ export function usePlaybackClock({
           if (nextBlock && nextBlock.type === "freeze") {
             const timeToPause = nextBlock.exportStartMs - clamped;
             if (timeToPause > 0 && timeToPause < 300) {
-              const ratio = timeToPause / 300;
-              targetSpeed = Math.max(0.5, ratio);
+              if (timeToPause >= 200) {
+                targetSpeed = 0.8;
+              } else if (timeToPause >= 100) {
+                targetSpeed = 0.6;
+              } else {
+                targetSpeed = 0.4;
+              }
             }
           }
 
@@ -112,8 +117,13 @@ export function usePlaybackClock({
           if (prevBlock && prevBlock.type === "freeze") {
             const timeSincePause = clamped - currentBlock.exportStartMs;
             if (timeSincePause > 0 && timeSincePause < 300) {
-              const ratio = timeSincePause / 300;
-              targetSpeed = Math.max(0.5, ratio);
+              if (timeSincePause < 100) {
+                targetSpeed = 0.4;
+              } else if (timeSincePause < 200) {
+                targetSpeed = 0.6;
+              } else {
+                targetSpeed = 0.8;
+              }
             }
           }
         }
