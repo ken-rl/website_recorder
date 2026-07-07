@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from "react";
 import AppTopbar from "./components/AppTopbar";
 import { LORDICON } from "./lib/icons";
 import LordIcon from "./components/LordIcon";
-import InfoTooltip from "./components/InfoTooltip";
 import TargetPageForm from "./components/TargetPageForm";
 import ScrollPhysicsForm from "./components/ScrollPhysicsForm";
 import VirtualScrollForm, {
@@ -63,9 +62,57 @@ export default function App() {
   const [devicePreset, setDevicePreset] = useState("1920x1080");
   const [width, setWidth] = useState(1920);
   const [height, setHeight] = useState(1080);
-  const [quality, setQuality] = useState("high");
-  const [fastMode, setFastMode] = useState(false);
-  const [captureMode, setCaptureMode] = useState<"preview" | "export">("export");
+
+  // Single render-quality tier: replaces fastMode + captureMode + quality
+  type RenderTier = "draft" | "standard" | "cinematic";
+  const [renderTier, setRenderTier] = useState<RenderTier>("standard");
+
+  const TIER_CONFIG: Record<RenderTier, {
+    captureMode: "preview" | "export";
+    fastMode: boolean;
+    qualityPreset: string;
+    pixelsPerFrame: number;
+    preRecordingDelayMs: number;
+    defaultCycles: number;
+    expectedDurationMs: number;
+    label: string;
+    hint: string;
+  }> = {
+    draft: {
+      captureMode: "preview",
+      fastMode: true,
+      qualityPreset: "medium",
+      pixelsPerFrame: 12,
+      preRecordingDelayMs: 500,
+      defaultCycles: 6,
+      expectedDurationMs: 5000,
+      label: "Draft",
+      hint: "~5s · Fast Playwright recording for checking scroll feel",
+    },
+    standard: {
+      captureMode: "export",
+      fastMode: false,
+      qualityPreset: "medium",
+      pixelsPerFrame: 4,
+      preRecordingDelayMs: 2000,
+      defaultCycles: 8,
+      expectedDurationMs: 20000,
+      label: "Standard",
+      hint: "~20s · Frame-by-frame capture, balanced quality",
+    },
+    cinematic: {
+      captureMode: "export",
+      fastMode: false,
+      qualityPreset: "high",
+      pixelsPerFrame: 2,
+      preRecordingDelayMs: 3000,
+      defaultCycles: 10,
+      expectedDurationMs: 45000,
+      label: "Cinematic",
+      hint: "~45s · High-quality, pixel-perfect output",
+    },
+  };
+
   const [selectedCurve, setSelectedCurve] = useState("ease-in-out");
   const [customBezier, setCustomBezier] = useState<
     [number, number, number, number]
@@ -111,39 +158,47 @@ export default function App() {
     setHeight(h);
   };
 
-  function startProgressSimulator(isFast: boolean) {
+  function startProgressSimulator(tier: RenderTier) {
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
 
     setProgressPercent(0);
     progressStartTimeRef.current = Date.now();
-    const expectedDuration = isFast ? 5000 : 18000;
+    const { expectedDurationMs } = TIER_CONFIG[tier];
 
     progressIntervalRef.current = setInterval(() => {
       const elapsed = Date.now() - progressStartTimeRef.current;
       setElapsedTime(`${(elapsed / 1000).toFixed(1)}s`);
 
-      const pct = 95 * (1 - Math.exp(-elapsed / (expectedDuration * 0.45)));
+      const pct = 95 * (1 - Math.exp(-elapsed / (expectedDurationMs * 0.45)));
       setProgressPercent(Math.round(pct));
 
-      if (isFast) {
+      if (tier === "draft") {
         if (elapsed < 1200) {
           setProgressStatus("Launching headless browser context...");
         } else if (elapsed < 3500) {
-          setProgressStatus(
-            "Scrolling website & capturing responsive viewport...",
-          );
+          setProgressStatus("Scrolling website & capturing viewport...");
         } else {
-          setProgressStatus("Processing and finalizing MP4 video stream...");
+          setProgressStatus("Finalizing MP4 video stream...");
         }
-      } else {
+      } else if (tier === "standard") {
         if (elapsed < 2000) {
           setProgressStatus("Spawning Chromium browser instance...");
         } else if (elapsed < 5000) {
           setProgressStatus("Hydrating lazy-loaded assets & selectors...");
-        } else if (elapsed < 12000) {
-          setProgressStatus("Scrolling website & encoding 60fps frames...");
+        } else if (elapsed < 14000) {
+          setProgressStatus("Capturing frames & encoding video...");
         } else {
-          setProgressStatus("Processing and stitching MP4 with FFmpeg...");
+          setProgressStatus("Stitching MP4 with FFmpeg...");
+        }
+      } else {
+        if (elapsed < 3000) {
+          setProgressStatus("Spawning Chromium & priming assets...");
+        } else if (elapsed < 8000) {
+          setProgressStatus("Hydrating lazy-loaded content...");
+        } else if (elapsed < 30000) {
+          setProgressStatus("Capturing high-res frames at 2px/frame...");
+        } else {
+          setProgressStatus("Stitching cinematic MP4 with FFmpeg...");
         }
       }
     }, 100);
@@ -186,24 +241,25 @@ export default function App() {
     e.preventDefault();
     setResultVideo(null);
     setStatusType("loading");
-    setStatusText(fastMode ? "Recording (fast mode)" : "Recording website");
+    setStatusText(`Recording (${TIER_CONFIG[renderTier].label.toLowerCase()})`);
     setIsSubmitting(true);
 
-    startProgressSimulator(fastMode);
+    startProgressSimulator(renderTier);
 
+    const tier = TIER_CONFIG[renderTier];
     const body = {
       targetUrl: url.trim(),
       exportFormat: "mp4",
       videoConfig: {
         framerate: 60,
-        qualityPreset: quality,
+        qualityPreset: tier.qualityPreset,
         viewport: { width, height },
       },
       animationConfig: {
-        fastMode,
-        captureMode,
-        pixelsPerFrame: fastMode ? 12 : 4,
-        preRecordingDelayMs: fastMode ? 500 : 2000,
+        fastMode: tier.fastMode,
+        captureMode: tier.captureMode,
+        pixelsPerFrame: tier.pixelsPerFrame,
+        preRecordingDelayMs: tier.preRecordingDelayMs,
         scrollCurve:
           selectedCurve === "custom"
             ? { preset: "custom", bezier: customBezier }
@@ -344,7 +400,7 @@ export default function App() {
                   setUseFixedDuration={setUseFixedDuration}
                   virtualScrollDurationMs={virtualScrollDurationMs}
                   setVirtualScrollDurationMs={setVirtualScrollDurationMs}
-                  fastMode={fastMode}
+                  fastMode={renderTier === "draft"}
                 />
               </div>
             </div>
@@ -353,85 +409,32 @@ export default function App() {
               {/* Top Controls Bento Card */}
               <div className="sidebar-section-card recorder-controls-card">
                 <div className="controls-card-left">
-                  {/* Capture Mode segmented control */}
-                  <div className="capture-mode-field">
-                    <span className="capture-mode-label">Mode</span>
-                    <div
-                      className="capture-mode-segmented"
-                      role="radiogroup"
-                      aria-label="Capture mode"
-                    >
-                      <button
-                        type="button"
-                        id="captureModeExport"
-                        role="radio"
-                        aria-checked={captureMode === "export"}
-                        className={`capture-mode-btn${captureMode === "export" ? " is-active" : ""}`}
-                        onClick={() => setCaptureMode("export")}
-                        title="High-quality screenshot-based capture"
-                      >
-                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden width="12" height="12">
-                          <rect x="1" y="2" width="14" height="10" rx="1.5" />
-                          <path d="M5 14h6M8 12v2" />
-                          <circle cx="8" cy="7" r="2" />
-                        </svg>
-                        Export
-                      </button>
-                      <button
-                        type="button"
-                        id="captureModePreview"
-                        role="radio"
-                        aria-checked={captureMode === "preview"}
-                        className={`capture-mode-btn${captureMode === "preview" ? " is-active" : ""}`}
-                        onClick={() => setCaptureMode("preview")}
-                        title="Fast Playwright video recording"
-                      >
-                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden width="12" height="12">
-                          <polygon points="3,2 13,8 3,14" />
-                        </svg>
-                        Preview
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="quality-field-horizontal">
-                    <label htmlFor="quality">Quality</label>
-                    <select
-                      id="quality"
-                      name="quality"
-                      value={quality}
-                      onChange={(e) => setQuality(e.target.value)}
-                      disabled={fastMode || captureMode === "preview"}
-                    >
-                      <option value="high">High</option>
-                      <option value="medium">Medium</option>
-                      <option value="low">Low</option>
-                    </select>
-                    {(fastMode || captureMode === "preview") && (
-                      <span className="quality-fixed-badge">Fixed</span>
+                  {/* Render quality tier selector */}
+                  <div
+                    className="render-tier-group"
+                    role="radiogroup"
+                    aria-label="Render quality"
+                  >
+                    {(Object.entries(TIER_CONFIG) as [RenderTier, typeof TIER_CONFIG[RenderTier]][]).map(
+                      ([tier, cfg]) => (
+                        <button
+                          key={tier}
+                          type="button"
+                          id={`renderTier-${tier}`}
+                          role="radio"
+                          aria-checked={renderTier === tier}
+                          className={`render-tier-btn render-tier-btn--${tier}${renderTier === tier ? " is-active" : ""}`}
+                          onClick={() => {
+                            setRenderTier(tier);
+                            setVirtualScrollCycles(cfg.defaultCycles);
+                          }}
+                        >
+                          <span className="render-tier-name">{cfg.label}</span>
+                          <span className="render-tier-hint">{cfg.hint}</span>
+                        </button>
+                      )
                     )}
                   </div>
-
-                  <label className="recorder-fast-toggle" htmlFor="fastMode">
-                    <input
-                      type="checkbox"
-                      id="fastMode"
-                      checked={fastMode}
-                      onChange={(e) => {
-                        const enabled = e.target.checked;
-                        setFastMode(enabled);
-                        setVirtualScrollCycles((cycles) =>
-                          cycles === (enabled ? 8 : 6)
-                            ? enabled
-                              ? 6
-                              : 8
-                            : cycles,
-                        );
-                      }}
-                    />
-                    <span>Fast mode</span>
-                    <InfoTooltip text="Quicker capture with lower quality output." />
-                  </label>
                 </div>
 
                 <div className="controls-card-right">
