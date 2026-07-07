@@ -350,8 +350,8 @@ async function runRecordSession(options: {
       console.log(`Scroll strategy: ${scrollStrategy}`);
       await page.waitForTimeout(500);
     } finally {
-      await page.close();
-      await recordContext.close();
+      await page.close().catch(() => undefined);
+      await recordContext.close().catch(() => undefined);
 
       // Stitch captured frames into a raw video at capture FPS;
       // transcodeToMp4 will resample to the output framerate.
