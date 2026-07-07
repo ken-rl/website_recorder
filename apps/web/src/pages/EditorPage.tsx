@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import AppTopbar from "../components/AppTopbar";
+import BezierVisualizer, { CURVES } from "../components/BezierVisualizer";
 import LordIcon from "../components/LordIcon";
 import EditorTimeline, {
   type EditorTimelineHandle,
@@ -225,6 +226,8 @@ export default function EditorPage({
   const [exportedUrl, setExportedUrl] = useState<string | null>(null);
 
   const [hasMetadata, setHasMetadata] = useState(false);
+  const [metaInitialDurationMs, setMetaInitialDurationMs] = useState(0);
+  const [activePopover, setActivePopover] = useState<"curve" | "speed" | null>(null);
   const [durationMs, setDurationMs] = useState(0);
   const [curvePreset, setCurvePreset] = useState("ease-in-out");
   const [customBezier, setCustomBezier] = useState<[number, number, number, number]>([0.25, 0.1, 0.25, 1.0]);
@@ -242,6 +245,7 @@ export default function EditorPage({
         if (meta) {
           const initialDuration = Math.round((meta.frames.length / 60) * 1000);
           setDurationMs(initialDuration);
+          setMetaInitialDurationMs(initialDuration);
         }
       })
       .catch(() => {});
@@ -866,105 +870,189 @@ export default function EditorPage({
                 </span>
               )}
             </div>
-          </div>
-
-          {hasMetadata && (
-            <section className="editor-sidebar-section">
+          </div>          {hasMetadata && (
+            <section className="editor-sidebar-section" style={{ position: "relative" }}>
               <h3>Scroll Easing & Speed</h3>
-              <div className="editor-inspector-card">
-                <label className="editor-inspector-field">
-                  Duration (seconds)
-                  <input
-                    type="number"
-                    min={2}
-                    max={40}
-                    step={0.5}
-                    value={Math.round((durationMs / 1000) * 2) / 2}
-                    onChange={(e) => handleDurationChange(Math.max(2, Number(e.target.value)))}
-                  />
-                </label>
-
-                <label className="editor-inspector-field">
-                  Easing Curve
-                  <select
-                    value={curvePreset}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setCurvePreset(val);
-                      if (val === "linear") setCustomBezier([0.0, 0.0, 1.0, 1.0]);
-                      else if (val === "ease-in") setCustomBezier([0.42, 0.0, 1.0, 1.0]);
-                      else if (val === "ease-out") setCustomBezier([0.0, 0.0, 0.58, 1.0]);
-                      else if (val === "ease-in-out") setCustomBezier([0.42, 0.0, 0.58, 1.0]);
-                      else if (val === "ease-in-cubic") setCustomBezier([0.55, 0.055, 0.675, 0.19]);
-                      else if (val === "ease-out-cubic") setCustomBezier([0.215, 0.61, 0.355, 1.0]);
-                      else if (val === "ease-in-out-cubic") setCustomBezier([0.645, 0.045, 0.355, 1.0]);
-                    }}
-                    className="product-select"
-                    style={{ width: "100%", marginTop: "4px" }}
+              <div style={{ display: "flex", gap: "8px", position: "relative" }}>
+                
+                {/* 1. Curve Popover Trigger */}
+                <div style={{ flex: 1, position: "static" }}>
+                  <button
+                    type="button"
+                    className={`editor-tool-btn ${activePopover === "curve" ? "editor-tool-btn-active" : ""}`}
+                    style={{ width: "100%", justifyContent: "center", display: "flex", flexDirection: "column", height: "64px", gap: "2px", textAlign: "center" }}
+                    onClick={() => setActivePopover(activePopover === "curve" ? null : "curve")}
                   >
-                    <option value="ease-in-out">Ease In Out</option>
-                    <option value="ease-in">Ease In</option>
-                    <option value="ease-out">Ease Out</option>
-                    <option value="linear">Linear</option>
-                    <option value="ease-in-cubic">Ease In Cubic</option>
-                    <option value="ease-out-cubic">Ease Out Cubic</option>
-                    <option value="ease-in-out-cubic">Ease In Out Cubic</option>
-                    <option value="custom">Custom Bezier</option>
-                  </select>
-                </label>
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: "600", letterSpacing: "0.05em" }}>Curve</span>
+                    <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--text-primary)" }}>
+                      {curvePreset === "custom" ? "Custom" : CURVES.find((c) => c.id === curvePreset)?.label || "Custom"}
+                    </span>
+                  </button>
 
-                {curvePreset === "custom" && (
-                  <div className="editor-bezier-fields" style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <label className="editor-inspector-field" style={{ flex: 1 }}>
-                        x1
-                        <input
-                          type="number"
-                          min={0}
-                          max={1}
-                          step={0.05}
-                          value={customBezier[0]}
-                          onChange={(e) => setCustomBezier([Number(e.target.value), customBezier[1], customBezier[2], customBezier[3]])}
+                  {activePopover === "curve" && (
+                    <div style={{
+                      position: "absolute",
+                      top: "76px",
+                      left: "0",
+                      right: "0",
+                      background: "var(--bg-bento, #18181b)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "8px",
+                      padding: "16px",
+                      zIndex: 100,
+                      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "12px"
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontWeight: "600", fontSize: "0.9rem", color: "var(--text-primary)" }}>Select Scroll Curve</span>
+                        <button
+                          type="button"
+                          style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "0.75rem", padding: "4px" }}
+                          onClick={() => setActivePopover(null)}
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <select
+                        value={curvePreset}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCurvePreset(val);
+                          if (val === "linear") setCustomBezier([0.0, 0.0, 1.0, 1.0]);
+                          else if (val === "ease-in") setCustomBezier([0.42, 0.0, 1.0, 1.0]);
+                          else if (val === "ease-out") setCustomBezier([0.0, 0.0, 0.58, 1.0]);
+                          else if (val === "ease-in-out") setCustomBezier([0.42, 0.0, 0.58, 1.0]);
+                          else if (val === "ease-in-cubic") setCustomBezier([0.55, 0.055, 0.675, 0.19]);
+                          else if (val === "ease-out-cubic") setCustomBezier([0.215, 0.61, 0.355, 1.0]);
+                          else if (val === "ease-in-out-cubic") setCustomBezier([0.645, 0.045, 0.355, 1.0]);
+                        }}
+                        className="product-select"
+                        style={{ width: "100%", padding: "6px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "4px", color: "var(--text-primary)" }}
+                      >
+                        <option value="ease-in-out">Ease In Out</option>
+                        <option value="ease-in">Ease In</option>
+                        <option value="ease-out">Ease Out</option>
+                        <option value="linear">Linear</option>
+                        <option value="ease-in-cubic">Ease In Cubic</option>
+                        <option value="ease-out-cubic">Ease Out Cubic</option>
+                        <option value="ease-in-out-cubic">Ease In Out Cubic</option>
+                        <option value="custom">Custom Bezier</option>
+                      </select>
+
+                      <div style={{ background: "rgba(0,0,0,0.2)", borderRadius: "6px", padding: "8px" }}>
+                        <BezierVisualizer
+                          selectedCurve={curvePreset}
+                          setSelectedCurve={setCurvePreset}
+                          customBezier={customBezier}
+                          setCustomBezier={setCustomBezier}
+                          customInputText={customBezier.map(n => n.toFixed(2)).join(", ")}
+                          setCustomInputText={() => {}}
+                          embedded={true}
                         />
-                      </label>
-                      <label className="editor-inspector-field" style={{ flex: 1 }}>
-                        y1
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Speed Popover Trigger */}
+                <div style={{ flex: 1, position: "static" }}>
+                  <button
+                    type="button"
+                    className={`editor-tool-btn ${activePopover === "speed" ? "editor-tool-btn-active" : ""}`}
+                    style={{ width: "100%", justifyContent: "center", display: "flex", flexDirection: "column", height: "64px", gap: "2px", textAlign: "center" }}
+                    onClick={() => setActivePopover(activePopover === "speed" ? null : "speed")}
+                  >
+                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: "600", letterSpacing: "0.05em" }}>Duration</span>
+                    <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--text-primary)" }}>
+                      {Math.round((durationMs / 1000) * 10) / 10}s
+                    </span>
+                  </button>
+
+                  {activePopover === "speed" && (
+                    <div style={{
+                      position: "absolute",
+                      top: "76px",
+                      left: "0",
+                      right: "0",
+                      background: "var(--bg-bento, #18181b)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "8px",
+                      padding: "16px",
+                      zIndex: 100,
+                      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "12px"
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontWeight: "600", fontSize: "0.9rem", color: "var(--text-primary)" }}>Duration & Speed</span>
+                        <button
+                          type="button"
+                          style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "0.75rem", padding: "4px" }}
+                          onClick={() => setActivePopover(null)}
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {/* Speed Presets */}
+                      <div>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: "600", display: "block", marginBottom: "6px" }}>Speed Presets</span>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "4px" }}>
+                          {[0.25, 0.5, 1.0, 1.5, 2.0].map((preset) => {
+                            const initialDur = metaInitialDurationMs || 5433;
+                            const presetDurationSec = Math.max(2, (initialDur / preset) / 1000);
+                            return (
+                              <button
+                                key={preset}
+                                type="button"
+                                className="product-btn"
+                                style={{
+                                  padding: "6px 0",
+                                  fontSize: "0.75rem",
+                                  border: "1px solid var(--border)",
+                                  borderRadius: "4px",
+                                  background: "rgba(255, 255, 255, 0.02)",
+                                  cursor: "pointer",
+                                  color: "var(--text-primary)",
+                                  textAlign: "center"
+                                }}
+                                onClick={() => {
+                                  handleDurationChange(presetDurationSec);
+                                }}
+                              >
+                                {preset}x
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Slider Control */}
+                      <label className="editor-inspector-field" style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "4px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                          <span>Timeline Duration</span>
+                          <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>
+                            {Math.round((durationMs / 1000) * 10) / 10}s
+                          </span>
+                        </div>
                         <input
-                          type="number"
-                          min={0}
-                          max={1}
-                          step={0.05}
-                          value={customBezier[1]}
-                          onChange={(e) => setCustomBezier([customBezier[0], Number(e.target.value), customBezier[2], customBezier[3]])}
+                          type="range"
+                          min={2}
+                          max={40}
+                          step={0.5}
+                          value={Math.round((durationMs / 1000) * 2) / 2}
+                          onChange={(e) => handleDurationChange(Math.max(2, Number(e.target.value)))}
+                          style={{ width: "100%", accentColor: "var(--text-primary)", height: "4px", background: "var(--border)", borderRadius: "2px", outline: "none", cursor: "pointer" }}
                         />
                       </label>
                     </div>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <label className="editor-inspector-field" style={{ flex: 1 }}>
-                        x2
-                        <input
-                          type="number"
-                          min={0}
-                          max={1}
-                          step={0.05}
-                          value={customBezier[2]}
-                          onChange={(e) => setCustomBezier([customBezier[0], customBezier[1], Number(e.target.value), customBezier[3]])}
-                        />
-                      </label>
-                      <label className="editor-inspector-field" style={{ flex: 1 }}>
-                        y2
-                        <input
-                          type="number"
-                          min={0}
-                          max={1}
-                          step={0.05}
-                          value={customBezier[3]}
-                          onChange={(e) => setCustomBezier([customBezier[0], customBezier[1], customBezier[2], Number(e.target.value)])}
-                        />
-                      </label>
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
+
               </div>
             </section>
           )}
