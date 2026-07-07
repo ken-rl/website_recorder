@@ -16,6 +16,7 @@ const HEADLESS_ARGS = [
   ...SHARED_ARGS,
   "--enable-gpu",
   "--use-angle=swiftshader-webgl",
+  "--enable-unsafe-swiftshader",
 ] as const;
 
 /** Real GPU — required for smooth WebGL scroll-scrubbing captures. */
