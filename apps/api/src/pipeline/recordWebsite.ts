@@ -112,7 +112,12 @@ export async function recordWebsite(
       attempt === 0 &&
       captureHeadless &&
       capture.scrollStrategy === "virtual" &&
-      (animation.scrollMode ?? "auto") === "auto";
+      (animation.scrollMode ?? "auto") === "auto" &&
+      // Export mode uses frame-by-frame screenshots which work fine headless.
+      // Only retry headed for preview mode where Playwright recordVideo needs
+      // real GPU rendering for smooth WebGL captures.
+      captureMode === "preview";
+
 
     if (!shouldRetryHeaded) {
       break;
