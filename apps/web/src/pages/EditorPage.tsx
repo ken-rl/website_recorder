@@ -420,9 +420,11 @@ export default function EditorPage({
     const handleLoaded = () => {
       if (video.duration) {
         const nextDuration = Math.round(video.duration * 1000);
-        setSourceDurationMs(nextDuration);
-        setTrimEndMs(nextDuration);
-        setTrimStartMs(0);
+        if (!hasMetadata || previewMode === "export") {
+          setSourceDurationMs(nextDuration);
+          setTrimEndMs(nextDuration);
+          setTrimStartMs(0);
+        }
       }
     };
 
@@ -434,7 +436,7 @@ export default function EditorPage({
     return () => {
       video.removeEventListener("loadedmetadata", handleLoaded);
     };
-  }, [sourceVideoUrl]);
+  }, [activeVideoUrl, hasMetadata, previewMode]);
 
   // Track playback time updates
   useEffect(() => {

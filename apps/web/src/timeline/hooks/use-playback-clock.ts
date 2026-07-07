@@ -78,7 +78,12 @@ export function usePlaybackClock({
         clamped,
         blocksRef.current,
       );
-      const targetSeconds = sourceMs / 1000;
+      const physicalDuration = video.duration;
+      const scale = (previewModeRef.current === "edit" && physicalDuration && duration > 0)
+        ? (physicalDuration * 1000) / duration
+        : 1.0;
+
+      const targetSeconds = (sourceMs * scale) / 1000;
       const isPlayback = options?.isPlayback ?? false;
 
       if (isFrozen) {
@@ -128,7 +133,7 @@ export function usePlaybackClock({
           }
         }
 
-        video.playbackRate = targetSpeed;
+        video.playbackRate = targetSpeed * scale;
 
         if (Math.abs(video.currentTime - targetSeconds) > 0.12) {
           video.currentTime = targetSeconds;
