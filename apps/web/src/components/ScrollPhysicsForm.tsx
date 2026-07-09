@@ -9,6 +9,8 @@ interface ScrollPhysicsFormProps {
   setCustomBezier: (b: [number, number, number, number]) => void;
   customInputText: string;
   setCustomInputText: (t: string) => void;
+  durationSeconds: number;
+  setDurationSeconds: (d: number) => void;
 }
 
 export default function ScrollPhysicsForm({
@@ -18,6 +20,8 @@ export default function ScrollPhysicsForm({
   setCustomBezier,
   customInputText,
   setCustomInputText,
+  durationSeconds,
+  setDurationSeconds,
 }: ScrollPhysicsFormProps) {
   const handleBezierTextInputChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -62,6 +66,77 @@ export default function ScrollPhysicsForm({
         </select>
       </div>
 
+      <div className="field">
+        <FieldLabel htmlFor="durationRange">
+          Scroll Duration: {durationSeconds}s
+        </FieldLabel>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <input
+            type="range"
+            id="durationRange"
+            min="3"
+            max="45"
+            step="1"
+            value={durationSeconds}
+            onChange={(e) => setDurationSeconds(Number(e.target.value))}
+            style={{ width: '100%' }}
+          />
+          <div className="duration-presets" style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              className={`preset-btn ${durationSeconds === 6 ? 'active' : ''}`}
+              onClick={() => setDurationSeconds(6)}
+              style={{
+                flex: 1,
+                fontSize: '11px',
+                padding: '4px 8px',
+                border: '1px solid var(--border)',
+                background: durationSeconds === 6 ? 'var(--accent)' : 'transparent',
+                color: durationSeconds === 6 ? '#000000' : 'var(--text-primary)',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              Snappy (6s)
+            </button>
+            <button
+              type="button"
+              className={`preset-btn ${durationSeconds === 12 ? 'active' : ''}`}
+              onClick={() => setDurationSeconds(12)}
+              style={{
+                flex: 1,
+                fontSize: '11px',
+                padding: '4px 8px',
+                border: '1px solid var(--border)',
+                background: durationSeconds === 12 ? 'var(--accent)' : 'transparent',
+                color: durationSeconds === 12 ? '#000000' : 'var(--text-primary)',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              Balanced (12s)
+            </button>
+            <button
+              type="button"
+              className={`preset-btn ${durationSeconds === 24 ? 'active' : ''}`}
+              onClick={() => setDurationSeconds(24)}
+              style={{
+                flex: 1,
+                fontSize: '11px',
+                padding: '4px 8px',
+                border: '1px solid var(--border)',
+                background: durationSeconds === 24 ? 'var(--accent)' : 'transparent',
+                color: durationSeconds === 24 ? '#000000' : 'var(--text-primary)',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              Cinematic (24s)
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="field curve-visualizer-container">
         <BezierVisualizer
           selectedCurve={selectedCurve}
@@ -71,6 +146,7 @@ export default function ScrollPhysicsForm({
           customInputText={customInputText}
           setCustomInputText={setCustomInputText}
           embedded={true}
+          durationSeconds={durationSeconds}
         />
       </div>
 

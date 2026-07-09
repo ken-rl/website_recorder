@@ -394,12 +394,12 @@ async function runRecordSession(options: {
         const metadataContent = await fs.readFile(metadataPath, "utf-8").catch(() => null);
         if (metadataContent) {
           const metadata = JSON.parse(metadataContent);
-          const initialDurationMs = (metadata.frames.length / framerate) * 1000;
+          const targetDurationMs = animation?.durationMs ?? ((metadata.frames.length / framerate) * 1000);
           await compileVideoFromFrames({
             framesDir,
             metadataPath,
             outputPath: tempRawVideoPath,
-            durationMs: initialDurationMs,
+            durationMs: targetDurationMs,
             fps: framerate,
             bezier: scrollCurve, // Apply the selected scroll curve directly at capture time
             pauses: [],

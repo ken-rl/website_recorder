@@ -23,6 +23,7 @@ export function resolveVirtualScrollSettings(
     : SECONDS_PER_CYCLE_NORMAL;
 
   const durationMs =
+    animation.durationMs ??
     animation.virtualScrollDurationMs ??
     Math.round(cycles * secondsPerCycle * 1000);
 

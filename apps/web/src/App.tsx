@@ -128,6 +128,7 @@ export default function App() {
   const [virtualScrollCycles, setVirtualScrollCycles] = useState(8);
   const [useFixedDuration, setUseFixedDuration] = useState(false);
   const [virtualScrollDurationMs, setVirtualScrollDurationMs] = useState(30000);
+  const [durationSeconds, setDurationSeconds] = useState(12);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusType, setStatusType] = useState<
@@ -269,10 +270,11 @@ export default function App() {
             : { preset: selectedCurve },
         removeOverlayElements: true,
         scrollMode,
+        durationMs: durationSeconds * 1000,
         ...(scrollMode !== "document"
           ? {
               virtualScrollCycles,
-              ...(useFixedDuration ? { virtualScrollDurationMs } : {}),
+              virtualScrollDurationMs: durationSeconds * 1000,
             }
           : {}),
       },
@@ -345,14 +347,16 @@ export default function App() {
 
               <div className="sidebar-section-card">
                 <h3 className="sidebar-section-title">Scroll Settings</h3>
-                  <ScrollPhysicsForm
-                    selectedCurve={selectedCurve}
-                    setSelectedCurve={setSelectedCurve}
-                    customBezier={customBezier}
-                    setCustomBezier={setCustomBezier}
-                    customInputText={customInputText}
-                    setCustomInputText={setCustomInputText}
-                  />
+                   <ScrollPhysicsForm
+                     selectedCurve={selectedCurve}
+                     setSelectedCurve={setSelectedCurve}
+                     customBezier={customBezier}
+                     setCustomBezier={setCustomBezier}
+                     customInputText={customInputText}
+                     setCustomInputText={setCustomInputText}
+                     durationSeconds={durationSeconds}
+                     setDurationSeconds={setDurationSeconds}
+                   />
 
                 <VirtualScrollForm
                   scrollMode={scrollMode}
@@ -388,10 +392,17 @@ export default function App() {
                           role="radio"
                           aria-checked={renderTier === tier}
                           className={`render-tier-btn render-tier-btn--${tier}${renderTier === tier ? " is-active" : ""}`}
-                          onClick={() => {
-                            setRenderTier(tier);
-                            setVirtualScrollCycles(cfg.defaultCycles);
-                          }}
+                           onClick={() => {
+                             setRenderTier(tier);
+                             setVirtualScrollCycles(cfg.defaultCycles);
+                             if (tier === "cinematic") {
+                               setDurationSeconds(24);
+                             } else if (tier === "standard") {
+                               setDurationSeconds(12);
+                             } else if (tier === "draft") {
+                               setDurationSeconds(6);
+                             }
+                           }}
                         >
                           <span className="render-tier-name">{cfg.label}</span>
                           <span className="render-tier-hint">{cfg.hint}</span>

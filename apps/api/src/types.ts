@@ -39,6 +39,8 @@ export interface AnimationConfig {
   removeOverlayElements?: boolean;
   pauseTriggers?: PauseTrigger[];
   scrollCurve?: ScrollCurve;
+  /** Target scroll duration in milliseconds. Applies to both document and virtual scroll. */
+  durationMs?: number;
   /**
    * How to drive scrolling. `auto` picks document scrolling or virtual wheel
    * scrolling based on page layout (fixed viewport / infinite scroll sites).
