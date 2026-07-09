@@ -32,12 +32,18 @@ export async function stitchFramesToVideo(
     preset === "fast" ? "26" : "18",
   ];
 
-  // Add scaling filter only if explicitly provided
+  // Add scaling/padding filters to ensure width and height are divisible by 2 for libx264
+  const vfFilters: string[] = [];
   if (options?.width && options?.height) {
-    args.push(
-      "-vf",
-      `scale=${options.width}:${options.height}:flags=bicubic`,
-    );
+    const evenW = options.width % 2 === 0 ? options.width : options.width - 1;
+    const evenH = options.height % 2 === 0 ? options.height : options.height - 1;
+    vfFilters.push(`scale=${evenW}:${evenH}:flags=bicubic`);
+  } else {
+    vfFilters.push("scale=trunc(iw/2)*2:trunc(ih/2)*2");
+  }
+
+  if (vfFilters.length > 0) {
+    args.push("-vf", vfFilters.join(","));
   }
 
   args.push(outputPath);
