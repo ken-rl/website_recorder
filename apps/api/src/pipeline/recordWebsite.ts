@@ -273,9 +273,9 @@ async function runRecordSession(options: {
   let rawVideoPath = "";
   let scrollStrategy: ResolvedScrollStrategy = "document";
 
-  // For standard and cinematic tiers, standard playwright recording is used for now,
-  // bypassing the screenshot-based frame capture path but preserving its architecture.
-  const usePlaywrightVideo = true;
+  // For standard and cinematic tiers, we return to the offline screenshot capture mode.
+  // We optimize it by writing all frames to a RAM disk (/dev/shm) when available.
+  const usePlaywrightVideo = false;
 
   if (captureMode === "preview" || usePlaywrightVideo) {
     // Fast mode: Use Playwright's recordVideo
@@ -299,7 +299,17 @@ async function runRecordSession(options: {
   // Export mode: Screenshot-based frame capture for high quality
   // Use the logical viewport + deviceScaleFactor (not a physically scaled viewport at scale 1).
   // Playwright's page.screenshot() honours deviceScaleFactor and returns physical-resolution images.
-  const framesDir = path.join(outputDir, ".frames");
+  let framesDir = path.join(outputDir, ".frames");
+  let isRamDisk = false;
+  try {
+    await fs.access("/dev/shm", fs.constants.W_OK);
+    const jobId = path.basename(outputDir);
+    framesDir = path.join("/dev/shm", `websiterecorder-${jobId}`);
+    isRamDisk = true;
+  } catch {
+    // Fallback to SSD
+  }
+
   const recordContextOptions = buildContextOptions(viewport, deviceScaleFactor);
 
   try {
@@ -408,8 +418,9 @@ async function runRecordSession(options: {
     }
   } finally {
     await browser?.close();
-    // Do NOT delete framesDir for export mode so it can be edited post-capture.
-    if ((captureMode as string) === "preview") {
+    // Clean up frames directory if it was in RAM disk or if captureMode is preview.
+    // The editor is hidden, so we do not need to keep the frames on the SSD.
+    if (isRamDisk || (captureMode as string) === "preview") {
       await fs.rm(framesDir, { recursive: true, force: true }).catch(() => undefined);
     }
   }

@@ -72,7 +72,7 @@ export async function compileVideoFromFrames(options: CompileVideoOptions): Prom
   const scrollStrategy = metadata.scrollStrategy;
 
   const totalOutputFrames = Math.max(1, Math.round((durationMs / 1000) * fps));
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "websiterecorder-stitch-"));
+  const tempDir = await fs.mkdtemp(path.join(path.dirname(framesDir), "websiterecorder-stitch-"));
 
   try {
     const outputFrameFiles: string[] = [];
