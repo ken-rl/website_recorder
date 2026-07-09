@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { Page, CDPSession } from "playwright";
+import type { Page } from "playwright";
 
 export interface FrameRecorderOptions {
   outputDir: string;
@@ -24,8 +24,6 @@ export class FrameRecorder {
     reject: (e: Error) => void;
   }> = [];
   private activeCaptures = 0;
-  private cdpSession: CDPSession | null = null;
-  private lastPage: Page | null = null;
 
   constructor(options: FrameRecorderOptions) {
     this.outputDir = options.outputDir;
@@ -63,14 +61,6 @@ export class FrameRecorder {
     }
   }
 
-  private async getCdpSession(page: Page): Promise<CDPSession> {
-    if (!this.cdpSession || this.lastPage !== page) {
-      this.cdpSession = await page.context().newCDPSession(page);
-      this.lastPage = page;
-    }
-    return this.cdpSession;
-  }
-
   private async captureFrame(task: {
     frameNum: number;
     page: Page;
@@ -83,12 +73,11 @@ export class FrameRecorder {
         `frame-${String(task.frameNum).padStart(6, "0")}.jpg`,
       );
 
-      const client = await this.getCdpSession(task.page);
-      const response = await client.send("Page.captureScreenshot", {
-        format: "jpeg",
+      const buffer = await task.page.screenshot({
+        type: "jpeg",
         quality: this.qualityJpeg,
+        fullPage: false,
       });
-      const buffer = Buffer.from(response.data, "base64");
 
       task.resolve();
       // Write the buffer to disk in the background to avoid blocking the scroll loop
