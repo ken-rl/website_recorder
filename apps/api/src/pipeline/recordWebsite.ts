@@ -269,6 +269,9 @@ async function runRecordSession(options: {
     captureMode,
   } = options;
 
+  const profile = resolveRecordingProfile(request);
+  const { encode } = profile;
+
   let browser: Browser | null = null;
   let rawVideoPath = "";
   let scrollStrategy: ResolvedScrollStrategy = "document";
@@ -400,18 +403,22 @@ async function runRecordSession(options: {
             fps: framerate,
             bezier: scrollCurve, // Apply the selected scroll curve directly at capture time
             pauses: [],
+            preset: encode.preset,
+            crf: encode.crf,
           });
           rawVideoPath = tempRawVideoPath;
         } else {
           await stitchFramesToVideo(framesDir, tempRawVideoPath, captureFps, {
-            preset: "fast",
+            preset: encode.preset,
+            crf: encode.crf,
           });
           rawVideoPath = tempRawVideoPath;
         }
       } else {
         const tempRawVideoPath = path.join(outputDir, "raw_frames.mp4");
         await stitchFramesToVideo(framesDir, tempRawVideoPath, captureFps, {
-          preset: "fast",
+          preset: encode.preset,
+          crf: encode.crf,
         });
         rawVideoPath = tempRawVideoPath;
       }

@@ -4,7 +4,8 @@ import path from "node:path";
 export interface StitchOptions {
   width?: number;
   height?: number;
-  preset?: "fast" | "slow";
+  preset?: string;
+  crf?: number;
 }
 
 export async function stitchFramesToVideo(
@@ -15,6 +16,7 @@ export async function stitchFramesToVideo(
 ): Promise<void> {
   const framePattern = path.join(framesDir, "frame-%06d.jpg");
   const preset = options?.preset ?? "fast";
+  const crf = options?.crf ?? (preset === "fast" ? 26 : 18);
 
   const args = [
     "-y",
@@ -29,7 +31,7 @@ export async function stitchFramesToVideo(
     "-preset",
     preset,
     "-crf",
-    preset === "fast" ? "26" : "18",
+    String(crf),
   ];
 
   // Add scaling/padding filters to ensure width and height are divisible by 2 for libx264

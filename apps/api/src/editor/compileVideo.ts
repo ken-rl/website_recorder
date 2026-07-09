@@ -49,6 +49,8 @@ export interface CompileVideoOptions {
   pauses?: Array<{ atMs: number; holdMs: number }>;
   width?: number;
   height?: number;
+  preset?: string;
+  crf?: number;
 }
 
 export async function compileVideoFromFrames(options: CompileVideoOptions): Promise<void> {
@@ -62,6 +64,8 @@ export async function compileVideoFromFrames(options: CompileVideoOptions): Prom
     pauses = [],
     width,
     height,
+    preset,
+    crf,
   } = options;
 
   const metadataContent = await fs.readFile(metadataPath, "utf-8");
@@ -126,7 +130,8 @@ export async function compileVideoFromFrames(options: CompileVideoOptions): Prom
     await stitchFramesToVideo(tempDir, outputPath, fps, {
       width,
       height,
-      preset: "fast",
+      preset,
+      crf,
     });
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
