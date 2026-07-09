@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useState, useEffect } from "react";
 
 interface BrowserMockupProps {
   url: string;
@@ -27,6 +27,363 @@ export default function BrowserMockup({
     "--preview-h": String(height),
   } as React.CSSProperties;
 
+  // Custom Video Player States
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+
+  // Auto-hide controls during playback
+  useEffect(() => {
+    let timeoutId: any;
+    const resetTimer = () => {
+      setShowControls(true);
+      clearTimeout(timeoutId);
+      if (isPlaying) {
+        timeoutId = setTimeout(() => {
+          setShowControls(false);
+        }, 2200);
+      }
+    };
+
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener("mousemove", resetTimer);
+      container.addEventListener("click", resetTimer);
+    }
+    resetTimer();
+
+    return () => {
+      if (container) {
+        container.removeEventListener("mousemove", resetTimer);
+        container.removeEventListener("click", resetTimer);
+      }
+      clearTimeout(timeoutId);
+    };
+  }, [isPlaying]);
+
+  const handlePlayPause = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!videoRef.current) return;
+    if (isPlaying) {
+      videoRef.current.pause();
+    } else {
+      videoRef.current.play().catch((err) => console.log("Play failed:", err));
+    }
+  };
+
+  const handleMuteToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!videoRef.current) return;
+    const nextMute = !isMuted;
+    videoRef.current.muted = nextMute;
+    setIsMuted(nextMute);
+  };
+
+  const handleFullscreenToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().catch((err) => {
+        console.error("Fullscreen failed:", err);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
+  const handleScrub = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (!videoRef.current || videoDuration === 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(1, clickX / rect.width));
+    videoRef.current.currentTime = percentage * videoDuration;
+    setCurrentTime(percentage * videoDuration);
+  };
+
+  const formatTime = (timeInSecs: number) => {
+    if (Number.isNaN(timeInSecs)) return "0:00";
+    const mins = Math.floor(timeInSecs / 60);
+    const secs = Math.floor(timeInSecs % 60);
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
+
+  const progressPercent = videoDuration > 0 ? (currentTime / videoDuration) * 100 : 0;
+
+  if (videoUrl) {
+    return (
+      <div
+        className={`result-container capture-window${isPortrait ? " is-portrait-device" : " is-landscape-device"}`}
+        style={previewVars}
+      >
+        <div
+          ref={containerRef}
+          onClick={() => handlePlayPause()}
+          style={{
+            position: "relative",
+            width: "100%",
+            borderRadius: "12px",
+            overflow: "hidden",
+            border: "1px solid var(--border)",
+            boxShadow: "0 20px 40px rgba(0, 0, 0, 0.4)",
+            background: "#050505",
+            cursor: "pointer",
+          }}
+          className="custom-video-player-container"
+        >
+          <video
+            ref={videoRef}
+            id="player"
+            src={videoUrl}
+            autoPlay
+            playsInline
+            onTimeUpdate={() => videoRef.current && setCurrentTime(videoRef.current.currentTime)}
+            onLoadedMetadata={() => videoRef.current && setVideoDuration(videoRef.current.duration)}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onEnded={() => setIsPlaying(false)}
+            style={{
+              width: "100%",
+              height: "auto",
+              display: "block",
+              background: "#000000",
+            }}
+          />
+
+          {/* Floating Download Overlay (fades out with controls) */}
+          <a
+            id="download"
+            href={videoUrl}
+            download="recording.mp4"
+            title="Download video file"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "absolute",
+              top: "14px",
+              right: "14px",
+              zIndex: 10,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "36px",
+              height: "36px",
+              borderRadius: "50%",
+              background: "rgba(20, 20, 25, 0.8)",
+              color: "var(--accent)",
+              backdropFilter: "blur(6px)",
+              border: "1px solid rgba(255, 255, 255, 0.08)",
+              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+              opacity: showControls ? 1 : 0,
+              transform: showControls ? "scale(1)" : "scale(0.9)",
+            }}
+            className="download-overlay-btn"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ width: "16px", height: "16px" }}
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          </a>
+
+          {/* Premium Custom Player Control Deck */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "absolute",
+              bottom: "12px",
+              left: "12px",
+              right: "12px",
+              background: "rgba(10, 10, 12, 0.75)",
+              backdropFilter: "blur(12px)",
+              border: "1px solid rgba(255, 255, 255, 0.08)",
+              borderRadius: "8px",
+              padding: "10px 14px",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              zIndex: 10,
+              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+              opacity: showControls ? 1 : 0,
+              transform: showControls ? "translateY(0)" : "translateY(8px)",
+              pointerEvents: showControls ? "auto" : "none",
+            }}
+            className="player-controls-deck"
+          >
+            {/* Play/Pause Trigger */}
+            <button
+              type="button"
+              onClick={handlePlayPause}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#ffffff",
+                cursor: "pointer",
+                padding: "2px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "color 0.2s ease",
+              }}
+              className="player-control-btn"
+              aria-label={isPlaying ? "Pause" : "Play"}
+            >
+              {isPlaying ? (
+                <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: "20px", height: "20px" }}>
+                  <rect x="6" y="4" width="4" height="16" rx="1" />
+                  <rect x="14" y="4" width="4" height="16" rx="1" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: "20px", height: "20px" }}>
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              )}
+            </button>
+
+            {/* Current/Duration Readout */}
+            <span
+              style={{
+                fontFamily: "var(--font-mono, monospace)",
+                fontSize: "11px",
+                color: "var(--text-secondary, #999)",
+                minWidth: "75px",
+                userSelect: "none",
+              }}
+            >
+              {formatTime(currentTime)} / {formatTime(videoDuration)}
+            </span>
+
+            {/* Custom Interactive Timeline Scrubber */}
+            <div
+              onClick={handleScrub}
+              style={{
+                flex: 1,
+                height: "16px",
+                display: "flex",
+                alignItems: "center",
+                cursor: "pointer",
+                position: "relative",
+              }}
+              className="scrub-container"
+            >
+              <div
+                style={{
+                  width: "100%",
+                  height: "4px",
+                  background: "rgba(255, 255, 255, 0.16)",
+                  borderRadius: "2px",
+                  position: "relative",
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${progressPercent}%`,
+                    background: "var(--accent, #38bdf8)",
+                    borderRadius: "2px",
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                  }}
+                />
+                <div
+                  style={{
+                    width: "10px",
+                    height: "10px",
+                    background: "#ffffff",
+                    borderRadius: "50%",
+                    position: "absolute",
+                    top: "-3px",
+                    left: `calc(${progressPercent}% - 5px)`,
+                    boxShadow: "0 2px 6px rgba(0, 0, 0, 0.4)",
+                    transition: "transform 0.15s ease",
+                  }}
+                  className="scrub-handle"
+                />
+              </div>
+            </div>
+
+            {/* Volume Toggle */}
+            <button
+              type="button"
+              onClick={handleMuteToggle}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#ffffff",
+                cursor: "pointer",
+                padding: "2px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              className="player-control-btn"
+              aria-label={isMuted ? "Unmute" : "Mute"}
+            >
+              {isMuted ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: "18px", height: "18px" }}>
+                  <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                  <line x1="23" y1="9" x2="17" y2="15" />
+                  <line x1="17" y1="9" x2="23" y2="15" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: "18px", height: "18px" }}>
+                  <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                </svg>
+              )}
+            </button>
+
+            {/* Fullscreen Toggle */}
+            <button
+              type="button"
+              onClick={handleFullscreenToggle}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#ffffff",
+                cursor: "pointer",
+                padding: "2px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              className="player-control-btn"
+              aria-label="Toggle Fullscreen"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: "18px", height: "18px" }}>
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {duration && (
+          <div className="meta capture-meta">
+            <span id="duration">{duration}</span>
+            {scrollStrategy && (
+              <span className={`scroll-strategy-badge scroll-strategy-${scrollStrategy}`}>
+                {scrollStrategy === "virtual" ? "Virtual scroll" : "Document scroll"}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className={`result-container capture-window${isPortrait ? " is-portrait-device" : " is-landscape-device"}`}
@@ -34,64 +391,25 @@ export default function BrowserMockup({
     >
       <div
         key={`${width}x${height}`}
-        className={`browser-mockup capture-browser is-state-${previewState}${isPortrait ? " is-mobile is-portrait" : " is-landscape"}${isSubmitting ? " is-recording" : ""}${videoUrl ? " has-video" : ""}`}
+        className={`video-preview-wrapper is-state-${previewState}${isPortrait ? " is-portrait" : " is-landscape"}${isSubmitting ? " is-recording" : ""}`}
+        style={{
+          position: "relative",
+          width: "100%",
+          maxWidth: "100%",
+          borderRadius: "12px",
+          overflow: "hidden",
+          border: "1px solid var(--border)",
+          background: "var(--surface-variant)",
+          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.15)",
+        }}
       >
-        <div className="browser-header">
-          <div className="browser-dots" aria-hidden>
-            <span className="dot dot-close" />
-            <span className="dot dot-min" />
-            <span className="dot dot-max" />
-          </div>
-          <div className="browser-address-bar" id="browserAddressBar">
-            <svg
-              className="browser-lock"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden
-            >
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-            <span className="browser-url-text">{displayUrl}</span>
-          </div>
-          <div className="browser-actions">
-            {videoUrl && (
-              <a
-                id="download"
-                href={videoUrl}
-                download="recording.mp4"
-                title="Download video file"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-              </a>
-            )}
-          </div>
-        </div>
-
         <div
           className={`browser-content${isPortrait ? " is-portrait-preview" : " is-landscape-preview"}`}
-          style={{ paddingBottom: `${(height / width) * 100}%` }}
+          style={{ paddingBottom: `${(height / width) * 100}%`, position: "relative" }}
         >
           {isSubmitting && <div className="browser-scanline" aria-hidden />}
 
-          {videoUrl ? (
-            <div className="browser-media">
-              <video id="player" src={videoUrl} controls autoPlay playsInline />
-            </div>
-          ) : isSubmitting ? (
+          {isSubmitting ? (
             <div className="browser-placeholder browser-placeholder-recording">
               <div className="placeholder-visual">
                 <svg
@@ -123,21 +441,6 @@ export default function BrowserMockup({
           )}
         </div>
       </div>
-
-      {duration && (
-        <div className="meta capture-meta">
-          <span id="duration">{duration}</span>
-          {scrollStrategy && (
-            <span
-              className={`scroll-strategy-badge scroll-strategy-${scrollStrategy}`}
-            >
-              {scrollStrategy === "virtual"
-                ? "Virtual scroll"
-                : "Document scroll"}
-            </span>
-          )}
-        </div>
-      )}
     </div>
   );
 }
