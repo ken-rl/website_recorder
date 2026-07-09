@@ -52,6 +52,24 @@ export async function runVirtualScroll(
       y: centerY,
     });
 
+    // Settle/warm up custom wheel listeners
+    await cdp.send("Input.dispatchMouseEvent", {
+      type: "mouseWheel",
+      x: centerX,
+      y: centerY,
+      deltaX: 0,
+      deltaY: 5,
+    });
+    await sleep(150);
+    await cdp.send("Input.dispatchMouseEvent", {
+      type: "mouseWheel",
+      x: centerX,
+      y: centerY,
+      deltaX: 0,
+      deltaY: -5,
+    });
+    await sleep(50);
+
     const wheelStep = wheelBudget / tickCount;
 
     for (let tick = 0; tick <= tickCount; tick += 1) {

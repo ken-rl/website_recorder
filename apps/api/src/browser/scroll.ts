@@ -123,6 +123,14 @@ async function runDocumentScrollFrameByFrame(
 
   const totalFrames = Math.max(1, Math.ceil(maxScroll / pixelsPerFrame));
 
+  // Settle/warm up lazy scroll listeners (e.g. GSAP, ScrollTrigger, Lenis) before capturing frames
+  if (maxScroll > 2) {
+    await page.evaluate(() => window.scrollTo({ top: 2, left: 0, behavior: "instant" }));
+    await page.waitForTimeout(150);
+    await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: "instant" }));
+    await page.waitForTimeout(50);
+  }
+
   for (let frame = 0; frame <= totalFrames; frame++) {
     const progress = frame / totalFrames;
     const scrollY = Math.round(maxScroll * progress);
