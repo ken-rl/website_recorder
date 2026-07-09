@@ -128,7 +128,7 @@ export default function App() {
   const [virtualScrollCycles, setVirtualScrollCycles] = useState(8);
   const [useFixedDuration, setUseFixedDuration] = useState(false);
   const [virtualScrollDurationMs, setVirtualScrollDurationMs] = useState(30000);
-  const [durationSeconds, setDurationSeconds] = useState(12);
+  const [pixelsPerFrame, setPixelsPerFrame] = useState(16);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusType, setStatusType] = useState<
@@ -262,7 +262,7 @@ export default function App() {
       animationConfig: {
         fastMode: tier.fastMode,
         captureMode: tier.captureMode,
-        pixelsPerFrame: tier.pixelsPerFrame,
+        pixelsPerFrame: pixelsPerFrame,
         preRecordingDelayMs: tier.preRecordingDelayMs,
         scrollCurve:
           selectedCurve === "custom"
@@ -270,11 +270,9 @@ export default function App() {
             : { preset: selectedCurve },
         removeOverlayElements: true,
         scrollMode,
-        durationMs: durationSeconds * 1000,
         ...(scrollMode !== "document"
           ? {
               virtualScrollCycles,
-              virtualScrollDurationMs: durationSeconds * 1000,
             }
           : {}),
       },
@@ -354,8 +352,8 @@ export default function App() {
                      setCustomBezier={setCustomBezier}
                      customInputText={customInputText}
                      setCustomInputText={setCustomInputText}
-                     durationSeconds={durationSeconds}
-                     setDurationSeconds={setDurationSeconds}
+                     pixelsPerFrame={pixelsPerFrame}
+                     setPixelsPerFrame={setPixelsPerFrame}
                    />
 
                 <VirtualScrollForm
@@ -395,13 +393,7 @@ export default function App() {
                            onClick={() => {
                              setRenderTier(tier);
                              setVirtualScrollCycles(cfg.defaultCycles);
-                             if (tier === "cinematic") {
-                               setDurationSeconds(24);
-                             } else if (tier === "standard") {
-                               setDurationSeconds(12);
-                             } else if (tier === "draft") {
-                               setDurationSeconds(6);
-                             }
+                             setPixelsPerFrame(cfg.pixelsPerFrame);
                            }}
                         >
                           <span className="render-tier-name">{cfg.label}</span>

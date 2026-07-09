@@ -9,8 +9,8 @@ interface ScrollPhysicsFormProps {
   setCustomBezier: (b: [number, number, number, number]) => void;
   customInputText: string;
   setCustomInputText: (t: string) => void;
-  durationSeconds: number;
-  setDurationSeconds: (d: number) => void;
+  pixelsPerFrame: number;
+  setPixelsPerFrame: (p: number) => void;
 }
 
 export default function ScrollPhysicsForm({
@@ -20,8 +20,8 @@ export default function ScrollPhysicsForm({
   setCustomBezier,
   customInputText,
   setCustomInputText,
-  durationSeconds,
-  setDurationSeconds,
+  pixelsPerFrame,
+  setPixelsPerFrame,
 }: ScrollPhysicsFormProps) {
   const handleBezierTextInputChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -67,71 +67,88 @@ export default function ScrollPhysicsForm({
       </div>
 
       <div className="field">
-        <FieldLabel htmlFor="durationRange">
-          Scroll Duration: {durationSeconds}s
+        <FieldLabel htmlFor="speedRange">
+          Scroll Speed: {pixelsPerFrame} px/frame ({pixelsPerFrame * 60} px/s)
         </FieldLabel>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <input
             type="range"
-            id="durationRange"
-            min="3"
-            max="45"
-            step="1"
-            value={durationSeconds}
-            onChange={(e) => setDurationSeconds(Number(e.target.value))}
+            id="speedRange"
+            min="6"
+            max="48"
+            step="2"
+            value={pixelsPerFrame}
+            onChange={(e) => setPixelsPerFrame(Number(e.target.value))}
             style={{ width: '100%' }}
           />
-          <div className="duration-presets" style={{ display: 'flex', gap: '8px' }}>
+          <div className="speed-presets" style={{ display: 'flex', gap: '8px' }}>
             <button
               type="button"
-              className={`preset-btn ${durationSeconds === 6 ? 'active' : ''}`}
-              onClick={() => setDurationSeconds(6)}
+              className={`preset-btn ${pixelsPerFrame === 8 ? 'active' : ''}`}
+              onClick={() => setPixelsPerFrame(8)}
               style={{
                 flex: 1,
                 fontSize: '11px',
                 padding: '4px 8px',
                 border: '1px solid var(--border)',
-                background: durationSeconds === 6 ? 'var(--accent)' : 'transparent',
-                color: durationSeconds === 6 ? '#000000' : 'var(--text-primary)',
+                background: pixelsPerFrame === 8 ? 'var(--accent)' : 'transparent',
+                color: pixelsPerFrame === 8 ? '#000000' : 'var(--text-primary)',
                 borderRadius: '4px',
                 cursor: 'pointer'
               }}
             >
-              Snappy (6s)
+              Very Slow (8px)
             </button>
             <button
               type="button"
-              className={`preset-btn ${durationSeconds === 12 ? 'active' : ''}`}
-              onClick={() => setDurationSeconds(12)}
+              className={`preset-btn ${pixelsPerFrame === 12 ? 'active' : ''}`}
+              onClick={() => setPixelsPerFrame(12)}
               style={{
                 flex: 1,
                 fontSize: '11px',
                 padding: '4px 8px',
                 border: '1px solid var(--border)',
-                background: durationSeconds === 12 ? 'var(--accent)' : 'transparent',
-                color: durationSeconds === 12 ? '#000000' : 'var(--text-primary)',
+                background: pixelsPerFrame === 12 ? 'var(--accent)' : 'transparent',
+                color: pixelsPerFrame === 12 ? '#000000' : 'var(--text-primary)',
                 borderRadius: '4px',
                 cursor: 'pointer'
               }}
             >
-              Balanced (12s)
+              Slow (12px)
             </button>
             <button
               type="button"
-              className={`preset-btn ${durationSeconds === 24 ? 'active' : ''}`}
-              onClick={() => setDurationSeconds(24)}
+              className={`preset-btn ${pixelsPerFrame === 18 ? 'active' : ''}`}
+              onClick={() => setPixelsPerFrame(18)}
               style={{
                 flex: 1,
                 fontSize: '11px',
                 padding: '4px 8px',
                 border: '1px solid var(--border)',
-                background: durationSeconds === 24 ? 'var(--accent)' : 'transparent',
-                color: durationSeconds === 24 ? '#000000' : 'var(--text-primary)',
+                background: pixelsPerFrame === 18 ? 'var(--accent)' : 'transparent',
+                color: pixelsPerFrame === 18 ? '#000000' : 'var(--text-primary)',
                 borderRadius: '4px',
                 cursor: 'pointer'
               }}
             >
-              Cinematic (24s)
+              Normal (18px)
+            </button>
+            <button
+              type="button"
+              className={`preset-btn ${pixelsPerFrame === 28 ? 'active' : ''}`}
+              onClick={() => setPixelsPerFrame(28)}
+              style={{
+                flex: 1,
+                fontSize: '11px',
+                padding: '4px 8px',
+                border: '1px solid var(--border)',
+                background: pixelsPerFrame === 28 ? 'var(--accent)' : 'transparent',
+                color: pixelsPerFrame === 28 ? '#000000' : 'var(--text-primary)',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              Fast (28px)
             </button>
           </div>
         </div>
@@ -146,7 +163,7 @@ export default function ScrollPhysicsForm({
           customInputText={customInputText}
           setCustomInputText={setCustomInputText}
           embedded={true}
-          durationSeconds={durationSeconds}
+          pixelsPerFrame={pixelsPerFrame}
         />
       </div>
 

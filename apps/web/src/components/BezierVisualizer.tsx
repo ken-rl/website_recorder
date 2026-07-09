@@ -68,7 +68,7 @@ interface BezierVisualizerProps {
   customInputText: string;
   setCustomInputText: (t: string) => void;
   embedded?: boolean;
-  durationSeconds?: number;
+  pixelsPerFrame?: number;
 }
 
 export function sampleCurveY(
@@ -126,7 +126,7 @@ export default function BezierVisualizer({
   customInputText,
   setCustomInputText,
   embedded = false,
-  durationSeconds = 12,
+  pixelsPerFrame = 16,
 }: BezierVisualizerProps) {
   const [hoveredHandle, setHoveredHandle] = useState<number | null>(null);
   const activeDragHandle = useRef<number | null>(null);
@@ -190,7 +190,8 @@ export default function BezierVisualizer({
       const points = curvePoints(bezier, 364, height, padding);
 
       const fps = 60; // Assuming requestAnimationFrame target is 60fps
-      const scrollFrames = durationSeconds * fps;
+      // Dynamic duration based on velocity: 18 px/frame is standard (takes 240 frames)
+      const scrollFrames = Math.max(60, Math.round(4320 / pixelsPerFrame));
       const startPauseFrames = 1 * fps; // 1s pause at top
       const endPauseFrames = 1.5 * fps; // 1.5s pause at bottom
       const totalFrames = startPauseFrames + scrollFrames + endPauseFrames;
@@ -388,7 +389,7 @@ export default function BezierVisualizer({
       if (animationFrameRef.current)
         cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [selectedCurve, customBezier, hoveredHandle, durationSeconds]);
+  }, [selectedCurve, customBezier, hoveredHandle, pixelsPerFrame]);
 
   function getPosFromEvent(
     e:
