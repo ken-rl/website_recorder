@@ -58,24 +58,7 @@ export default function AppTopbar({
           />
           Recorder
         </button>
-        <button
-          type="button"
-          className={`nav-link product-nav-link${isEditor ? " active" : ""}`}
-          onClick={() => hasEditorSession && onNavigate("/editor")}
-          disabled={!hasEditorSession}
-          title={
-            hasEditorSession
-              ? "Editor"
-              : "Record a capture first, then open in editor"
-          }
-        >
-          <LordIcon
-            src={LORDICON.editor}
-            size={18}
-            trigger={isEditor ? "loop" : "hover"}
-          />
-          Editor
-        </button>
+
         <button
           type="button"
           className={`nav-link product-nav-link${isRoadmap ? " active" : ""}`}

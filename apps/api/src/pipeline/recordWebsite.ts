@@ -273,7 +273,11 @@ async function runRecordSession(options: {
   let rawVideoPath = "";
   let scrollStrategy: ResolvedScrollStrategy = "document";
 
-  if (captureMode === "preview") {
+  // For standard and cinematic tiers, standard playwright recording is used for now,
+  // bypassing the screenshot-based frame capture path but preserving its architecture.
+  const usePlaywrightVideo = true;
+
+  if (captureMode === "preview" || usePlaywrightVideo) {
     // Fast mode: Use Playwright's recordVideo
     return recordWithPlaywrightVideo({
       request,
@@ -384,7 +388,7 @@ async function runRecordSession(options: {
             outputPath: tempRawVideoPath,
             durationMs: initialDurationMs,
             fps: framerate,
-            bezier: [0.0, 0.0, 1.0, 1.0], // Always compile linear preview video to allow real-time easing in editor
+            bezier: scrollCurve, // Apply the selected scroll curve directly at capture time
             pauses: [],
           });
           rawVideoPath = tempRawVideoPath;
@@ -449,10 +453,15 @@ async function recordWithPlaywrightVideo(options: {
   let browser: Browser | null = null;
   let rawVideoPath = "";
   let scrollStrategy: ResolvedScrollStrategy = "document";
+
+  const recordLaunchArgs = [
+    ...launchArgs.filter((arg) => !arg.startsWith("--force-device-scale-factor")),
+    "--force-device-scale-factor=1",
+  ];
   const recordContextOptions = buildContextOptions(viewport, 1);
 
   try {
-    browser = await chromium.launch({ headless, args: launchArgs });
+    browser = await chromium.launch({ headless, args: recordLaunchArgs });
 
     const recordContext = await browser.newContext({
       ...recordContextOptions,

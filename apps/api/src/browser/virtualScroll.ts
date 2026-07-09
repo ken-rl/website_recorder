@@ -66,7 +66,7 @@ export async function runVirtualScroll(
           deltaY: Math.round(wheelStep),
         });
         // Let the website JS process the event and render
-        await sleep(50);
+        await sleep(frameRecorder ? 50 : tickMs);
       }
 
       if (frameRecorder) {

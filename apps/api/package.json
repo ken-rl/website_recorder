@@ -27,7 +27,7 @@
   },
   "type": "module",
   "scripts": {
-    "start": "tsx src/api/server.ts",
+    "start": "tsx watch src/api/server.ts",
     "record": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit"
   },

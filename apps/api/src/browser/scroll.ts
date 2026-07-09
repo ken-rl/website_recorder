@@ -6,6 +6,7 @@ import { resolveVirtualScrollSettings } from "../config/virtualScroll.js";
 import type { AnimationConfig, ScrollMode } from "../types.js";
 import type { PauseTrigger } from "../types.js";
 import type { FrameRecorder } from "../capture/frameRecorder.js";
+import { applyScrollCurve } from "./scrollEasing.js";
 
 const SCROLL_REFERENCE_FPS = 60;
 
@@ -54,6 +55,7 @@ export async function runScroll(page: Page, options: RunScrollOptions): Promise<
   const result = await runDocumentScroll(
     page,
     options.pixelsPerFrame,
+    options.bezier,
     options.frameRecorder,
   );
   return { scrollStrategy: mode, maxScroll: result.maxScroll, frames: result.frames };
@@ -62,6 +64,7 @@ export async function runScroll(page: Page, options: RunScrollOptions): Promise<
 async function runDocumentScroll(
   page: Page,
   pixelsPerFrame: number,
+  bezier: BezierControlPoints,
   frameRecorder?: FrameRecorder,
 ): Promise<{ maxScroll: number; frames?: Array<{ file: string; y: number }> }> {
   // When a frameRecorder is attached (export mode), drive scrolling frame-by-frame
@@ -70,32 +73,29 @@ async function runDocumentScroll(
     return runDocumentScrollFrameByFrame(page, pixelsPerFrame, frameRecorder);
   }
 
-  // Preview mode (no recorder): hand off the full animation to the browser for speed.
-  await page.evaluate(
-    async ({ pixelsPerFrame }) => {
-      await new Promise<void>((resolve) => {
-        const maxScroll = Math.max(
-          0,
-          document.documentElement.scrollHeight - window.innerHeight,
-        );
-
-        if (maxScroll === 0) {
-          resolve();
-          return;
-        }
-
-        // Just scroll instantly to the bottom for preview mode to determine scroll height
-        window.scrollTo({ top: maxScroll, left: 0, behavior: "instant" });
-        resolve();
-      });
-    },
-    {
-      pixelsPerFrame,
-    },
-  );
-  const maxScroll = await page.evaluate(() =>
+  // Preview mode (no recorder): drive the scroll frame-by-frame from Node.js
+  // with a small delay to let the browser's main thread layout and render scroll animations.
+  const maxScroll: number = await page.evaluate(() =>
     Math.max(0, document.documentElement.scrollHeight - window.innerHeight),
   );
+
+  if (maxScroll === 0) {
+    return { maxScroll: 0 };
+  }
+
+  const totalFrames = Math.max(1, Math.ceil(maxScroll / pixelsPerFrame));
+
+  for (let frame = 0; frame <= totalFrames; frame++) {
+    const progress = frame / totalFrames;
+    const easedProgress = applyScrollCurve(progress, bezier);
+    const scrollY = Math.round(maxScroll * easedProgress);
+
+    await page.evaluate((y) => window.scrollTo({ top: y, left: 0, behavior: "instant" }), scrollY);
+    // 33ms wait roughly corresponds to ~30fps playback tick rate, giving the page's JS
+    // (GSAP / WebGL loops) time to process the scroll event and redraw.
+    await page.waitForTimeout(33);
+  }
+
   return { maxScroll };
 }
 

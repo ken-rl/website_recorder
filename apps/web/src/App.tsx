@@ -19,10 +19,10 @@ import {
 } from "./lib/editorSession";
 
 export default function App() {
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
-  const [editorSession, setEditorSession] = useState<EditorSession | null>(
-    () => (window.location.pathname === "/editor" ? loadEditorSession() : null),
-  );
+  const [currentPath, setCurrentPath] = useState(() => {
+    return window.location.pathname === "/editor" ? "/" : window.location.pathname;
+  });
+  const [editorSession, setEditorSession] = useState<EditorSession | null>(null);
 
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     const saved = localStorage.getItem("theme");
@@ -41,21 +41,24 @@ export default function App() {
 
   useEffect(() => {
     const handlePopState = () => {
-      setCurrentPath(window.location.pathname);
-      if (window.location.pathname === "/editor") {
-        setEditorSession(loadEditorSession());
+      let path = window.location.pathname;
+      if (path === "/editor") {
+        window.history.replaceState({}, "", "/");
+        path = "/";
       }
+      setCurrentPath(path);
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
   const navigate = (path: string) => {
-    window.history.pushState({}, "", path);
-    setCurrentPath(path);
+    let targetPath = path;
     if (path === "/editor") {
-      setEditorSession(loadEditorSession());
+      targetPath = "/";
     }
+    window.history.pushState({}, "", targetPath);
+    setCurrentPath(targetPath);
   };
 
   const [url, setUrl] = useState("");
@@ -98,7 +101,7 @@ export default function App() {
       defaultCycles: 8,
       expectedDurationMs: 25000,
       label: "Standard",
-      hint: "~25s · Frame-by-frame capture, balanced quality",
+      hint: "Balanced quality (~25s)",
     },
     cinematic: {
       captureMode: "export",
@@ -109,7 +112,7 @@ export default function App() {
       defaultCycles: 10,
       expectedDurationMs: 55000,
       label: "Cinematic",
-      hint: "~55s · High-quality, pixel-perfect output",
+      hint: "High quality (~55s)",
     },
   };
 
@@ -311,47 +314,7 @@ export default function App() {
 
   const hasEditorSession = !!editorSession || !!resultVideo;
 
-  if (currentPath === "/editor") {
-    if (!editorSession) {
-      return (
-        <main className="app-shell">
-          <AppTopbar
-            currentPath="/editor"
-            onNavigate={navigate}
-            hasEditorSession={false}
-            theme={theme}
-            onToggleTheme={toggleTheme}
-          />
-          <div className="product-empty">
-            <LordIcon src={LORDICON.editor} size={48} trigger="loop" />
-            <h1>No capture loaded</h1>
-            <p>Record a website first, then open it in the editor.</p>
-            <button
-              type="button"
-              className="product-btn"
-              onClick={() => navigate("/")}
-            >
-              Go to Recorder
-            </button>
-          </div>
-        </main>
-      );
-    }
 
-    return (
-      <EditorPage
-        jobId={editorSession.jobId}
-        sourceVideoUrl={editorSession.sourceUrl}
-        targetUrl={editorSession.targetUrl}
-        width={editorSession.width}
-        height={editorSession.height}
-        scrollStrategy={editorSession.scrollStrategy}
-        onNavigate={navigate}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
-    );
-  }
 
   return (
     <main className="app-shell">
@@ -382,7 +345,6 @@ export default function App() {
 
               <div className="sidebar-section-card">
                 <h3 className="sidebar-section-title">Scroll Settings</h3>
-                {renderTier === "draft" ? (
                   <ScrollPhysicsForm
                     selectedCurve={selectedCurve}
                     setSelectedCurve={setSelectedCurve}
@@ -391,14 +353,6 @@ export default function App() {
                     customInputText={customInputText}
                     setCustomInputText={setCustomInputText}
                   />
-                ) : (
-                  <div className="linear-info-box" style={{ padding: "12px", background: "rgba(255, 255, 255, 0.03)", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "8px", fontSize: "0.85rem", color: "var(--text-muted)", lineHeight: "1.4" }}>
-                    <p style={{ margin: 0, fontWeight: "500", color: "var(--text-primary)", marginBottom: "4px" }}>
-                      Linear Capture (Eased Post-Record)
-                    </p>
-                    Scroll curves and speed are fully customizable and update in real-time inside the **Editor** once rendering completes.
-                  </div>
-                )}
 
                 <VirtualScrollForm
                   scrollMode={scrollMode}
@@ -424,8 +378,9 @@ export default function App() {
                     role="radiogroup"
                     aria-label="Render quality"
                   >
-                    {(Object.entries(TIER_CONFIG) as [RenderTier, typeof TIER_CONFIG[RenderTier]][]).map(
-                      ([tier, cfg]) => (
+                    {(Object.entries(TIER_CONFIG) as [RenderTier, typeof TIER_CONFIG[RenderTier]][])
+                      .filter(([tier]) => tier !== "draft")
+                      .map(([tier, cfg]) => (
                         <button
                           key={tier}
                           type="button"
@@ -443,35 +398,23 @@ export default function App() {
                         </button>
                       )
                     )}
-                  </div>
-                </div>
-
-                <div className="controls-card-right">
-                  <button
-                    type="submit"
-                    id="submit"
-                    className="recorder-capture-btn-sm product-btn-primary"
-                    disabled={isSubmitting || !url.trim()}
-                  >
-                    {isSubmitting && <span className="loader-circle" />}
-                    <span id="buttonText">
-                      {isSubmitting
-                        ? "Recording…"
-                        : resultVideo
-                          ? "Record again"
-                          : "Start capture"}
-                    </span>
-                  </button>
-
-                  {resultVideo && !isSubmitting && (
                     <button
-                      type="button"
-                      className="recorder-editor-btn-sm product-btn"
-                      onClick={openEditor}
+                      type="submit"
+                      id="submit"
+                      className="recorder-capture-btn-sm product-btn-primary"
+                      disabled={isSubmitting || !url.trim()}
+                      style={{ flex: 1, minWidth: 0, alignSelf: "stretch", paddingInline: "1.5rem", borderRadius: "var(--ui-radius)", display: "flex", alignItems: "center", justifyContent: "center" }}
                     >
-                      Open in editor
+                      {isSubmitting && <span className="loader-circle" />}
+                      <span id="buttonText">
+                        {isSubmitting
+                          ? "Recording…"
+                          : resultVideo
+                            ? "Record again"
+                            : "Start capture"}
+                      </span>
                     </button>
-                  )}
+                  </div>
                 </div>
               </div>
 
