@@ -29,6 +29,7 @@
   "scripts": {
     "start": "tsx watch src/api/server.ts",
     "record": "tsx src/cli.ts",
+    "test": "tsx --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

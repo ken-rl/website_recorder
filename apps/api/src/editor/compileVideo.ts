@@ -4,7 +4,7 @@ import os from "node:os";
 import { stitchFramesToVideo } from "../capture/stitchFrames.js";
 import type { BezierControlPoints } from "../browser/curves.js";
 
-function applyBezierCurve(
+export function applyBezierCurve(
   linearProgress: number,
   bezier: BezierControlPoints,
 ): number {
@@ -18,7 +18,7 @@ function applyBezierCurve(
   };
   const sampleY = (t: number) => {
     const inv = 1 - t;
-    return 3 * inv * inv * t * y1 + 3 * inv * t * t * x2 + t * t * t;
+    return 3 * inv * inv * t * y1 + 3 * inv * t * t * y2 + t * t * t;
   };
   const sampleDx = (t: number) =>
     3 * (1 - t) * (1 - t) * x1 +

@@ -34,7 +34,7 @@ git clone https://github.com/ken-rl/website_recorder.git
 cd website_recorder
 pnpm install
 npx playwright install chromium
-pnpm start
+pnpm dev:api
 ```
 
 Open [http://localhost:3847](http://localhost:3847), enter a URL, and hit **Record**.
@@ -44,10 +44,12 @@ Open [http://localhost:3847](http://localhost:3847), enter a URL, and hit **Reco
 ### Web UI
 
 ```bash
-pnpm start
+pnpm dev:api
 ```
 
 Visit [http://localhost:3847](http://localhost:3847). Enter a URL, choose viewport size and quality, then record. The finished video plays inline with a download link.
+
+For frontend development with Vite hot reload, run `pnpm dev` and open the Vite URL it prints (the API continues to run on port 3847).
 
 ### CLI
 
@@ -219,9 +221,11 @@ outputs/                     Recorded videos (gitignored)
 
 | Command | Description |
 | ------- | ----------- |
-| `pnpm start` | Start the web server |
+| `pnpm dev:api` | Start the web server |
+| `pnpm dev` | Start the API and Vite frontend together |
 | `pnpm record <config.json>` | Record via CLI |
 | `pnpm typecheck` | Run TypeScript checks |
+| `pnpm --filter websiterecorder-api test` | Run API tests |
 
 ## Security note
 
