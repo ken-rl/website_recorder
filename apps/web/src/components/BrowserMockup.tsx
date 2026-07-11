@@ -1,5 +1,4 @@
 import React, { useRef, useState, useEffect } from "react";
-import type { BackgroundPreset } from "./BackgroundCanvasForm";
 
 interface BrowserMockupProps {
   url: string;
@@ -9,9 +8,6 @@ interface BrowserMockupProps {
   width: number;
   height: number;
   isSubmitting: boolean;
-  backgroundPreset?: BackgroundPreset;
-  addShadow?: boolean;
-  roundedCorners?: boolean;
 }
 
 export default function BrowserMockup({
@@ -22,9 +18,6 @@ export default function BrowserMockup({
   width,
   height,
   isSubmitting,
-  backgroundPreset = "none",
-  addShadow = false,
-  roundedCorners = false,
 }: BrowserMockupProps) {
   const isPortrait = width < height;
   const displayUrl = url || "https://example.com";
@@ -33,12 +26,6 @@ export default function BrowserMockup({
     "--preview-w": String(width),
     "--preview-h": String(height),
   } as React.CSSProperties;
-  const isFramedPreview = !videoUrl && backgroundPreset !== "none";
-  const previewCanvasStyle = isFramedPreview
-    ? {
-        backgroundImage: `url(/background_presets/${backgroundPreset}.png)`,
-      }
-    : undefined;
 
   // Custom Video Player States
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -399,8 +386,8 @@ export default function BrowserMockup({
 
   return (
     <div
-      className={`result-container capture-window video-preview-canvas${isFramedPreview ? " is-framed" : ""}${addShadow && isFramedPreview ? " has-shadow" : ""}${roundedCorners && isFramedPreview ? " has-rounded-corners" : ""}${isPortrait ? " is-portrait-device" : " is-landscape-device"}`}
-      style={{ ...previewVars, ...previewCanvasStyle }}
+      className={`result-container capture-window${isPortrait ? " is-portrait-device" : " is-landscape-device"}`}
+      style={previewVars}
     >
       <div
         key={`${width}x${height}`}

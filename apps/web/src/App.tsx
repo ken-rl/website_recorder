@@ -484,7 +484,14 @@ export default function App() {
               )}
 
               {/* Bottom Video Playback Bento Card */}
-              <div className={`recorder-preview-panel${width < height ? " is-portrait-stage" : ""}`}>
+              <div
+                className={`recorder-preview-panel${width < height ? " is-portrait-stage" : ""}${!resultVideo && backgroundPreset !== "none" ? " has-canvas-background" : ""}${!resultVideo && addShadow ? " has-canvas-shadow" : ""}${!resultVideo && roundedCorners ? " has-canvas-rounded" : ""}`}
+                style={
+                  !resultVideo && backgroundPreset !== "none"
+                    ? { backgroundImage: `url(/background_presets/${backgroundPreset}.png)` }
+                    : undefined
+                }
+              >
                 <section className="recorder-preview" aria-label="Preview">
                   <BrowserMockup
                     url={url}
@@ -494,9 +501,6 @@ export default function App() {
                     width={width}
                     height={height}
                     isSubmitting={isSubmitting}
-                    backgroundPreset={backgroundPreset}
-                    addShadow={addShadow}
-                    roundedCorners={roundedCorners}
                   />
                 </section>
               </div>

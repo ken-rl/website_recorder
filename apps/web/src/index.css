@@ -2835,24 +2835,19 @@ input[type="number"]:disabled {
     border-radius: 14px !important;
     box-shadow: 0 24px 60px #0000002e !important;
 }
-.video-preview-canvas.is-framed {
+.recorder-preview-panel.has-canvas-background {
     background-position: center;
     background-repeat: no-repeat;
     background-size: cover;
-    align-items: center;
-    justify-content: center;
-    padding: 8%;
-    display: flex;
 }
-.video-preview-canvas.is-framed .video-preview-wrapper {
-    width: 100% !important;
-    box-shadow: none !important;
+.recorder-preview-panel.has-canvas-background::before {
+    display: none;
 }
-.video-preview-canvas.is-framed.has-shadow .video-preview-wrapper {
-    box-shadow: 0 20px 40px #00000082, 0 5px 12px #00000054 !important;
+.recorder-preview-panel.has-canvas-shadow .video-preview-wrapper {
+    box-shadow: 0 22px 44px #00000082, 0 6px 14px #00000054 !important;
 }
-.video-preview-canvas.is-framed.has-rounded-corners .video-preview-wrapper,
-.video-preview-canvas.is-framed.has-rounded-corners .browser-content {
+.recorder-preview-panel.has-canvas-rounded .video-preview-wrapper,
+.recorder-preview-panel.has-canvas-rounded .browser-content {
     border-radius: 12px !important;
 }
 .recorder-disclosure {
