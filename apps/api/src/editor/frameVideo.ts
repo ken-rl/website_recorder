@@ -33,7 +33,7 @@ export async function frameVideoOnBackground(options: {
   const x = Math.floor((width - contentWidth) / 2);
   const y = Math.floor((height - contentHeight) / 2);
   const cornerRadius = roundedCorners
-    ? Math.max(12, Math.round(Math.min(contentWidth, contentHeight) * 0.045))
+    ? Math.max(6, Math.round(Math.min(contentWidth, contentHeight) * 0.014))
     : 0;
   const backgroundPath = await resolvePresetPath(PRESET_FILES[preset]);
 
@@ -45,8 +45,8 @@ export async function frameVideoOnBackground(options: {
   if (addShadow) {
     filters.push(
       `[card]split[card-output][card-shadow]`,
-      `[card-shadow]colorchannelmixer=rr=0:gg=0:bb=0:aa=0.38,boxblur=12:1[shadow]`,
-      `[bg][shadow]overlay=${x}:${y + Math.max(8, Math.round(height * 0.014))}[canvas]`,
+      `[card-shadow]colorchannelmixer=rr=0:gg=0:bb=0:aa=0.23,gblur=sigma=16:steps=2[shadow]`,
+      `[bg][shadow]overlay=${x}:${y + Math.max(5, Math.round(height * 0.009))}[canvas]`,
       `[canvas][card-output]overlay=${x}:${y}:shortest=1,format=yuv420p[output]`,
     );
   } else {
@@ -93,7 +93,7 @@ function roundedCornerFilter(radius: number) {
     `gt(X,${right})*gt(Y,${bottom})*gt(hypot(X-(${right}),Y-(${bottom})),${radius})`,
   ].join("+");
 
-  return `,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(gt(${outsideCorner},0),0,255)'`;
+  return `,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(gt(${outsideCorner},0),0,255)',gblur=sigma=0.35:steps=1`;
 }
 
 async function resolvePresetPath(filename: string) {

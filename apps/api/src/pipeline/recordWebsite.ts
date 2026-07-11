@@ -25,7 +25,7 @@ import { removeFileIfExists, transcodeToMp4 } from "../transcode/ffmpeg.js";
 import { FrameRecorder } from "../capture/frameRecorder.js";
 import { stitchFramesToVideo } from "../capture/stitchFrames.js";
 import { compileVideoFromFrames } from "../editor/compileVideo.js";
-import { frameVideoOnBackground } from "../editor/frameVideo.js";
+import { renderRecordingStyle, SOURCE_FILENAME } from "./styleRecording.js";
 import type {
   AnimationConfig,
   RecordRequest,
@@ -137,16 +137,17 @@ export async function recordWebsite(
     throw new Error("Playwright did not produce a recorded video file");
   }
 
+  const sourcePath = path.join(outputDir, SOURCE_FILENAME);
   const mp4Path = path.join(outputDir, "output.mp4");
   const targetWidth = viewport.width * deviceScaleFactor;
   const targetHeight = viewport.height * deviceScaleFactor;
 
   if (capture.isMp4) {
-    await fs.rename(capture.rawVideoPath, mp4Path);
+    await fs.rename(capture.rawVideoPath, sourcePath);
   } else {
     await transcodeToMp4(
       capture.rawVideoPath,
-      mp4Path,
+      sourcePath,
       outputFramerate,
       targetWidth,
       targetHeight,
@@ -155,18 +156,13 @@ export async function recordWebsite(
     await removeFileIfExists(capture.rawVideoPath);
   }
 
-  if (request.backgroundPreset && request.backgroundPreset !== "none") {
-    const framedPath = path.join(outputDir, "output-framed.mp4");
-    await frameVideoOnBackground({
-      inputPath: mp4Path,
-      outputPath: framedPath,
-      preset: request.backgroundPreset,
-      addShadow: request.addShadow ?? true,
-      roundedCorners: request.roundedCorners ?? false,
-      encode,
-    });
-    await fs.rename(framedPath, mp4Path);
-  }
+  await renderRecordingStyle({
+    sourcePath,
+    outputPath: mp4Path,
+    backgroundPreset: request.backgroundPreset,
+    addShadow: request.addShadow,
+    roundedCorners: request.roundedCorners,
+  });
 
   const captureWarning = shouldWarnHeadlessVirtualCapture(
     capture.scrollStrategy,

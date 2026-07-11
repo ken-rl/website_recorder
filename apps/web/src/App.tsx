@@ -145,6 +145,7 @@ export default function App() {
     useState<BackgroundPreset>("none");
   const [addShadow, setAddShadow] = useState(true);
   const [roundedCorners, setRoundedCorners] = useState(true);
+  const [isApplyingStyle, setIsApplyingStyle] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusType, setStatusType] = useState<
@@ -255,6 +256,40 @@ export default function App() {
     saveEditorSession(session);
     setEditorSession(session);
     navigate("/editor");
+  };
+
+  const applyStyleToRecording = async () => {
+    if (!resultVideo) return;
+
+    setIsApplyingStyle(true);
+    setStatusType("idle");
+    try {
+      const res = await fetch("/style", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId: resultVideo.jobId,
+          backgroundPreset,
+          addShadow,
+          roundedCorners,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Could not apply style");
+      }
+
+      const styledUrl = `${data.videoUrl}?t=${Date.now()}`;
+      setResultVideo((current) =>
+        current ? { ...current, url: styledUrl, sourceUrl: data.videoUrl } : current,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not apply style";
+      setStatusType("error");
+      setStatusText(message);
+    } finally {
+      setIsApplyingStyle(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -405,6 +440,8 @@ export default function App() {
                   setAddShadow={setAddShadow}
                   roundedCorners={roundedCorners}
                   setRoundedCorners={setRoundedCorners}
+                  onApplyStyle={resultVideo ? applyStyleToRecording : undefined}
+                  isApplyingStyle={isApplyingStyle}
                 />
               </div>
             </div>

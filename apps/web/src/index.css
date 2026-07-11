@@ -2730,6 +2730,24 @@ input[type="number"]:disabled {
 .recorder-frame-toggle:disabled {
     cursor: not-allowed;
 }
+.recorder-apply-style {
+    color: var(--accent-text);
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    cursor: pointer;
+    justify-content: center;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 32px;
+    font-size: 0.66rem;
+    font-weight: 650;
+    display: flex;
+}
+.recorder-apply-style:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
 
 /* Recorder workspace: visual controls stay close, detail stays out of the way. */
 .recorder-page {

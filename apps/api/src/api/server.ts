@@ -6,7 +6,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { editVideo } from "../pipeline/editVideo.js";
 import { recordWebsite } from "../pipeline/recordWebsite.js";
-import type { EditRequest, RecordRequest } from "../types.js";
+import { restyleRecording } from "../pipeline/styleRecording.js";
+import type { EditRequest, RecordRequest, StyleRequest } from "../types.js";
 
 const PORT = Number(process.env.PORT ?? 3847);
 const OUTPUT_DIR = path.resolve(process.env.OUTPUT_DIR ?? "./outputs");
@@ -138,6 +139,17 @@ const server = http.createServer(async (req, res) => {
         mp4Path: result.mp4Path,
         durationMs: result.durationMs,
       });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      return sendJson(res, 400, { ok: false, error: message });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/style") {
+    try {
+      const body = await readJsonBody<StyleRequest>(req);
+      const result = await restyleRecording(body, OUTPUT_DIR);
+      return sendJson(res, 200, { ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       return sendJson(res, 400, { ok: false, error: message });

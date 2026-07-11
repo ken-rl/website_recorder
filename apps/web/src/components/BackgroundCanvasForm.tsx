@@ -1,3 +1,5 @@
+import { Circle, Image, Sparkles, Square, Wand2 } from "lucide-react";
+
 export type BackgroundPreset =
   | "none"
   | "gray_noise_gradient"
@@ -33,6 +35,8 @@ interface BackgroundCanvasFormProps {
   setAddShadow: (enabled: boolean) => void;
   roundedCorners: boolean;
   setRoundedCorners: (enabled: boolean) => void;
+  onApplyStyle?: () => void;
+  isApplyingStyle?: boolean;
 }
 
 export default function BackgroundCanvasForm({
@@ -42,6 +46,8 @@ export default function BackgroundCanvasForm({
   setAddShadow,
   roundedCorners,
   setRoundedCorners,
+  onApplyStyle,
+  isApplyingStyle = false,
 }: BackgroundCanvasFormProps) {
   const isFramed = backgroundPreset !== "none";
 
@@ -106,7 +112,18 @@ export default function BackgroundCanvasForm({
           <span>Shadow</span>
         </button>
       </div>
+
+      {onApplyStyle && (
+        <button
+          type="button"
+          className="recorder-apply-style"
+          onClick={onApplyStyle}
+          disabled={isApplyingStyle}
+        >
+          <Wand2 size={15} />
+          <span>{isApplyingStyle ? "Styling…" : "Apply to recording"}</span>
+        </button>
+      )}
     </section>
   );
 }
-import { Circle, Image, Sparkles, Square } from "lucide-react";

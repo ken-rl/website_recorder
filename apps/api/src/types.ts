@@ -69,6 +69,19 @@ export interface RecordRequest {
   roundedCorners?: boolean;
 }
 
+export interface StyleRequest {
+  jobId: string;
+  backgroundPreset?: BackgroundPreset;
+  addShadow?: boolean;
+  roundedCorners?: boolean;
+}
+
+export interface StyleResult {
+  jobId: string;
+  videoUrl: string;
+  mp4Path: string;
+}
+
 export type ResolvedScrollStrategy = "document" | "virtual";
 
 export interface RecordResult {
