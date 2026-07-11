@@ -12,7 +12,7 @@ export function resolveEncodeSettings(
 ): EncodeSettings {
   const presets: Record<QualityPreset, EncodeSettings> = {
     high: { crf: 15, preset: 'slow', deviceScaleFactor: 2 },
-    medium: { crf: 20, preset: 'medium', deviceScaleFactor: 2 },
+    medium: { crf: 20, preset: 'medium', deviceScaleFactor: 1 },
     low: { crf: 26, preset: 'fast', deviceScaleFactor: 1 },
   }
 

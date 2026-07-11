@@ -6,6 +6,7 @@ import { probeVideoDurationMs } from "../transcode/probe.js";
 import type { EditRequest, EditResult } from "../types.js";
 
 import { compileVideoFromFrames } from "../editor/compileVideo.js";
+import { frameVideoOnBackground } from "../editor/frameVideo.js";
 import { transcodeToMp4 } from "../transcode/ffmpeg.js";
 
 const SOURCE_FILENAME = "output.mp4";
@@ -78,6 +79,20 @@ export async function editVideo(
       encode,
     );
     durationMs = result.durationMs;
+  }
+
+  if (request.backgroundPreset && request.backgroundPreset !== "none") {
+    const framedPath = path.join(outputDir, "output-edited-framed.mp4");
+    const encode = resolveEncodeSettings("high", 1);
+    await frameVideoOnBackground({
+      inputPath: editedPath,
+      outputPath: framedPath,
+      preset: request.backgroundPreset,
+      addShadow: request.addShadow ?? true,
+      roundedCorners: request.roundedCorners ?? false,
+      encode,
+    });
+    await fs.rename(framedPath, editedPath);
   }
 
   await fs.writeFile(

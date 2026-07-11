@@ -1,8 +1,8 @@
 import type { Page } from "playwright";
 
-const DEFAULT_SCROLL_SETTLE_MS = 650;
-const DEFAULT_MAX_SCROLL_PASSES = 3;
-const DEFAULT_MAX_SCROLL_STEPS = 36;
+const DEFAULT_SCROLL_SETTLE_MS = 350;
+const DEFAULT_MAX_SCROLL_PASSES = 1;
+const DEFAULT_MAX_SCROLL_STEPS = 24;
 
 const FAST_SCROLL_SETTLE_MS = 180;
 const FAST_MAX_SCROLL_PASSES = 1;
@@ -51,8 +51,7 @@ export async function hydrateLazyContent(
     : DEFAULT_SCROLL_SETTLE_MS;
   const maxPasses = fast ? FAST_MAX_SCROLL_PASSES : DEFAULT_MAX_SCROLL_PASSES;
   const maxSteps = fast ? FAST_MAX_SCROLL_STEPS : DEFAULT_MAX_SCROLL_STEPS;
-  const networkIdleTimeout = fast ? 1200 : 8000;
-  const stepNetworkTimeout = fast ? 800 : 2500;
+  const networkIdleTimeout = fast ? 1200 : 3000;
 
   await page
     .waitForLoadState("networkidle", { timeout: networkIdleTimeout })
@@ -83,9 +82,6 @@ export async function hydrateLazyContent(
           .catch(() => undefined);
       }
       await page.waitForTimeout(scrollSettleMs);
-      await page
-        .waitForLoadState("networkidle", { timeout: stepNetworkTimeout })
-        .catch(() => undefined);
       if (y >= maxY) break;
     }
 

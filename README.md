@@ -194,7 +194,7 @@ Control how scroll speed changes over the recording. `pixelsPerFrame` sets the o
 | Preset | Device scale | Encoding |
 | ------ | ------------ | -------- |
 | `high` | 2× | CRF 15, slow preset, Lanczos scaling |
-| `medium` | 2× | CRF 20, medium preset |
+| `medium` | 1× | CRF 20, medium preset |
 | `low` | 1× | CRF 26, fast preset |
 
 ## How it works

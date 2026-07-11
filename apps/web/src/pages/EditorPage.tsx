@@ -42,6 +42,34 @@ interface EditorZoom {
   y: number;
 }
 
+type BackgroundPreset =
+  | "none"
+  | "gray_noise_gradient"
+  | "paper_blue"
+  | "red_blocks_gradient";
+
+const BACKGROUND_PRESETS: Array<{
+  id: Exclude<BackgroundPreset, "none">;
+  label: string;
+  src: string;
+}> = [
+  {
+    id: "gray_noise_gradient",
+    label: "Graphite grain",
+    src: "/background_presets/gray_noise_gradient.png",
+  },
+  {
+    id: "paper_blue",
+    label: "Blueprint paper",
+    src: "/background_presets/paper_blue.png",
+  },
+  {
+    id: "red_blocks_gradient",
+    label: "Red blocks",
+    src: "/background_presets/red_blocks_gradient.png",
+  },
+];
+
 interface ZoomBoxOverlayProps {
   zoom: EditorZoom;
   onChange: (updates: Partial<Omit<EditorZoom, "id">>) => void;
@@ -232,6 +260,9 @@ export default function EditorPage({
   const [durationMs, setDurationMs] = useState(0);
   const [curvePreset, setCurvePreset] = useState("ease-in-out");
   const [customBezier, setCustomBezier] = useState<[number, number, number, number]>([0.25, 0.1, 0.25, 1.0]);
+  const [backgroundPreset, setBackgroundPreset] =
+    useState<BackgroundPreset>("none");
+  const [addShadow, setAddShadow] = useState(true);
   const curveTriggerRef = useRef<HTMLDivElement>(null);
   const speedTriggerRef = useRef<HTMLDivElement>(null);
 
@@ -721,6 +752,8 @@ export default function EditorPage({
             bezier: customBezier,
             durationMs: durationMs,
           } : {}),
+          backgroundPreset,
+          addShadow,
         }),
       });
       const data = await res.json();
@@ -1095,6 +1128,51 @@ export default function EditorPage({
             </button>
           </section>
 
+          <section className="editor-sidebar-section editor-canvas-section">
+            <div className="editor-section-heading">
+              <h3>Canvas</h3>
+              <span>{backgroundPreset === "none" ? "Full bleed" : "Framed"}</span>
+            </div>
+            <p className="editor-canvas-copy">
+              Add a backdrop to frame the recording as a presentation card.
+            </p>
+            <div className="editor-background-grid" role="radiogroup" aria-label="Background preset">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={backgroundPreset === "none"}
+                className={`editor-background-option editor-background-none ${backgroundPreset === "none" ? "is-selected" : ""}`}
+                onClick={() => setBackgroundPreset("none")}
+              >
+                <span className="editor-background-none-mark">×</span>
+                <span>None</span>
+              </button>
+              {BACKGROUND_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={backgroundPreset === preset.id}
+                  aria-label={preset.label}
+                  className={`editor-background-option ${backgroundPreset === preset.id ? "is-selected" : ""}`}
+                  onClick={() => setBackgroundPreset(preset.id)}
+                >
+                  <img src={preset.src} alt="" />
+                  <span>{preset.label}</span>
+                </button>
+              ))}
+            </div>
+            <label className={`editor-canvas-shadow ${backgroundPreset === "none" ? "is-disabled" : ""}`}>
+              <input
+                type="checkbox"
+                checked={addShadow}
+                disabled={backgroundPreset === "none"}
+                onChange={(event) => setAddShadow(event.target.checked)}
+              />
+              <span>Soft card shadow</span>
+            </label>
+          </section>
+
           <section className="editor-sidebar-section">
             <h3>Inspector</h3>
             {selectedPause ? (
@@ -1225,37 +1303,46 @@ export default function EditorPage({
             </span>
           </div>
           <div
-            className="editor-monitor"
-            style={{ aspectRatio: `${width} / ${height}` }}
+            className={`editor-monitor ${backgroundPreset !== "none" ? "editor-monitor-framed" : ""}`}
+            style={{
+              aspectRatio: `${width} / ${height}`,
+              ...(backgroundPreset !== "none"
+                ? {
+                    backgroundImage: `url(${BACKGROUND_PRESETS.find((preset) => preset.id === backgroundPreset)?.src})`,
+                  }
+                : {}),
+            }}
           >
-            <video
-              ref={videoRef}
-              key={activeVideoUrl}
-              src={activeVideoUrl}
-              playsInline
-              preload="auto"
-              className="editor-monitor-video"
-              onClick={togglePlayback}
-              style={{ ...currentZoomStyle }}
-            />
-            {selectedZoom && previewMode === "edit" && (
-              <ZoomBoxOverlay
-                zoom={selectedZoom}
-                onChange={(updates) => updateZoom(selectedZoom.id, updates)}
-              />
-            )}
-            {!isPlaying && sourceDurationMs > 0 && (
-              <button
-                type="button"
-                className="editor-monitor-play"
+            <div className={`editor-video-card ${addShadow && backgroundPreset !== "none" ? "has-shadow" : ""}`}>
+              <video
+                ref={videoRef}
+                key={activeVideoUrl}
+                src={activeVideoUrl}
+                playsInline
+                preload="auto"
+                className="editor-monitor-video"
                 onClick={togglePlayback}
-                aria-label="Play"
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <polygon points="8,5 19,12 8,19" />
-                </svg>
-              </button>
-            )}
+                style={{ ...currentZoomStyle }}
+              />
+              {selectedZoom && previewMode === "edit" && (
+                <ZoomBoxOverlay
+                  zoom={selectedZoom}
+                  onChange={(updates) => updateZoom(selectedZoom.id, updates)}
+                />
+              )}
+              {!isPlaying && sourceDurationMs > 0 && (
+                <button
+                  type="button"
+                  className="editor-monitor-play"
+                  onClick={togglePlayback}
+                  aria-label="Play"
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="8,5 19,12 8,19" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="editor-transport">

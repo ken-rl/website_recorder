@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { ChevronDown, Clapperboard, Play, SlidersHorizontal, Sparkles } from "lucide-react";
 import AppTopbar from "./components/AppTopbar";
 import { LORDICON } from "./lib/icons";
 import LordIcon from "./components/LordIcon";
@@ -7,6 +8,9 @@ import ScrollPhysicsForm from "./components/ScrollPhysicsForm";
 import VirtualScrollForm, {
   type ScrollModeOption,
 } from "./components/VirtualScrollForm";
+import BackgroundCanvasForm, {
+  type BackgroundPreset,
+} from "./components/BackgroundCanvasForm";
 
 import ProgressCard from "./components/ProgressCard";
 import BrowserMockup from "./components/BrowserMockup";
@@ -74,6 +78,8 @@ export default function App() {
     captureMode: "preview" | "export";
     fastMode: boolean;
     qualityPreset: string;
+    framerate: number;
+    deviceScaleFactor: number;
     pixelsPerFrame: number;
     preRecordingDelayMs: number;
     defaultCycles: number;
@@ -85,6 +91,8 @@ export default function App() {
       captureMode: "preview",
       fastMode: true,
       qualityPreset: "medium",
+      framerate: 30,
+      deviceScaleFactor: 1,
       pixelsPerFrame: 12,
       preRecordingDelayMs: 500,
       defaultCycles: 6,
@@ -96,7 +104,9 @@ export default function App() {
       captureMode: "export",
       fastMode: false,
       qualityPreset: "medium",
-      pixelsPerFrame: 16,
+      framerate: 30,
+      deviceScaleFactor: 1,
+      pixelsPerFrame: 32,
       preRecordingDelayMs: 2000,
       defaultCycles: 8,
       expectedDurationMs: 25000,
@@ -107,6 +117,8 @@ export default function App() {
       captureMode: "export",
       fastMode: false,
       qualityPreset: "high",
+      framerate: 60,
+      deviceScaleFactor: 2,
       pixelsPerFrame: 10,
       preRecordingDelayMs: 3000,
       defaultCycles: 10,
@@ -128,7 +140,11 @@ export default function App() {
   const [virtualScrollCycles, setVirtualScrollCycles] = useState(8);
   const [useFixedDuration, setUseFixedDuration] = useState(false);
   const [virtualScrollDurationMs, setVirtualScrollDurationMs] = useState(30000);
-  const [pixelsPerFrame, setPixelsPerFrame] = useState(16);
+  const [pixelsPerFrame, setPixelsPerFrame] = useState(32);
+  const [backgroundPreset, setBackgroundPreset] =
+    useState<BackgroundPreset>("none");
+  const [addShadow, setAddShadow] = useState(true);
+  const [roundedCorners, setRoundedCorners] = useState(true);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusType, setStatusType] = useState<
@@ -255,9 +271,9 @@ export default function App() {
       targetUrl: url.trim(),
       exportFormat: "mp4",
       videoConfig: {
-        framerate: 60,
+        framerate: tier.framerate,
         qualityPreset: tier.qualityPreset,
-        viewport: { width, height },
+        viewport: { width, height, deviceScaleFactor: tier.deviceScaleFactor },
       },
       animationConfig: {
         fastMode: tier.fastMode,
@@ -276,6 +292,9 @@ export default function App() {
             }
           : {}),
       },
+      backgroundPreset,
+      addShadow,
+      roundedCorners,
     };
 
     try {
@@ -344,28 +363,48 @@ export default function App() {
               </div>
 
               <div className="sidebar-section-card">
-                <h3 className="sidebar-section-title">Scroll Settings</h3>
-                   <ScrollPhysicsForm
-                     selectedCurve={selectedCurve}
-                     setSelectedCurve={setSelectedCurve}
-                     customBezier={customBezier}
-                     setCustomBezier={setCustomBezier}
-                     customInputText={customInputText}
-                     setCustomInputText={setCustomInputText}
-                     pixelsPerFrame={pixelsPerFrame}
-                     setPixelsPerFrame={setPixelsPerFrame}
-                   />
+                <details className="recorder-disclosure">
+                  <summary>
+                    <span className="recorder-disclosure-icon"><SlidersHorizontal size={16} /></span>
+                    <span>Motion</span>
+                    <small>{selectedCurve.replaceAll("-", " ")}</small>
+                    <ChevronDown className="recorder-disclosure-chevron" size={16} />
+                  </summary>
+                  <div className="recorder-disclosure-content">
+                    <ScrollPhysicsForm
+                      selectedCurve={selectedCurve}
+                      setSelectedCurve={setSelectedCurve}
+                      customBezier={customBezier}
+                      setCustomBezier={setCustomBezier}
+                      customInputText={customInputText}
+                      setCustomInputText={setCustomInputText}
+                      pixelsPerFrame={pixelsPerFrame}
+                      setPixelsPerFrame={setPixelsPerFrame}
+                    />
 
-                <VirtualScrollForm
-                  scrollMode={scrollMode}
-                  setScrollMode={setScrollMode}
-                  virtualScrollCycles={virtualScrollCycles}
-                  setVirtualScrollCycles={setVirtualScrollCycles}
-                  useFixedDuration={useFixedDuration}
-                  setUseFixedDuration={setUseFixedDuration}
-                  virtualScrollDurationMs={virtualScrollDurationMs}
-                  setVirtualScrollDurationMs={setVirtualScrollDurationMs}
-                  fastMode={renderTier === "draft"}
+                    <VirtualScrollForm
+                      scrollMode={scrollMode}
+                      setScrollMode={setScrollMode}
+                      virtualScrollCycles={virtualScrollCycles}
+                      setVirtualScrollCycles={setVirtualScrollCycles}
+                      useFixedDuration={useFixedDuration}
+                      setUseFixedDuration={setUseFixedDuration}
+                      virtualScrollDurationMs={virtualScrollDurationMs}
+                      setVirtualScrollDurationMs={setVirtualScrollDurationMs}
+                      fastMode={renderTier === "draft"}
+                    />
+                  </div>
+                </details>
+              </div>
+
+              <div className="sidebar-section-card">
+                <BackgroundCanvasForm
+                  backgroundPreset={backgroundPreset}
+                  setBackgroundPreset={setBackgroundPreset}
+                  addShadow={addShadow}
+                  setAddShadow={setAddShadow}
+                  roundedCorners={roundedCorners}
+                  setRoundedCorners={setRoundedCorners}
                 />
               </div>
             </div>
@@ -382,8 +421,10 @@ export default function App() {
                   >
                     {(Object.entries(TIER_CONFIG) as [RenderTier, typeof TIER_CONFIG[RenderTier]][])
                       .filter(([tier]) => tier !== "draft")
-                      .map(([tier, cfg]) => (
-                        <button
+                      .map(([tier, cfg]) => {
+                        const TierIcon = tier === "cinematic" ? Sparkles : Clapperboard;
+                        return (
+                          <button
                           key={tier}
                           type="button"
                           id={`renderTier-${tier}`}
@@ -396,10 +437,12 @@ export default function App() {
                              setPixelsPerFrame(cfg.pixelsPerFrame);
                            }}
                         >
+                          <span className="render-tier-icon"><TierIcon size={16} strokeWidth={1.8} /></span>
                           <span className="render-tier-name">{cfg.label}</span>
                           <span className="render-tier-hint">{cfg.hint}</span>
                         </button>
-                      )
+                        );
+                      }
                     )}
                     <button
                       type="submit"
@@ -409,6 +452,7 @@ export default function App() {
                       style={{ flex: 1, minWidth: 0, alignSelf: "stretch", paddingInline: "1.5rem", borderRadius: "var(--ui-radius)", display: "flex", alignItems: "center", justifyContent: "center" }}
                     >
                       {isSubmitting && <span className="loader-circle" />}
+                      {!isSubmitting && <Play size={16} fill="currentColor" aria-hidden="true" />}
                       <span id="buttonText">
                         {isSubmitting
                           ? "Recording…"
@@ -450,6 +494,9 @@ export default function App() {
                     width={width}
                     height={height}
                     isSubmitting={isSubmitting}
+                    backgroundPreset={backgroundPreset}
+                    addShadow={addShadow}
+                    roundedCorners={roundedCorners}
                   />
                 </section>
               </div>

@@ -61,6 +61,12 @@ export interface RecordRequest {
   exportFormat?: "mp4";
   videoConfig: VideoConfig;
   animationConfig?: AnimationConfig;
+  /** Image placed behind a contained recording in the completed capture. */
+  backgroundPreset?: BackgroundPreset;
+  /** Add a soft drop shadow to the contained recording. */
+  addShadow?: boolean;
+  /** Round the contained recording's corners. */
+  roundedCorners?: boolean;
 }
 
 export type ResolvedScrollStrategy = "document" | "virtual";
@@ -95,6 +101,12 @@ export interface EditorZoom {
   y: number;
 }
 
+export type BackgroundPreset =
+  | "none"
+  | "gray_noise_gradient"
+  | "paper_blue"
+  | "red_blocks_gradient";
+
 export interface EditRequest {
   jobId: string;
   trimStartMs?: number;
@@ -103,6 +115,9 @@ export interface EditRequest {
   zooms?: EditorZoom[];
   bezier?: [number, number, number, number];
   durationMs?: number;
+  backgroundPreset?: BackgroundPreset;
+  addShadow?: boolean;
+  roundedCorners?: boolean;
 }
 
 export interface EditResult {

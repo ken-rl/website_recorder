@@ -25,6 +25,7 @@ import { removeFileIfExists, transcodeToMp4 } from "../transcode/ffmpeg.js";
 import { FrameRecorder } from "../capture/frameRecorder.js";
 import { stitchFramesToVideo } from "../capture/stitchFrames.js";
 import { compileVideoFromFrames } from "../editor/compileVideo.js";
+import { frameVideoOnBackground } from "../editor/frameVideo.js";
 import type {
   AnimationConfig,
   RecordRequest,
@@ -37,6 +38,7 @@ const DEFAULT_FRAMERATE = 30;
 interface CaptureSessionResult {
   rawVideoPath: string;
   scrollStrategy: ResolvedScrollStrategy;
+  isMp4?: boolean;
 }
 
 export async function recordWebsite(
@@ -139,15 +141,32 @@ export async function recordWebsite(
   const targetWidth = viewport.width * deviceScaleFactor;
   const targetHeight = viewport.height * deviceScaleFactor;
 
-  await transcodeToMp4(
-    capture.rawVideoPath,
-    mp4Path,
-    outputFramerate,
-    targetWidth,
-    targetHeight,
-    encode,
-  );
-  await removeFileIfExists(capture.rawVideoPath);
+  if (capture.isMp4) {
+    await fs.rename(capture.rawVideoPath, mp4Path);
+  } else {
+    await transcodeToMp4(
+      capture.rawVideoPath,
+      mp4Path,
+      outputFramerate,
+      targetWidth,
+      targetHeight,
+      encode,
+    );
+    await removeFileIfExists(capture.rawVideoPath);
+  }
+
+  if (request.backgroundPreset && request.backgroundPreset !== "none") {
+    const framedPath = path.join(outputDir, "output-framed.mp4");
+    await frameVideoOnBackground({
+      inputPath: mp4Path,
+      outputPath: framedPath,
+      preset: request.backgroundPreset,
+      addShadow: request.addShadow ?? true,
+      roundedCorners: request.roundedCorners ?? false,
+      encode,
+    });
+    await fs.rename(framedPath, mp4Path);
+  }
 
   const captureWarning = shouldWarnHeadlessVirtualCapture(
     capture.scrollStrategy,
@@ -403,12 +422,16 @@ async function runRecordSession(options: {
             fps: framerate,
             bezier: scrollCurve, // Apply the selected scroll curve directly at capture time
             pauses: [],
+            width: viewport.width * deviceScaleFactor,
+            height: viewport.height * deviceScaleFactor,
             preset: encode.preset,
             crf: encode.crf,
           });
           rawVideoPath = tempRawVideoPath;
         } else {
           await stitchFramesToVideo(framesDir, tempRawVideoPath, captureFps, {
+            width: viewport.width * deviceScaleFactor,
+            height: viewport.height * deviceScaleFactor,
             preset: encode.preset,
             crf: encode.crf,
           });
@@ -417,6 +440,8 @@ async function runRecordSession(options: {
       } else {
         const tempRawVideoPath = path.join(outputDir, "raw_frames.mp4");
         await stitchFramesToVideo(framesDir, tempRawVideoPath, captureFps, {
+          width: viewport.width * deviceScaleFactor,
+          height: viewport.height * deviceScaleFactor,
           preset: encode.preset,
           crf: encode.crf,
         });
@@ -432,7 +457,7 @@ async function runRecordSession(options: {
     }
   }
 
-  return { rawVideoPath, scrollStrategy };
+  return { rawVideoPath, scrollStrategy, isMp4: true };
 }
 
 async function recordWithPlaywrightVideo(options: {
