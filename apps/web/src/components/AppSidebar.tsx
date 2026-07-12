@@ -38,11 +38,11 @@ export default function AppSidebar({
           title="Scrollizard"
         >
           <img
-            src="/logo.png"
+            src="/scrollizard-mark.png"
             alt=""
             className="app-nav-logo"
-            width={28}
-            height={28}
+            width={44}
+            height={44}
             draggable={false}
           />
           {!collapsed && (

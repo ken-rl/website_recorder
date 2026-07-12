@@ -1,7 +1,7 @@
 # Scrollizard
 
 <p align="center">
-  <img src="assets/logo.png" alt="Scrollizard logo — lizard with a red recording head" width="160" />
+  <img src="assets/scrollizard-mark.png" alt="Scrollizard logo — lizard with a red recording head" width="220" />
 </p>
 
 <p align="center">
@@ -251,14 +251,14 @@ apps/
       editor/          framing / style composite
       pipeline/        record + style orchestration
       transcode/       ffmpeg
-    public/            built web assets + logo.png
+    public/            built web assets + scrollizard-mark.png
   web/                 React + Vite UI
     src/
       App.tsx
       components/      motion, canvas, pause triggers, preview player
-    public/logo.png
+    public/scrollizard-mark.png
 assets/
-  logo.png             README / brand mark
+  scrollizard-mark.png README / brand mark
 outputs/               recorded videos (gitignored)
 ```
 

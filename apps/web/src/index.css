@@ -248,12 +248,16 @@ body > * {
     background: var(--surface-muted);
 }
 .app-nav-logo {
-    width: 28px;
-    height: 28px;
+    width: 44px;
+    height: 44px;
     flex-shrink: 0;
-    border-radius: 7px;
+    border-radius: 10px;
     object-fit: contain;
     display: block;
+}
+.app-nav-sidebar.is-collapsed .app-nav-logo {
+    width: 36px;
+    height: 36px;
 }
 .app-nav-brand-text {
     display: flex;
