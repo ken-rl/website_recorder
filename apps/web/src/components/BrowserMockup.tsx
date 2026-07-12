@@ -11,8 +11,6 @@ interface BrowserMockupProps {
   height: number;
   isSubmitting: boolean;
   isRenderingStyle?: boolean;
-  /** Live capture status line shown while recording. */
-  recordingStatus?: string;
   /** Elapsed capture time (e.g. "12.4s"). */
   recordingElapsed?: string;
 }
@@ -27,7 +25,6 @@ export default function BrowserMockup({
   height,
   isSubmitting,
   isRenderingStyle = false,
-  recordingStatus,
   recordingElapsed,
 }: BrowserMockupProps) {
   const isPortrait = width < height;
@@ -424,84 +421,15 @@ export default function BrowserMockup({
               aria-live="polite"
               aria-label={`Recording ${shortUrl}`}
             >
-              <div className="rec-chrome">
-                <div className="rec-chrome-dots" aria-hidden>
-                  <span />
-                  <span />
-                  <span />
-                </div>
-                <div className="rec-chrome-url" title={displayUrl}>
-                  <span className="rec-chrome-lock" aria-hidden />
-                  <span className="rec-chrome-url-text">{shortUrl}</span>
-                </div>
-                <div className="rec-badge">
-                  <span className="rec-badge-dot" aria-hidden />
-                  REC
-                </div>
-              </div>
-
-              <div className="rec-stage">
-                <div className="rec-ambient" aria-hidden />
-                <div className="rec-grid" aria-hidden />
-
-                <div className="rec-scroll-scene" aria-hidden>
-                  <div className="rec-page">
-                    <div className="rec-page-hero" />
-                    <div className="rec-page-row">
-                      <span />
-                      <span />
-                      <span />
-                    </div>
-                    <div className="rec-page-block rec-page-block--wide" />
-                    <div className="rec-page-block" />
-                    <div className="rec-page-row rec-page-row--dense">
-                      <span />
-                      <span />
-                      <span />
-                      <span />
-                    </div>
-                    <div className="rec-page-block rec-page-block--mid" />
-                    <div className="rec-page-hero rec-page-hero--short" />
-                    <div className="rec-page-block rec-page-block--wide" />
-                    <div className="rec-page-row">
-                      <span />
-                      <span />
-                      <span />
-                    </div>
-                    <div className="rec-page-block" />
-                    <div className="rec-page-block rec-page-block--mid" />
-                  </div>
-                </div>
-
-                <div className="rec-frame-guide" aria-hidden>
-                  <span className="rec-corner rec-corner--tl" />
-                  <span className="rec-corner rec-corner--tr" />
-                  <span className="rec-corner rec-corner--bl" />
-                  <span className="rec-corner rec-corner--br" />
-                </div>
-
-                <div className="rec-sweep" aria-hidden />
-                <div className="rec-scanline" aria-hidden />
-
-                <div className="rec-overlay">
-                  <div className="rec-live-pill">
-                    <span className="rec-live-dot" aria-hidden />
-                    <span>Live capture</span>
-                  </div>
-                  <p className="rec-status-line">
-                    {recordingStatus || "Capturing website viewport…"}
-                  </p>
-                  <div className="rec-meta-row">
-                    <span className="rec-elapsed">
-                      {recordingElapsed || "0.0s"}
-                    </span>
-                    <span className="rec-sep" aria-hidden />
-                    <span>
-                      {width} × {height}
-                    </span>
-                  </div>
-                </div>
-              </div>
+              <span className="rec-dot" aria-hidden />
+              <p className="rec-label">Recording</p>
+              <p className="rec-detail">
+                {recordingElapsed || "0.0s"}
+                <span className="rec-detail-sep" aria-hidden>
+                  ·
+                </span>
+                {shortUrl}
+              </p>
             </div>
           ) : (
             <div className="browser-placeholder browser-placeholder-idle">
