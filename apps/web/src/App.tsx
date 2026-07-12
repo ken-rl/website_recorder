@@ -1,9 +1,16 @@
 import React, { useState, useRef, useEffect } from "react";
-import { ChevronDown, Clapperboard, Play, SlidersHorizontal, Sparkles } from "lucide-react";
+import {
+  ChevronDown,
+  Clapperboard,
+  Play,
+  Settings2,
+  SlidersHorizontal,
+  Sparkles,
+} from "lucide-react";
 import AppTopbar from "./components/AppTopbar";
 import { LORDICON } from "./lib/icons";
 import LordIcon from "./components/LordIcon";
-import TargetPageForm from "./components/TargetPageForm";
+import TargetPageForm, { deviceLabel } from "./components/TargetPageForm";
 import ScrollPhysicsForm from "./components/ScrollPhysicsForm";
 import VirtualScrollForm, {
   type ScrollModeOption,
@@ -165,9 +172,14 @@ export default function App() {
     sourceUrl: string;
     url: string;
     duration: string;
+    width: number;
+    height: number;
+    qualityLabel: string;
     scrollStrategy?: "document" | "virtual";
     isEdited?: boolean;
   } | null>(null);
+  /** After a capture, setup controls stay locked until the user chooses to edit for a re-record. */
+  const [settingsUnlocked, setSettingsUnlocked] = useState(true);
 
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
@@ -251,8 +263,8 @@ export default function App() {
       jobId: resultVideo.jobId,
       sourceUrl: resultVideo.sourceUrl,
       targetUrl: url.trim(),
-      width,
-      height,
+      width: resultVideo.width,
+      height: resultVideo.height,
       scrollStrategy: resultVideo.scrollStrategy,
     };
     saveEditorSession(session);
@@ -303,10 +315,15 @@ export default function App() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const captureWidth = width;
+    const captureHeight = height;
+    const captureQuality = TIER_CONFIG[renderTier].label;
+
     setResultVideo(null);
     setIsStylePreview(false);
+    setSettingsUnlocked(true);
     setStatusType("loading");
-    setStatusText(`Recording (${TIER_CONFIG[renderTier].label.toLowerCase()})`);
+    setStatusText(`Recording (${captureQuality.toLowerCase()})`);
     setIsSubmitting(true);
 
     startProgressSimulator(renderTier);
@@ -318,7 +335,11 @@ export default function App() {
       videoConfig: {
         framerate: tier.framerate,
         qualityPreset: tier.qualityPreset,
-        viewport: { width, height, deviceScaleFactor: tier.deviceScaleFactor },
+        viewport: {
+          width: captureWidth,
+          height: captureHeight,
+          deviceScaleFactor: tier.deviceScaleFactor,
+        },
       },
       animationConfig: {
         fastMode: tier.fastMode,
@@ -360,9 +381,13 @@ export default function App() {
         sourceUrl: data.sourceVideoUrl ?? data.videoUrl,
         url: data.videoUrl,
         duration: `${(data.durationMs / 1000).toFixed(1)}s`,
+        width: captureWidth,
+        height: captureHeight,
+        qualityLabel: captureQuality,
         scrollStrategy: data.scrollStrategy,
         isEdited: false,
       });
+      setSettingsUnlocked(false);
       setStatusType("success");
       setStatusText("Recording finished successfully.");
       stopProgressSimulator(true);
@@ -378,6 +403,11 @@ export default function App() {
   };
 
   const hasEditorSession = !!editorSession || !!resultVideo;
+  const hasRecording = Boolean(resultVideo);
+  const captureLocked = hasRecording && !settingsUnlocked && !isSubmitting;
+  /** Keep the finished video's aspect ratio stable even if setup is unlocked for a re-record. */
+  const previewWidth = resultVideo?.width ?? width;
+  const previewHeight = resultVideo?.height ?? height;
 
 
 
@@ -396,133 +426,263 @@ export default function App() {
         {currentPath === "/upcoming" ? (
           <UpcomingFeatures />
         ) : (
-          <form id="form" className="recorder-page" onSubmit={handleSubmit}>
+          <form
+            id="form"
+            className={`recorder-page${hasRecording ? " has-recording" : ""}${captureLocked ? " is-capture-locked" : ""}`}
+            onSubmit={handleSubmit}
+          >
             <div className="recorder-sidebar-panel">
-              <div className="sidebar-section-card">
-                <h3 className="sidebar-section-title">Setup</h3>
+              {/* Post-capture: style first. Pre-capture: setup first. */}
+              {hasRecording && (
+                <div className="sidebar-section-card recorder-style-card">
+                  <BackgroundCanvasForm
+                    backgroundPreset={backgroundPreset}
+                    setBackgroundPreset={(preset) =>
+                      updateCanvasStyle(() => setBackgroundPreset(preset))
+                    }
+                    addShadow={addShadow}
+                    setAddShadow={(enabled) =>
+                      updateCanvasStyle(() => setAddShadow(enabled))
+                    }
+                    roundedCorners={roundedCorners}
+                    setRoundedCorners={(enabled) =>
+                      updateCanvasStyle(() => setRoundedCorners(enabled))
+                    }
+                    onApplyStyle={applyStyleToRecording}
+                    isApplyingStyle={isApplyingStyle}
+                  />
+                </div>
+              )}
+
+              <div className={`sidebar-section-card${captureLocked ? " is-locked-section" : ""}`}>
+                <div className="sidebar-section-heading">
+                  <h3 className="sidebar-section-title">
+                    {hasRecording ? "This capture" : "Setup"}
+                  </h3>
+                  {captureLocked && (
+                    <button
+                      type="button"
+                      className="recorder-unlock-settings"
+                      onClick={() => setSettingsUnlocked(true)}
+                    >
+                      <Settings2 size={13} strokeWidth={2} aria-hidden />
+                      Edit for re-record
+                    </button>
+                  )}
+                  {hasRecording && settingsUnlocked && !isSubmitting && (
+                    <button
+                      type="button"
+                      className="recorder-unlock-settings is-active"
+                      onClick={() => setSettingsUnlocked(false)}
+                    >
+                      Done
+                    </button>
+                  )}
+                </div>
                 <TargetPageForm
                   url={url}
                   setUrl={setUrl}
                   devicePreset={devicePreset}
                   setDevicePreset={handleDevicePresetChange}
+                  captureLocked={captureLocked}
                 />
               </div>
 
-              <div className="sidebar-section-card">
-                <details className="recorder-disclosure">
-                  <summary>
-                    <span className="recorder-disclosure-icon"><SlidersHorizontal size={16} /></span>
-                    <span>Motion</span>
-                    <small>
-                      {selectedCurve.replaceAll("-", " ")} · hero {heroHoldMs === 0 ? "off" : `${heroHoldMs / 1000}s`}
-                    </small>
-                    <ChevronDown className="recorder-disclosure-chevron" size={16} />
-                  </summary>
-                  <div className="recorder-disclosure-content">
-                    <ScrollPhysicsForm
-                      selectedCurve={selectedCurve}
-                      setSelectedCurve={setSelectedCurve}
-                      customBezier={customBezier}
-                      setCustomBezier={setCustomBezier}
-                      customInputText={customInputText}
-                      setCustomInputText={setCustomInputText}
-                      pixelsPerFrame={pixelsPerFrame}
-                      setPixelsPerFrame={setPixelsPerFrame}
-                      heroHoldMs={heroHoldMs}
-                      setHeroHoldMs={setHeroHoldMs}
-                    />
-
-                    <VirtualScrollForm
-                      scrollMode={scrollMode}
-                      setScrollMode={setScrollMode}
-                      virtualScrollCycles={virtualScrollCycles}
-                      setVirtualScrollCycles={setVirtualScrollCycles}
-                      useFixedDuration={useFixedDuration}
-                      setUseFixedDuration={setUseFixedDuration}
-                      virtualScrollDurationMs={virtualScrollDurationMs}
-                      setVirtualScrollDurationMs={setVirtualScrollDurationMs}
-                      fastMode={renderTier === "draft"}
-                    />
+              {captureLocked ? (
+                <div className="sidebar-section-card is-locked-section">
+                  <div className="recorder-capture-summary" role="status">
+                    <div className="recorder-capture-summary-row">
+                      <span className="recorder-capture-summary-label">Motion</span>
+                      <span className="recorder-capture-summary-value">
+                        {selectedCurve.replaceAll("-", " ")}
+                        {heroHoldMs === 0 ? "" : ` · hero ${heroHoldMs / 1000}s`}
+                      </span>
+                    </div>
+                    <div className="recorder-capture-summary-row">
+                      <span className="recorder-capture-summary-label">Quality</span>
+                      <span className="recorder-capture-summary-value">
+                        {resultVideo?.qualityLabel ?? TIER_CONFIG[renderTier].label}
+                        {resultVideo?.duration ? ` · ${resultVideo.duration}` : ""}
+                      </span>
+                    </div>
+                    <div className="recorder-capture-summary-row">
+                      <span className="recorder-capture-summary-label">Viewport</span>
+                      <span className="recorder-capture-summary-value">
+                        {deviceLabel(devicePreset)} · {previewWidth}×{previewHeight}
+                      </span>
+                    </div>
+                    <p className="recorder-capture-summary-note">
+                      Capture settings are locked to this video. Style it above, or edit
+                      settings to re-record.
+                    </p>
                   </div>
-                </details>
-              </div>
+                </div>
+              ) : (
+                <div className="sidebar-section-card">
+                  <details className="recorder-disclosure">
+                    <summary>
+                      <span className="recorder-disclosure-icon">
+                        <SlidersHorizontal size={16} />
+                      </span>
+                      <span>Motion</span>
+                      <small>
+                        {selectedCurve.replaceAll("-", " ")} · hero{" "}
+                        {heroHoldMs === 0 ? "off" : `${heroHoldMs / 1000}s`}
+                      </small>
+                      <ChevronDown className="recorder-disclosure-chevron" size={16} />
+                    </summary>
+                    <div className="recorder-disclosure-content">
+                      <ScrollPhysicsForm
+                        selectedCurve={selectedCurve}
+                        setSelectedCurve={setSelectedCurve}
+                        customBezier={customBezier}
+                        setCustomBezier={setCustomBezier}
+                        customInputText={customInputText}
+                        setCustomInputText={setCustomInputText}
+                        pixelsPerFrame={pixelsPerFrame}
+                        setPixelsPerFrame={setPixelsPerFrame}
+                        heroHoldMs={heroHoldMs}
+                        setHeroHoldMs={setHeroHoldMs}
+                      />
 
-              <div className="sidebar-section-card">
-                <BackgroundCanvasForm
-                  backgroundPreset={backgroundPreset}
-                  setBackgroundPreset={(preset) =>
-                    updateCanvasStyle(() => setBackgroundPreset(preset))
-                  }
-                  addShadow={addShadow}
-                  setAddShadow={(enabled) =>
-                    updateCanvasStyle(() => setAddShadow(enabled))
-                  }
-                  roundedCorners={roundedCorners}
-                  setRoundedCorners={(enabled) =>
-                    updateCanvasStyle(() => setRoundedCorners(enabled))
-                  }
-                  onApplyStyle={resultVideo ? applyStyleToRecording : undefined}
-                  isApplyingStyle={isApplyingStyle}
-                />
-              </div>
+                      <VirtualScrollForm
+                        scrollMode={scrollMode}
+                        setScrollMode={setScrollMode}
+                        virtualScrollCycles={virtualScrollCycles}
+                        setVirtualScrollCycles={setVirtualScrollCycles}
+                        useFixedDuration={useFixedDuration}
+                        setUseFixedDuration={setUseFixedDuration}
+                        virtualScrollDurationMs={virtualScrollDurationMs}
+                        setVirtualScrollDurationMs={setVirtualScrollDurationMs}
+                        fastMode={renderTier === "draft"}
+                      />
+                    </div>
+                  </details>
+                </div>
+              )}
+
+              {!hasRecording && (
+                <div className="sidebar-section-card">
+                  <BackgroundCanvasForm
+                    backgroundPreset={backgroundPreset}
+                    setBackgroundPreset={(preset) =>
+                      updateCanvasStyle(() => setBackgroundPreset(preset))
+                    }
+                    addShadow={addShadow}
+                    setAddShadow={(enabled) =>
+                      updateCanvasStyle(() => setAddShadow(enabled))
+                    }
+                    roundedCorners={roundedCorners}
+                    setRoundedCorners={(enabled) =>
+                      updateCanvasStyle(() => setRoundedCorners(enabled))
+                    }
+                    onApplyStyle={undefined}
+                    isApplyingStyle={isApplyingStyle}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="recorder-main-panel">
-              {/* Top Controls Bento Card */}
-              <div className="sidebar-section-card recorder-controls-card">
-                <div className="controls-card-left">
-                  {/* Render quality tier selector */}
-                  <div className="recorder-capture-bar">
-                    <div
-                      className="render-tier-group"
-                      role="radiogroup"
-                      aria-label="Render quality"
-                    >
-                      {(Object.entries(TIER_CONFIG) as [RenderTier, typeof TIER_CONFIG[RenderTier]][])
-                        .filter(([tier]) => tier !== "draft")
-                        .map(([tier, cfg]) => {
-                          const TierIcon = tier === "cinematic" ? Sparkles : Clapperboard;
-                          return (
-                            <button
-                              key={tier}
-                              type="button"
-                              id={`renderTier-${tier}`}
-                              role="radio"
-                              aria-checked={renderTier === tier}
-                              className={`render-tier-btn render-tier-btn--${tier}${renderTier === tier ? " is-active" : ""}`}
-                              title={cfg.hint}
-                              onClick={() => {
-                                setRenderTier(tier);
-                                setVirtualScrollCycles(cfg.defaultCycles);
-                                setPixelsPerFrame(cfg.pixelsPerFrame);
-                              }}
-                            >
-                              <span className="render-tier-icon"><TierIcon size={15} strokeWidth={1.8} /></span>
-                              <span className="render-tier-name">{cfg.label}</span>
-                            </button>
-                          );
-                        }
-                      )}
+              {/* Capture toolbar: quality tier + primary action */}
+              <div className="recorder-controls-card">
+                <div className="recorder-capture-bar">
+                  {captureLocked ? (
+                    <div className="recorder-capture-ready" role="status">
+                      <span className="recorder-capture-ready-dot" aria-hidden />
+                      <div className="recorder-capture-ready-text">
+                        <strong>Recording ready</strong>
+                        <span>
+                          {resultVideo?.qualityLabel}
+                          {resultVideo?.duration ? ` · ${resultVideo.duration}` : ""}
+                          {" · "}
+                          {deviceLabel(devicePreset)}
+                        </span>
+                      </div>
                     </div>
+                  ) : (
+                    <div className="recorder-capture-quality">
+                      <span className="recorder-capture-label" id="render-quality-label">
+                        Quality
+                      </span>
+                      <div
+                        className="render-tier-group"
+                        role="radiogroup"
+                        aria-labelledby="render-quality-label"
+                      >
+                        {(
+                          Object.entries(TIER_CONFIG) as [
+                            RenderTier,
+                            (typeof TIER_CONFIG)[RenderTier],
+                          ][]
+                        )
+                          .filter(([tier]) => tier !== "draft")
+                          .map(([tier, cfg]) => {
+                            const TierIcon =
+                              tier === "cinematic" ? Sparkles : Clapperboard;
+                            return (
+                              <button
+                                key={tier}
+                                type="button"
+                                id={`renderTier-${tier}`}
+                                role="radio"
+                                aria-checked={renderTier === tier}
+                                className={`render-tier-btn render-tier-btn--${tier}${renderTier === tier ? " is-active" : ""}`}
+                                title={cfg.hint}
+                                onClick={() => {
+                                  setRenderTier(tier);
+                                  setVirtualScrollCycles(cfg.defaultCycles);
+                                  setPixelsPerFrame(cfg.pixelsPerFrame);
+                                }}
+                              >
+                                <span className="render-tier-icon" aria-hidden="true">
+                                  <TierIcon size={14} strokeWidth={2} />
+                                </span>
+                                <span className="render-tier-name">{cfg.label}</span>
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="recorder-capture-actions">
+                    {captureLocked && (
+                      <button
+                        type="button"
+                        className="recorder-capture-secondary"
+                        onClick={() => setSettingsUnlocked(true)}
+                      >
+                        <Settings2 size={14} strokeWidth={2} aria-hidden />
+                        Edit settings
+                      </button>
+                    )}
                     <button
                       type="submit"
                       id="submit"
-                      className="recorder-capture-btn-sm product-btn-primary"
+                      className="recorder-capture-btn product-btn-primary"
                       disabled={isSubmitting || !url.trim()}
-                      style={{ flex: 1, minWidth: 0, alignSelf: "stretch", borderRadius: "var(--ui-radius)", display: "flex", alignItems: "center", justifyContent: "center" }}
                     >
                       {isSubmitting && <span className="loader-circle" />}
-                      {!isSubmitting && <Play size={16} fill="currentColor" aria-hidden="true" />}
+                      {!isSubmitting && (
+                        <Play size={15} fill="currentColor" aria-hidden="true" />
+                      )}
                       <span id="buttonText">
                         {isSubmitting
                           ? "Recording…"
-                          : resultVideo
+                          : hasRecording
                             ? "Record again"
                             : "Start capture"}
                       </span>
                     </button>
                   </div>
                 </div>
+                {hasRecording && settingsUnlocked && !isSubmitting && (
+                  <p className="recorder-rerecord-hint">
+                    Settings unlocked for the next capture. The current video stays until
+                    you record again.
+                  </p>
+                )}
               </div>
 
               {/* Progress & Error indicators if any */}
@@ -545,23 +705,28 @@ export default function App() {
 
               {/* Bottom Video Playback Bento Card */}
               <div
-                className={`recorder-preview-panel${width < height ? " is-portrait-stage" : ""}${(!resultVideo || isStylePreview) && backgroundPreset !== "none" ? " has-canvas-background" : ""}${(!resultVideo || isStylePreview) && addShadow ? " has-canvas-shadow" : ""}${(!resultVideo || isStylePreview) && roundedCorners ? " has-canvas-rounded" : ""}`}
+                className={`recorder-preview-panel${previewWidth < previewHeight ? " is-portrait-stage" : ""}${(!resultVideo || isStylePreview) && backgroundPreset !== "none" ? " has-canvas-background" : ""}${(!resultVideo || isStylePreview) && addShadow ? " has-canvas-shadow" : ""}${(!resultVideo || isStylePreview) && roundedCorners ? " has-canvas-rounded" : ""}`}
                 style={
                   (!resultVideo || isStylePreview) && backgroundPreset !== "none"
-                    ? { backgroundImage: `url(/background_presets/${backgroundPreset}.png)` }
+                    ? {
+                        backgroundImage: `url(/background_presets/${backgroundPreset}.png)`,
+                      }
                     : undefined
                 }
               >
                 <section className="recorder-preview" aria-label="Preview">
                   <BrowserMockup
                     url={url}
-                    videoUrl={(isStylePreview ? resultVideo?.sourceUrl : resultVideo?.url) || null}
+                    videoUrl={
+                      (isStylePreview ? resultVideo?.sourceUrl : resultVideo?.url) ||
+                      null
+                    }
                     downloadUrl={isStylePreview ? null : resultVideo?.url || null}
                     isRenderingStyle={isApplyingStyle}
                     duration={resultVideo?.duration || null}
                     scrollStrategy={resultVideo?.scrollStrategy}
-                    width={width}
-                    height={height}
+                    width={previewWidth}
+                    height={previewHeight}
                     isSubmitting={isSubmitting}
                   />
                 </section>

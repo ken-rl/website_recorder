@@ -51,14 +51,18 @@ export default function BackgroundCanvasForm({
 }: BackgroundCanvasFormProps) {
   const isFramed = backgroundPreset !== "none";
 
+  const canStyle = Boolean(onApplyStyle);
+
   return (
     <section className="recorder-canvas-form">
       <div className="recorder-canvas-heading">
         <div className="recorder-canvas-title">
           <Image size={15} strokeWidth={1.8} aria-hidden="true" />
-          <h3 className="sidebar-section-title">Canvas</h3>
+          <h3 className="sidebar-section-title">
+            {canStyle ? "Style" : "Canvas"}
+          </h3>
         </div>
-        <span>{isFramed ? "Card" : "Bleed"}</span>
+        <span>{canStyle ? (isFramed ? "Post · Card" : "Post · Bleed") : isFramed ? "Card" : "Bleed"}</span>
       </div>
 
       <div className="recorder-background-grid" role="radiogroup" aria-label="Background preset">

@@ -533,13 +533,10 @@ body > * {
     border-radius: 3px;
 }
 .recorder-controls-card {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 1.5rem;
-    flex-wrap: wrap;
-    gap: 1rem;
+    display: block;
+    padding: 0;
+    flex-wrap: nowrap;
+    gap: 0;
 }
 .controls-card-left {
     display: flex;
@@ -582,82 +579,174 @@ body > * {
     border-radius: var(--ui-radius);
     color: var(--muted);
 }
-/* ── Render quality tier selector ────────────────────────────────────── */
-.render-tier-group {
+/* ── Capture toolbar: quality segment + primary action ───────────────── */
+.recorder-capture-bar {
     display: flex;
-    gap: 0.75rem;
-    flex-wrap: nowrap;
-    align-items: stretch;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
     width: 100%;
-}
-.render-tier-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.25rem;
-    padding: 0.75rem 1.25rem;
+    padding: 0.55rem 0.65rem;
     border: 1px solid var(--border);
-    border-radius: var(--ui-radius);
+    border-radius: 14px;
     background: var(--surface);
-    cursor: pointer;
-    transition:
-        border-color 0.15s ease,
-        background 0.15s ease,
-        box-shadow 0.15s ease;
-    text-align: left;
-    flex: 1;
+    box-shadow: var(--shadow-soft);
+}
+.recorder-capture-quality {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+    flex: 0 1 auto;
+}
+.recorder-capture-label {
+    flex-shrink: 0;
+    font-family: var(--font-sans);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    user-select: none;
+}
+.render-tier-group {
+    display: inline-flex;
+    align-items: stretch;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 10px;
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
     min-width: 0;
 }
+.render-tier-btn {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    flex: 0 0 auto;
+    min-width: 0;
+    min-height: 34px;
+    padding: 0.4rem 0.85rem;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: var(--font-sans);
+    text-align: center;
+    white-space: nowrap;
+    transition:
+        color 0.14s ease,
+        background 0.14s ease,
+        border-color 0.14s ease,
+        box-shadow 0.14s ease;
+}
 .render-tier-btn:hover:not(.is-active) {
-    border-color: var(--muted);
-    background: var(--ui-fill);
+    color: var(--text);
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+.render-tier-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+.render-tier-btn.is-active {
+    color: var(--text);
+    background: var(--surface);
+    border-color: color-mix(in srgb, var(--border) 80%, var(--border-active));
+    box-shadow: 0 1px 2px rgb(0 0 0 / 8%), 0 0 0 1px color-mix(in srgb, var(--border) 40%, transparent);
+}
+.render-tier-icon {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    color: inherit;
+    opacity: 0.85;
+}
+.render-tier-btn.is-active .render-tier-icon {
+    opacity: 1;
 }
 .render-tier-name {
     font-family: var(--font-sans);
-    font-size: 0.74rem;
-    font-weight: 700;
-    color: var(--text);
+    font-size: 0.78rem;
+    font-weight: 650;
     line-height: 1;
+    letter-spacing: -0.01em;
+    color: inherit;
 }
 .render-tier-hint {
-    font-family: var(--font-sans);
-    font-size: 0.62rem;
-    color: var(--muted);
-    line-height: 1.3;
-    white-space: nowrap;
+    display: none;
 }
-/* Draft = amber */
+/* Subtle accent on active tier */
+.render-tier-btn--standard.is-active {
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+    box-shadow:
+        0 1px 2px color-mix(in srgb, var(--accent) 12%, transparent),
+        0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.render-tier-btn--cinematic.is-active {
+    color: hsl(265 70% 52%);
+    border-color: color-mix(in srgb, hsl(265 80% 60%) 30%, var(--border));
+    box-shadow:
+        0 1px 2px hsl(265 80% 50% / 0.1),
+        0 0 0 1px hsl(265 80% 60% / 0.12);
+}
+[data-theme="dark"] .render-tier-btn--cinematic.is-active {
+    color: hsl(270 85% 72%);
+}
 .render-tier-btn--draft.is-active {
-    border-color: hsl(38 95% 50%);
-    background: hsl(38 95% 50% / 0.1);
-    box-shadow: 0 0 0 1px hsl(38 95% 50% / 0.35);
-}
-.render-tier-btn--draft.is-active .render-tier-name {
     color: hsl(35 90% 42%);
+    border-color: color-mix(in srgb, hsl(38 95% 50%) 35%, var(--border));
 }
-[data-theme="dark"] .render-tier-btn--draft.is-active .render-tier-name {
+[data-theme="dark"] .render-tier-btn--draft.is-active {
     color: hsl(40 95% 65%);
 }
-/* Standard = blue (brand) */
-.render-tier-btn--standard.is-active {
-    border-color: var(--brand, hsl(220 90% 56%));
-    background: hsl(220 90% 56% / 0.1);
-    box-shadow: 0 0 0 1px hsl(220 90% 56% / 0.3);
+/* Beat global button[type=submit] (width:100% + muted fill) */
+button.recorder-capture-btn {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    width: auto;
+    min-width: 9.5rem;
+    min-height: 40px;
+    padding: 0.55rem 1.2rem;
+    border-radius: 10px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: var(--accent-text);
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 24%, transparent);
+    transition:
+        background 0.12s ease,
+        border-color 0.12s ease,
+        box-shadow 0.12s ease,
+        transform 0.12s ease,
+        opacity 0.12s ease;
 }
-.render-tier-btn--standard.is-active .render-tier-name {
-    color: var(--brand, hsl(220 90% 50%));
+button.recorder-capture-btn:hover:not(:disabled) {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 30%, transparent);
 }
-/* Cinematic = violet */
-.render-tier-btn--cinematic.is-active {
-    border-color: hsl(265 80% 60%);
-    background: hsl(265 80% 60% / 0.1);
-    box-shadow: 0 0 0 1px hsl(265 80% 60% / 0.3);
-}
-.render-tier-btn--cinematic.is-active .render-tier-name {
-    color: hsl(265 70% 55%);
-}
-[data-theme="dark"] .render-tier-btn--cinematic.is-active .render-tier-name {
-    color: hsl(270 85% 72%);
+button.recorder-capture-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    /* Keep brand color while disabled so the CTA still reads as primary */
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-text);
 }
 .recorder-capture-btn-sm,
 .recorder-editor-btn-sm,
@@ -827,10 +916,27 @@ body > * {
     color: var(--ui-muted);
     font-size: 0.68rem;
     font-weight: 500;
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+.recorder-field-hint {
+    color: var(--muted);
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.85;
 }
 .recorder-url-input {
     font-size: 0.82rem !important;
     padding: 0.62rem 0.72rem 0.62rem 2.35rem !important;
+}
+.url-input-wrap.is-locked .recorder-url-input {
+    color: var(--muted);
+    background: var(--surface-muted);
+    cursor: default;
 }
 .recorder-device-row {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -867,6 +973,197 @@ body > * {
     border-color: var(--accent);
     box-shadow: none;
 }
+.recorder-device-locked {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    min-height: 40px;
+    padding: 0.45rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: var(--ui-radius);
+    background: var(--surface-muted);
+}
+.recorder-device-locked-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+    color: var(--text);
+    font-size: 0.74rem;
+    font-weight: 600;
+}
+.recorder-device-locked-dims {
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.recorder-device-locked-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    flex-shrink: 0;
+    color: var(--muted);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.sidebar-section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.15rem;
+}
+.sidebar-section-heading .sidebar-section-title {
+    margin: 0;
+}
+.recorder-unlock-settings {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin: 0;
+    padding: 0.22rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--muted);
+    font-family: var(--font-sans);
+    font-size: 0.62rem;
+    font-weight: 650;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+        color 0.12s ease,
+        border-color 0.12s ease,
+        background 0.12s ease;
+}
+.recorder-unlock-settings:hover {
+    color: var(--text);
+    border-color: var(--border-hover);
+    background: var(--surface-muted);
+}
+.recorder-unlock-settings.is-active {
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+    background: var(--accent-soft);
+}
+.sidebar-section-card.is-locked-section {
+    opacity: 0.98;
+}
+.recorder-capture-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+.recorder-capture-summary-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+.recorder-capture-summary-label {
+    color: var(--muted);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+.recorder-capture-summary-value {
+    color: var(--text);
+    font-size: 0.72rem;
+    font-weight: 550;
+    text-align: right;
+    text-transform: capitalize;
+}
+.recorder-capture-summary-note {
+    margin: 0.15rem 0 0;
+    padding-top: 0.55rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.66rem;
+    line-height: 1.45;
+}
+.recorder-capture-ready {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+    flex: 1;
+    padding: 0.15rem 0.2rem;
+}
+.recorder-capture-ready-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--success);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 18%, transparent);
+}
+.recorder-capture-ready-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+}
+.recorder-capture-ready-text strong {
+    color: var(--text);
+    font-size: 0.78rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+}
+.recorder-capture-ready-text span {
+    color: var(--muted);
+    font-size: 0.66rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.recorder-capture-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+.recorder-capture-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 40px;
+    padding: 0.5rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+        background 0.12s ease,
+        border-color 0.12s ease,
+        color 0.12s ease;
+}
+.recorder-capture-secondary:hover {
+    background: var(--surface-muted);
+    border-color: var(--border-hover);
+}
+.recorder-rerecord-hint {
+    margin: 0.55rem 0 0;
+    color: var(--muted);
+    font-size: 0.68rem;
+    line-height: 1.4;
+}
+.recorder-style-card {
+    border-color: color-mix(in srgb, var(--accent) 22%, var(--border));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
+}
 .recorder-preview {
     justify-content: center;
     align-items: center;
@@ -893,34 +1190,6 @@ body > * {
     flex-direction: column;
     gap: 0.65rem;
     display: flex;
-}
-.recorder-capture-btn {
-    width: 100%;
-    font-family: var(--font-mono);
-    color: var(--accent-text);
-    cursor: pointer;
-    background: var(--accent);
-    border: 1px solid var(--accent);
-    border-radius: var(--ui-radius);
-    justify-content: center;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.78rem 1rem;
-    font-size: 0.82rem;
-    font-weight: 600;
-    transition:
-        background 0.12s ease,
-        border-color 0.12s ease,
-        opacity 0.12s ease;
-    display: flex;
-}
-.recorder-capture-btn:hover:not(:disabled) {
-    background: var(--accent-hover);
-    border-color: var(--accent-hover);
-}
-.recorder-capture-btn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
 }
 .recorder-actions .progress-card {
     margin-top: 0;
@@ -1746,7 +2015,8 @@ select {
 .actions-area {
     margin-top: 1.5rem;
 }
-button[type="submit"] {
+/* Legacy full-width submit — exclude recorder toolbar CTA */
+button[type="submit"]:not(.recorder-capture-btn) {
     width: 100%;
     font-family: var(--font-mono);
     border: 1px solid #ffffff2e;
@@ -1765,11 +2035,11 @@ button[type="submit"] {
         border-color 0.12s ease;
     display: flex;
 }
-button[type="submit"]:hover:not(:disabled) {
+button[type="submit"]:not(.recorder-capture-btn):hover:not(:disabled) {
     border-color: #ffffff47;
     background: #1a1a1f;
 }
-button[type="submit"]:disabled {
+button[type="submit"]:not(.recorder-capture-btn):disabled {
     opacity: 0.4;
     cursor: not-allowed;
     border-color: var(--ui-line);
@@ -2806,72 +3076,8 @@ input[type="number"]:disabled {
     border: none;
     box-shadow: none;
     padding: 0;
-}
-.recorder-capture-bar {
-    border: 1px solid var(--border);
-    border-radius: 13px;
-    background: color-mix(in srgb, var(--surface) 82%, var(--bg));
-    padding: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    width: 100%;
-}
-.render-tier-group {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    padding: 2px;
-    border-radius: 9px;
-    background: var(--surface-muted);
-}
-.render-tier-btn {
-    position: relative;
-    min-height: 34px;
-    flex-direction: row;
-    justify-content: flex-start;
-    padding: 0.35rem 0.58rem;
-    border: 1px solid transparent;
-    border-radius: 7px;
-    gap: 0.42rem;
-    background: transparent;
-    color: var(--muted);
-    box-shadow: none;
-}
-.render-tier-btn:hover:not(.is-active) {
-    color: var(--text);
-    background: color-mix(in srgb, var(--surface) 70%, transparent);
-    border-color: color-mix(in srgb, var(--border) 65%, transparent);
-}
-.render-tier-btn.is-active {
-    color: var(--text);
-    background: var(--surface);
-    border-color: var(--border);
-    box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
-}
-.render-tier-icon {
-    color: var(--muted);
-    position: static;
-    display: grid;
-    place-items: center;
-}
-.render-tier-btn.is-active .render-tier-icon {
-    color: currentColor;
-}
-.render-tier-name {
-    font-size: 0.76rem;
-}
-.render-tier-hint {
-    display: none;
-}
-.recorder-capture-btn-sm {
-    flex: 0 0 auto;
-    box-shadow: 0 5px 14px color-mix(in srgb, var(--accent) 22%, transparent);
-    gap: 0.45rem;
-    min-height: 34px;
-    padding: 0.35rem 0.78rem !important;
-    font-size: 0.76rem;
+    display: block;
+    flex-wrap: nowrap;
 }
 .recorder-export-btn {
     min-height: 72px;
@@ -3097,17 +3303,47 @@ input[type="number"]:disabled {
 @media (max-width: 640px) {
     .recorder-capture-bar {
         flex-wrap: wrap;
+        align-items: stretch;
+        padding: 0.6rem;
+        gap: 0.65rem;
+    }
+    .recorder-capture-quality,
+    .recorder-capture-ready {
+        width: 100%;
+        flex: 1 1 100%;
+    }
+    .recorder-capture-quality {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.4rem;
     }
     .render-tier-group {
+        display: flex;
+        width: 100%;
+    }
+    .render-tier-btn {
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 0.5rem 0.65rem;
+    }
+    .recorder-capture-actions {
+        width: 100%;
+        margin-left: 0;
+    }
+    .recorder-capture-secondary {
         flex: 1;
     }
-    .recorder-capture-btn-sm {
-        width: 100%;
-        min-height: 40px;
+    button.recorder-capture-btn {
+        flex: 1;
+        width: auto;
+        min-height: 44px;
     }
     .recorder-preview-panel {
         min-height: 250px;
         padding: 1.25rem;
+    }
+    .sidebar-section-heading {
+        flex-wrap: wrap;
     }
 }
 .editor-monitor-play {
