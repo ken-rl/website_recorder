@@ -1,6 +1,5 @@
 import React from "react";
 import FieldLabel from "./FieldLabel";
-import InfoTooltip from "./InfoTooltip";
 
 export type ScrollModeOption = "auto" | "document" | "virtual";
 
@@ -28,82 +27,116 @@ export default function VirtualScrollForm({
   fastMode,
 }: VirtualScrollFormProps) {
   const showVirtualOptions = scrollMode === "auto" || scrollMode === "virtual";
+  const defaultCycles = fastMode ? 6 : 8;
 
   return (
-    <div className="virtual-scroll-form">
-      <div className="field">
+    <section className="virtual-scroll-form motion-block">
+      <div className="motion-field">
         <FieldLabel
           htmlFor="scrollMode"
-          hint="Auto picks document scrolling for normal pages, or virtual wheel scrolling for fixed-viewport and infinite-loop sites like WebGL experiences. Virtual capture uses a visible browser window when needed for smooth video."
+          hint="Auto picks document vs virtual wheel scrolling for fixed-viewport / WebGL sites."
         >
-          Scroll Strategy
+          Scroll mode
         </FieldLabel>
-        <select
+        <div
           id="scrollMode"
-          value={scrollMode}
-          onChange={(e) => setScrollMode(e.target.value as ScrollModeOption)}
+          className="motion-seg motion-seg--3"
+          role="radiogroup"
+          aria-label="Scroll strategy"
         >
-          <option value="auto">Auto-detect (recommended)</option>
-          <option value="document">Document scroll</option>
-          <option value="virtual">Virtual scroll (wheel input)</option>
-        </select>
-      </div>
-
-      <div
-        className={`virtual-scroll-options${showVirtualOptions ? "" : " hidden"}`}
-      >
-        <div className="field">
-          <FieldLabel
-            htmlFor="virtualScrollCycles"
-            hint={`Viewport-heights of scroll to replay. Default is ${fastMode ? "6" : "8"} cycles (~${fastMode ? "4.5" : "10"}s). Use Linear curve for smoothest infinite-loop captures.`}
-          >
-            Virtual scroll cycles
-          </FieldLabel>
-          <input
-            type="number"
-            id="virtualScrollCycles"
-            min={1}
-            max={40}
-            step={1}
-            value={virtualScrollCycles}
-            onChange={(e) =>
-              setVirtualScrollCycles(
-                Math.min(40, Math.max(1, Number(e.target.value) || 1)),
-              )
-            }
-          />
-        </div>
-
-        <div className="field">
-          <label className="checkbox-row" htmlFor="useFixedDuration">
-            <input
-              type="checkbox"
-              id="useFixedDuration"
-              checked={useFixedDuration}
-              onChange={(e) => setUseFixedDuration(e.target.checked)}
-            />
-            <span>Use fixed scroll duration (ms)</span>
-            <InfoTooltip text="Optional override. Leave unchecked to derive duration from cycles and scroll speed." />
-          </label>
-          <input
-            type="number"
-            id="virtualScrollDurationMs"
-            min={3000}
-            max={120000}
-            step={1000}
-            value={virtualScrollDurationMs}
-            disabled={!useFixedDuration}
-            onChange={(e) =>
-              setVirtualScrollDurationMs(
-                Math.min(
-                  120000,
-                  Math.max(3000, Number(e.target.value) || 3000),
-                ),
-              )
-            }
-          />
+          {(
+            [
+              { value: "auto" as const, label: "Auto" },
+              { value: "document" as const, label: "Document" },
+              { value: "virtual" as const, label: "Virtual" },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={scrollMode === opt.value}
+              className={scrollMode === opt.value ? "is-active" : undefined}
+              onClick={() => setScrollMode(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
-    </div>
+
+      {showVirtualOptions && scrollMode !== "document" && (
+        <details className="motion-advanced" open={scrollMode === "virtual"}>
+          <summary>
+            Virtual options
+            <span>
+              {virtualScrollCycles} cycles
+              {useFixedDuration
+                ? ` · ${(virtualScrollDurationMs / 1000).toFixed(0)}s`
+                : ""}
+            </span>
+          </summary>
+          <div className="motion-advanced-body">
+            <div className="motion-field">
+              <FieldLabel
+                htmlFor="virtualScrollCycles"
+                hint={`Viewport-heights of wheel input. Default ${defaultCycles}.`}
+              >
+                Cycles
+              </FieldLabel>
+              <input
+                type="number"
+                id="virtualScrollCycles"
+                className="motion-number-input"
+                min={1}
+                max={40}
+                step={1}
+                value={virtualScrollCycles}
+                onChange={(e) =>
+                  setVirtualScrollCycles(
+                    Math.min(40, Math.max(1, Number(e.target.value) || 1)),
+                  )
+                }
+              />
+            </div>
+
+            <label className="motion-check" htmlFor="useFixedDuration">
+              <input
+                type="checkbox"
+                id="useFixedDuration"
+                checked={useFixedDuration}
+                onChange={(e) => setUseFixedDuration(e.target.checked)}
+              />
+              <span>Fixed duration</span>
+            </label>
+
+            {useFixedDuration && (
+              <div className="motion-field">
+                <FieldLabel htmlFor="virtualScrollDurationMs">
+                  Duration (ms)
+                </FieldLabel>
+                <input
+                  type="number"
+                  id="virtualScrollDurationMs"
+                  className="motion-number-input"
+                  min={3000}
+                  max={120000}
+                  step={1000}
+                  value={virtualScrollDurationMs}
+                  onChange={(e) =>
+                    setVirtualScrollDurationMs(
+                      Math.min(
+                        120000,
+                        Math.max(3000, Number(e.target.value) || 3000),
+                      ),
+                    )
+                  }
+                />
+              </div>
+            )}
+          </div>
+        </details>
+      )}
+    </section>
   );
 }

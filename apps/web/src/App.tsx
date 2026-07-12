@@ -7,7 +7,7 @@ import {
   SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
-import AppTopbar from "./components/AppTopbar";
+import AppSidebar from "./components/AppSidebar";
 import { LORDICON } from "./lib/icons";
 import LordIcon from "./components/LordIcon";
 import { CaptureTargetFields, deviceLabel } from "./components/TargetPageForm";
@@ -15,6 +15,10 @@ import ScrollPhysicsForm from "./components/ScrollPhysicsForm";
 import VirtualScrollForm, {
   type ScrollModeOption,
 } from "./components/VirtualScrollForm";
+import PauseTriggersForm, {
+  toPauseTriggersPayload,
+  type PauseTriggerDraft,
+} from "./components/PauseTriggersForm";
 import BackgroundCanvasForm, {
   type BackgroundPreset,
 } from "./components/BackgroundCanvasForm";
@@ -39,11 +43,19 @@ export default function App() {
     if (saved === "light" || saved === "dark") return saved;
     return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
   });
+  const [navCollapsed, setNavCollapsed] = useState(() => {
+    return localStorage.getItem("nav-collapsed") === "1";
+  });
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem("nav-collapsed", navCollapsed ? "1" : "0");
+    document.documentElement.dataset.nav = navCollapsed ? "collapsed" : "expanded";
+  }, [navCollapsed]);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === "light" ? "dark" : "light"));
@@ -145,6 +157,7 @@ export default function App() {
   const [virtualScrollDurationMs, setVirtualScrollDurationMs] = useState(30000);
   const [pixelsPerFrame, setPixelsPerFrame] = useState(16);
   const [heroHoldMs, setHeroHoldMs] = useState(1500);
+  const [pauseTriggers, setPauseTriggers] = useState<PauseTriggerDraft[]>([]);
   const [backgroundPreset, setBackgroundPreset] =
     useState<BackgroundPreset>("none");
   const [addShadow, setAddShadow] = useState(true);
@@ -349,6 +362,7 @@ export default function App() {
             : { preset: selectedCurve },
         removeOverlayElements: true,
         scrollMode,
+        pauseTriggers: toPauseTriggersPayload(pauseTriggers),
         ...(scrollMode !== "document"
           ? {
               virtualScrollCycles,
@@ -398,24 +412,25 @@ export default function App() {
     }
   };
 
-  const hasEditorSession = !!editorSession || !!resultVideo;
   const hasRecording = Boolean(resultVideo);
   const captureLocked = hasRecording && !settingsUnlocked && !isSubmitting;
   /** Keep the finished video's aspect ratio stable even if setup is unlocked for a re-record. */
   const previewWidth = resultVideo?.width ?? width;
   const previewHeight = resultVideo?.height ?? height;
+  const activePauseTriggers = toPauseTriggersPayload(pauseTriggers);
 
 
 
   return (
-    <main className="app-shell">
-      <AppTopbar
+    <main className={`app-shell${navCollapsed ? " is-nav-collapsed" : ""}`}>
+      <AppSidebar
         currentPath={currentPath}
         onNavigate={navigate}
         isRecording={isSubmitting}
-        hasEditorSession={hasEditorSession}
         theme={theme}
         onToggleTheme={toggleTheme}
+        collapsed={navCollapsed}
+        onToggleCollapsed={() => setNavCollapsed((c) => !c)}
       />
 
       <div className="app-content">
@@ -483,6 +498,14 @@ export default function App() {
                         {deviceLabel(devicePreset)} · {previewWidth}×{previewHeight}
                       </span>
                     </div>
+                    <div className="recorder-capture-summary-row">
+                      <span className="recorder-capture-summary-label">Pauses</span>
+                      <span className="recorder-capture-summary-value">
+                        {activePauseTriggers.length === 0
+                          ? "None"
+                          : `${activePauseTriggers.length} trigger${activePauseTriggers.length === 1 ? "" : "s"}`}
+                      </span>
+                    </div>
                     <p className="recorder-capture-summary-note">
                       Motion and screen size are locked to this video. Change the URL
                       anytime; re-record to apply new capture settings.
@@ -510,8 +533,10 @@ export default function App() {
                       </span>
                       <span>Motion</span>
                       <small>
-                        {selectedCurve.replaceAll("-", " ")} · hero{" "}
-                        {heroHoldMs === 0 ? "off" : `${heroHoldMs / 1000}s`}
+                        {selectedCurve.replaceAll("-", " ")}
+                        {activePauseTriggers.length > 0
+                          ? ` · ${activePauseTriggers.length} pause${activePauseTriggers.length === 1 ? "" : "s"}`
+                          : ""}
                       </small>
                       <ChevronDown className="recorder-disclosure-chevron" size={16} />
                     </summary>
@@ -537,6 +562,12 @@ export default function App() {
                         virtualScrollDurationMs={virtualScrollDurationMs}
                         setVirtualScrollDurationMs={setVirtualScrollDurationMs}
                         fastMode={renderTier === "draft"}
+                      />
+
+                      <PauseTriggersForm
+                        triggers={pauseTriggers}
+                        setTriggers={setPauseTriggers}
+                        disabled={isSubmitting}
                       />
                     </div>
                   </details>

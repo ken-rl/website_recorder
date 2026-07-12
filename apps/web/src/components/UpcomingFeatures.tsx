@@ -27,7 +27,7 @@ const INITIAL_FEATURES: Feature[] = [
     title: "Capture-Time Pause Triggers (UI)",
     description:
       "Directly specify CSS selectors in the recorder UI to automatically pause scroll motion and hold frames when key elements enter the viewport.",
-    status: "Planned",
+    status: "Completed",
   },
   {
     id: "timeline-zoom",

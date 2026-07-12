@@ -13,6 +13,13 @@ interface ScrollPhysicsFormProps {
   setHeroHoldMs: (ms: number) => void;
 }
 
+const HERO_PRESETS = [
+  { value: 0, label: "Off" },
+  { value: 1000, label: "1s" },
+  { value: 1500, label: "1.5s" },
+  { value: 2000, label: "2s" },
+] as const;
+
 export default function ScrollPhysicsForm({
   selectedCurve,
   setSelectedCurve,
@@ -24,143 +31,97 @@ export default function ScrollPhysicsForm({
   setHeroHoldMs,
 }: ScrollPhysicsFormProps) {
   return (
-    <div className="scroll-physics-form">
-      <div className="field">
-        <FieldLabel htmlFor="curveSelect">
-          Timeline Interpolation Curve
-        </FieldLabel>
+    <div className="scroll-physics-form motion-stack">
+      <section className="motion-block">
+        <div className="motion-block-head">
+          <h4 className="motion-block-title">Curve</h4>
+        </div>
         <select
           id="curveSelect"
+          className="motion-select"
           value={selectedCurve}
           onChange={(e) => setSelectedCurve(e.target.value)}
+          aria-label="Scroll easing curve"
         >
-          <option value="linear">Linear (Constant speed)</option>
-          <option value="ease-in">Ease In (Slow start)</option>
-          <option value="ease-out">Ease Out (Slow end)</option>
-          <option value="ease-in-out">Ease In-Out (Slow start & end)</option>
-          <option value="ease-in-cubic">In Cubic (Strong slow start)</option>
-          <option value="ease-out-cubic">Out Cubic (Strong slow end)</option>
-          <option value="ease-in-out-cubic">In-Out Cubic (Heavy easing)</option>
-          <option value="custom">Custom (Visual Handle Editor)</option>
+          <option value="linear">Linear — constant speed</option>
+          <option value="ease-in">Ease in — slow start</option>
+          <option value="ease-out">Ease out — slow end</option>
+          <option value="ease-in-out">Ease in-out</option>
+          <option value="ease-in-cubic">In cubic</option>
+          <option value="ease-out-cubic">Out cubic</option>
+          <option value="ease-in-out-cubic">In-out cubic</option>
+          <option value="custom">Custom — drag handles</option>
         </select>
-      </div>
-
-      <div className="field hero-hold-control">
-        <FieldLabel htmlFor="heroHold">Hero hold</FieldLabel>
-        <div className="hero-hold-options" id="heroHold" role="radiogroup" aria-label="Hero hold duration">
-          {[0, 1000, 2000, 3000].map((duration) => (
-            <button
-              key={duration}
-              type="button"
-              role="radio"
-              aria-checked={heroHoldMs === duration}
-              className={heroHoldMs === duration ? "is-active" : ""}
-              onClick={() => setHeroHoldMs(duration)}
-            >
-              {duration === 0 ? "Off" : `${duration / 1000}s`}
-            </button>
-          ))}
+        <div className="curve-visualizer-container">
+          <BezierVisualizer
+            selectedCurve={selectedCurve}
+            setSelectedCurve={setSelectedCurve}
+            customBezier={customBezier}
+            setCustomBezier={setCustomBezier}
+            embedded={true}
+            pixelsPerFrame={pixelsPerFrame}
+          />
         </div>
-      </div>
+      </section>
 
-      <div className="field">
-        <FieldLabel htmlFor="speedRange">
-          Scroll Speed: {pixelsPerFrame} px/frame ({pixelsPerFrame * 60} px/s)
-        </FieldLabel>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <section className="motion-block">
+        <div className="motion-field">
+          <div className="motion-field-head">
+            <FieldLabel
+              htmlFor="speedRange"
+              hint="Higher values scroll more pixels per frame (faster, shorter videos)."
+            >
+              Speed
+            </FieldLabel>
+            <span className="motion-field-value">
+              {pixelsPerFrame} px/frame
+            </span>
+          </div>
           <input
             type="range"
             id="speedRange"
-            min="6"
-            max="48"
-            step="2"
+            className="motion-slider"
+            min={6}
+            max={48}
+            step={2}
             value={pixelsPerFrame}
             onChange={(e) => setPixelsPerFrame(Number(e.target.value))}
-            style={{ width: '100%' }}
+            aria-valuetext={`${pixelsPerFrame} pixels per frame`}
           />
-          <div className="speed-presets" style={{ display: 'flex', gap: '8px' }}>
-            <button
-              type="button"
-              className={`preset-btn ${pixelsPerFrame === 8 ? 'active' : ''}`}
-              onClick={() => setPixelsPerFrame(8)}
-              style={{
-                flex: 1,
-                fontSize: '11px',
-                padding: '4px 8px',
-                border: '1px solid var(--border)',
-                background: pixelsPerFrame === 8 ? 'var(--accent)' : 'transparent',
-                color: pixelsPerFrame === 8 ? '#000000' : 'var(--text-primary)',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              Very Slow (8px)
-            </button>
-            <button
-              type="button"
-              className={`preset-btn ${pixelsPerFrame === 12 ? 'active' : ''}`}
-              onClick={() => setPixelsPerFrame(12)}
-              style={{
-                flex: 1,
-                fontSize: '11px',
-                padding: '4px 8px',
-                border: '1px solid var(--border)',
-                background: pixelsPerFrame === 12 ? 'var(--accent)' : 'transparent',
-                color: pixelsPerFrame === 12 ? '#000000' : 'var(--text-primary)',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              Slow (12px)
-            </button>
-            <button
-              type="button"
-              className={`preset-btn ${pixelsPerFrame === 18 ? 'active' : ''}`}
-              onClick={() => setPixelsPerFrame(18)}
-              style={{
-                flex: 1,
-                fontSize: '11px',
-                padding: '4px 8px',
-                border: '1px solid var(--border)',
-                background: pixelsPerFrame === 18 ? 'var(--accent)' : 'transparent',
-                color: pixelsPerFrame === 18 ? '#000000' : 'var(--text-primary)',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              Normal (18px)
-            </button>
-            <button
-              type="button"
-              className={`preset-btn ${pixelsPerFrame === 28 ? 'active' : ''}`}
-              onClick={() => setPixelsPerFrame(28)}
-              style={{
-                flex: 1,
-                fontSize: '11px',
-                padding: '4px 8px',
-                border: '1px solid var(--border)',
-                background: pixelsPerFrame === 28 ? 'var(--accent)' : 'transparent',
-                color: pixelsPerFrame === 28 ? '#000000' : 'var(--text-primary)',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              Fast (28px)
-            </button>
+          <div className="motion-slider-ends" aria-hidden>
+            <span>Slow</span>
+            <span>Fast</span>
           </div>
         </div>
-      </div>
 
-      <div className="field curve-visualizer-container">
-        <BezierVisualizer
-          selectedCurve={selectedCurve}
-          setSelectedCurve={setSelectedCurve}
-          customBezier={customBezier}
-          setCustomBezier={setCustomBezier}
-          embedded={true}
-          pixelsPerFrame={pixelsPerFrame}
-        />
-      </div>
+        <div className="motion-field">
+          <FieldLabel
+            htmlFor="heroHold"
+            hint="Hold on the top of the page before scrolling so hero content can settle."
+          >
+            Hero hold
+          </FieldLabel>
+          <div
+            id="heroHold"
+            className="motion-seg"
+            role="radiogroup"
+            aria-label="Hero hold duration"
+          >
+            {HERO_PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                type="button"
+                role="radio"
+                aria-checked={heroHoldMs === preset.value}
+                className={heroHoldMs === preset.value ? "is-active" : undefined}
+                onClick={() => setHeroHoldMs(preset.value)}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

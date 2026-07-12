@@ -222,6 +222,10 @@ export default function BezierVisualizer({
   pixelsPerFrame = 16,
 }: BezierVisualizerProps) {
   const [hoveredHandle, setHoveredHandle] = useState<number | null>(null);
+  const [simHover, setSimHover] = useState(false);
+  const [simPos, setSimPos] = useState<{ top: number; left: number } | null>(
+    null,
+  );
   const [themeKey, setThemeKey] = useState(() =>
     typeof document !== "undefined"
       ? document.documentElement.getAttribute("data-theme") || "dark"
@@ -229,8 +233,51 @@ export default function BezierVisualizer({
   );
   const activeDragHandle = useRef<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const simCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const previewFrame = useRef(0);
+  const graphLayoutRef = useRef({ padding: 20, innerW: 440, innerH: 160 });
+
+  const updateSimPosition = () => {
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const panelW = 220;
+    const panelH = 320;
+    const gap = 12;
+    const spaceRight = window.innerWidth - rect.right - gap;
+    let left: number;
+    let top: number;
+    if (spaceRight >= panelW + 8) {
+      // Float into the main stage to the right of the graph
+      left = rect.right + gap;
+      top = rect.top + rect.height / 2 - panelH / 2;
+    } else {
+      // Narrow layout: sit under the graph
+      left = rect.left + Math.max(0, (rect.width - panelW) / 2);
+      top = rect.bottom + gap;
+    }
+    top = Math.max(12, Math.min(top, window.innerHeight - panelH - 12));
+    left = Math.max(12, Math.min(left, window.innerWidth - panelW - 12));
+    setSimPos({ top, left });
+  };
+
+  useEffect(() => {
+    if (!simHover) {
+      setSimPos(null);
+      return;
+    }
+    updateSimPosition();
+    const onScrollOrResize = () => updateSimPosition();
+    window.addEventListener("resize", onScrollOrResize);
+    // Capture scroll from nested sidebar
+    window.addEventListener("scroll", onScrollOrResize, true);
+    return () => {
+      window.removeEventListener("resize", onScrollOrResize);
+      window.removeEventListener("scroll", onScrollOrResize, true);
+    };
+  }, [simHover]);
   const paletteRef = useRef<CurveCanvasPalette>(
     typeof document !== "undefined"
       ? readCurveCanvasPalette()
@@ -296,12 +343,114 @@ export default function BezierVisualizer({
     return points;
   }
 
-  // Draw loop
+  // Draw loop — full-width graph + optional larger scroll preview canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    function drawScrollSim(
+      simCtx: CanvasRenderingContext2D,
+      simW: number,
+      simH: number,
+      eased: number,
+      palette: CurveCanvasPalette,
+    ) {
+      const headerH = 22;
+      const pad = 12;
+
+      simCtx.clearRect(0, 0, simW, simH);
+
+      // Card body
+      simCtx.fillStyle = palette.surface;
+      if (typeof simCtx.roundRect === "function") {
+        simCtx.beginPath();
+        simCtx.roundRect(0, 0, simW, simH, 12);
+        simCtx.fill();
+      } else {
+        simCtx.fillRect(0, 0, simW, simH);
+      }
+
+      // Chrome
+      simCtx.fillStyle = palette.simChrome;
+      simCtx.fillRect(0, 0, simW, headerH);
+      simCtx.strokeStyle = palette.border;
+      simCtx.lineWidth = 1;
+      simCtx.beginPath();
+      simCtx.moveTo(0, headerH);
+      simCtx.lineTo(simW, headerH);
+      simCtx.stroke();
+
+      const dots = palette.isLight
+        ? ["#ff5f57", "#febc2e", "#28c840"]
+        : null;
+      for (let i = 0; i < 3; i++) {
+        simCtx.fillStyle = dots
+          ? dots[i]
+          : `rgba(${palette.inkRgb}, 0.28)`;
+        simCtx.beginPath();
+        simCtx.arc(12 + i * 9, headerH / 2, 2.5, 0, Math.PI * 2);
+        simCtx.fill();
+      }
+
+      simCtx.fillStyle = `rgba(${palette.inkRgb}, 0.35)`;
+      simCtx.font = "600 10px system-ui, sans-serif";
+      simCtx.textAlign = "center";
+      simCtx.textBaseline = "middle";
+      simCtx.fillText("Scroll preview", simW / 2, headerH / 2);
+
+      // Page content
+      simCtx.save();
+      simCtx.beginPath();
+      simCtx.rect(0, headerH, simW, simH - headerH);
+      simCtx.clip();
+
+      simCtx.fillStyle = palette.isLight
+        ? "#f8fafc"
+        : `rgba(${palette.inkRgb}, 0.03)`;
+      simCtx.fillRect(0, headerH, simW, simH - headerH);
+
+      const pageHeight = Math.max(simH * 2.1, 420);
+      const viewH = simH - headerH;
+      const maxScroll = Math.max(1, pageHeight - viewH);
+      const scrollY = eased * maxScroll;
+
+      for (let y = 14; y < pageHeight; y += 18) {
+        const elemY = headerH + y - scrollY;
+        if (elemY > simH + 40 || elemY < headerH - 40) {
+          if (y === 36 || y === 140 || y === 250 || y === 360) y += 28;
+          continue;
+        }
+
+        if (y === 36 || y === 140 || y === 250 || y === 360) {
+          simCtx.fillStyle = palette.simBlock;
+          simCtx.fillRect(pad, elemY, simW - pad * 2, 36);
+          y += 28;
+        } else if (y === 78 || y === 188 || y === 298) {
+          simCtx.fillStyle = palette.simTitle;
+          simCtx.fillRect(pad, elemY, Math.min(72, simW * 0.4), 5);
+        } else {
+          simCtx.fillStyle = palette.simLine;
+          const lineW =
+            y % 3 === 0 ? simW * 0.72 : y % 2 === 0 ? simW * 0.55 : simW * 0.82;
+          simCtx.fillRect(pad, elemY, Math.min(lineW, simW - pad * 2), 3);
+        }
+      }
+
+      simCtx.restore();
+
+      // Outer border
+      simCtx.strokeStyle = palette.border;
+      simCtx.lineWidth = 1.25;
+      if (typeof simCtx.roundRect === "function") {
+        simCtx.beginPath();
+        simCtx.roundRect(0.5, 0.5, simW - 1, simH - 1, 12);
+        simCtx.stroke();
+      } else {
+        simCtx.strokeRect(0.5, 0.5, simW - 1, simH - 1);
+      }
+    }
 
     function render() {
       if (!canvas || !ctx) return;
@@ -310,21 +459,20 @@ export default function BezierVisualizer({
       const [x1, y1, x2, y2] = bezier;
       const width = canvas.width;
       const height = canvas.height;
-      const padding = 24;
-      const innerW = 316;
-      const innerH = 132;
+      const padding = 20;
+      const innerW = width - padding * 2;
+      const innerH = height - padding * 2;
+      graphLayoutRef.current = { padding, innerW, innerH };
 
-      // Curve stroke uses brand accent in light mode for contrast; ink in dark.
       const curveColor = palette.isLight ? palette.accent : palette.ink;
       const curveRgb = palette.isLight ? palette.accentRgb : palette.inkRgb;
 
-      const points = curvePoints(bezier, 364, height, padding);
+      const points = curvePoints(bezier, width, height, padding);
 
-      const fps = 60; // Assuming requestAnimationFrame target is 60fps
-      // Dynamic duration based on velocity: 18 px/frame is standard (takes 240 frames)
+      const fps = 60;
       const scrollFrames = Math.max(60, Math.round(4320 / pixelsPerFrame));
-      const startPauseFrames = 1 * fps; // 1s pause at top
-      const endPauseFrames = 1.5 * fps; // 1.5s pause at bottom
+      const startPauseFrames = 1 * fps;
+      const endPauseFrames = 1.5 * fps;
       const totalFrames = startPauseFrames + scrollFrames + endPauseFrames;
       const currentFrame = previewFrame.current % totalFrames;
       let t = 0;
@@ -345,25 +493,18 @@ export default function BezierVisualizer({
 
       ctx.clearRect(0, 0, width, height);
 
-      // Soft plot background (light mode only — dark stays transparent)
       if (palette.isLight) {
         ctx.fillStyle = palette.surfaceMuted;
-        ctx.beginPath();
-        ctx.roundRect(padding - 4, padding - 4, innerW + 8, innerH + 8, 8);
-        ctx.fill();
+        if (typeof ctx.roundRect === "function") {
+          ctx.beginPath();
+          ctx.roundRect(padding - 4, padding - 4, innerW + 8, innerH + 8, 10);
+          ctx.fill();
+        } else {
+          ctx.fillRect(padding - 4, padding - 4, innerW + 8, innerH + 8);
+        }
       }
 
-      // 1. Draw separator
-      ctx.strokeStyle = palette.isLight
-        ? `rgba(${palette.inkRgb}, 0.1)`
-        : `rgba(${palette.inkRgb}, 0.1)`;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(380, 16);
-      ctx.lineTo(380, height - 16);
-      ctx.stroke();
-
-      // 2. Draw grids
+      // Grid
       ctx.strokeStyle = palette.grid;
       ctx.lineWidth = 1;
       for (let i = 1; i <= 3; i++) {
@@ -380,12 +521,12 @@ export default function BezierVisualizer({
         ctx.stroke();
       }
 
-      // 3. Draw border
+      // Border
       ctx.strokeStyle = palette.border;
       ctx.lineWidth = 1;
       ctx.strokeRect(padding, padding, innerW, innerH);
 
-      // 4. Draw control lines
+      // Control lines
       const cx1 = padding + x1 * innerW;
       const cy1 = padding + (1 - y1) * innerH;
       const cx2 = padding + x2 * innerW;
@@ -394,22 +535,19 @@ export default function BezierVisualizer({
       ctx.strokeStyle = palette.control;
       ctx.lineWidth = 1.25;
       ctx.setLineDash([3, 3]);
-
       ctx.beginPath();
       ctx.moveTo(padding, padding + innerH);
       ctx.lineTo(cx1, cy1);
       ctx.stroke();
-
       ctx.beginPath();
       ctx.moveTo(padding + innerW, padding);
       ctx.lineTo(cx2, cy2);
       ctx.stroke();
-
       ctx.setLineDash([]);
 
-      // 5. Draw curve
+      // Curve
       ctx.strokeStyle = curveColor;
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 2.75;
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
       ctx.beginPath();
@@ -419,149 +557,59 @@ export default function BezierVisualizer({
       });
       ctx.stroke();
 
-      // 6. Draw handles
-      const handleHalo =
-        hoveredHandle === 1 || activeDragHandle.current === 1 ? 0.22 : 0.1;
-      ctx.fillStyle = `rgba(${curveRgb}, ${handleHalo})`;
-      ctx.beginPath();
-      ctx.arc(cx1, cy1, 10, 0, Math.PI * 2);
-      ctx.fill();
+      // Handles
+      const drawHandle = (cx: number, cy: number, active: boolean) => {
+        ctx.fillStyle = `rgba(${curveRgb}, ${active ? 0.22 : 0.1})`;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 11, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = palette.surface;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = curveColor;
+        ctx.lineWidth = 1.75;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = curveColor;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+        ctx.fill();
+      };
+      drawHandle(
+        cx1,
+        cy1,
+        hoveredHandle === 1 || activeDragHandle.current === 1,
+      );
+      drawHandle(
+        cx2,
+        cy2,
+        hoveredHandle === 2 || activeDragHandle.current === 2,
+      );
 
-      ctx.fillStyle = palette.surface;
-      ctx.beginPath();
-      ctx.arc(cx1, cy1, 5.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = curveColor;
-      ctx.lineWidth = 1.75;
-      ctx.beginPath();
-      ctx.arc(cx1, cy1, 5.5, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.fillStyle = curveColor;
-      ctx.beginPath();
-      ctx.arc(cx1, cy1, 2.75, 0, Math.PI * 2);
-      ctx.fill();
-
-      const handleHalo2 =
-        hoveredHandle === 2 || activeDragHandle.current === 2 ? 0.22 : 0.1;
-      ctx.fillStyle = `rgba(${curveRgb}, ${handleHalo2})`;
-      ctx.beginPath();
-      ctx.arc(cx2, cy2, 10, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = palette.surface;
-      ctx.beginPath();
-      ctx.arc(cx2, cy2, 5.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = curveColor;
-      ctx.lineWidth = 1.75;
-      ctx.beginPath();
-      ctx.arc(cx2, cy2, 5.5, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.fillStyle = curveColor;
-      ctx.beginPath();
-      ctx.arc(cx2, cy2, 2.75, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 7. Draw marker
+      // Progress marker
       ctx.fillStyle = `rgba(${curveRgb}, 0.16)`;
       ctx.beginPath();
-      ctx.arc(marker.x, marker.y, 10, 0, Math.PI * 2);
+      ctx.arc(marker.x, marker.y, 11, 0, Math.PI * 2);
       ctx.fill();
-
       ctx.fillStyle = palette.surface;
       ctx.beginPath();
-      ctx.arc(marker.x, marker.y, 5, 0, Math.PI * 2);
+      ctx.arc(marker.x, marker.y, 5.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = curveColor;
       ctx.beginPath();
-      ctx.arc(marker.x, marker.y, 3.5, 0, Math.PI * 2);
+      ctx.arc(marker.x, marker.y, 3.75, 0, Math.PI * 2);
       ctx.fill();
 
-      // 8. Draw simulator
-      const simX = 398;
-      const simY = padding;
-      const simW = 138;
-      const simH = innerH;
-      const headerH = 14;
-
-      ctx.fillStyle = palette.isLight ? palette.surface : palette.surface;
-      ctx.fillRect(simX, simY, simW, simH);
-
-      // Light mode: subtle card shadow so the sim reads against the plot
-      if (palette.isLight) {
-        ctx.save();
-        ctx.shadowColor = "rgba(15, 23, 42, 0.08)";
-        ctx.shadowBlur = 10;
-        ctx.shadowOffsetY = 2;
-        ctx.fillStyle = palette.surface;
-        ctx.fillRect(simX, simY, simW, simH);
-        ctx.restore();
-      }
-
-      ctx.fillStyle = palette.simChrome;
-      ctx.fillRect(simX, simY, simW, headerH);
-
-      ctx.strokeStyle = palette.border;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(simX, simY + headerH);
-      ctx.lineTo(simX + simW, simY + headerH);
-      ctx.stroke();
-
-      // Traffic lights
-      const dotColors = palette.isLight
-        ? ["#ff5f57", "#febc2e", "#28c840"]
-        : null;
-      for (let i = 0; i < 3; i++) {
-        ctx.fillStyle = dotColors
-          ? dotColors[i]
-          : `rgba(${palette.inkRgb}, 0.22)`;
-        ctx.beginPath();
-        ctx.arc(simX + 10 + i * 5, simY + headerH / 2, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(simX, simY + headerH, simW, simH - headerH);
-      ctx.clip();
-
-      // Simulated page background
-      ctx.fillStyle = palette.isLight ? "#f8fafc" : `rgba(${palette.inkRgb}, 0.02)`;
-      ctx.fillRect(simX, simY + headerH, simW, simH - headerH);
-
-      const pageHeight = 320;
-      const maxScroll = pageHeight - (simH - headerH);
-      const scrollY = eased * maxScroll;
-
-      for (let y = 10; y < pageHeight; y += 16) {
-        const elemY = simY + headerH + y - scrollY;
-
-        if (y === 26 || y === 122 || y === 218) {
-          ctx.fillStyle = palette.simBlock;
-          ctx.fillRect(simX + 10, elemY, simW - 20, 24);
-          y += 18;
-        } else if (y === 58 || y === 154 || y === 250) {
-          ctx.fillStyle = palette.simTitle;
-          ctx.fillRect(simX + 10, elemY, 50, 4);
-        } else {
-          ctx.fillStyle = palette.simLine;
-          const lineW = y % 3 === 0 ? 90 : y % 2 === 0 ? 75 : 105;
-          ctx.fillRect(simX + 10, elemY, Math.min(lineW, simW - 20), 2.5);
+      // Larger scroll preview (separate canvas, shown on hover)
+      const simCanvas = simCanvasRef.current;
+      if (simCanvas) {
+        const simCtx = simCanvas.getContext("2d");
+        if (simCtx) {
+          drawScrollSim(simCtx, simCanvas.width, simCanvas.height, eased, palette);
         }
       }
-
-      ctx.restore();
-
-      ctx.strokeStyle = palette.border;
-      ctx.lineWidth = 1.25;
-      ctx.strokeRect(simX, simY, simW, simH);
-
-      const sbHeight = ((simH - headerH) / pageHeight) * (simH - headerH);
-      const sbY =
-        simY + headerH + (scrollY / maxScroll) * (simH - headerH - sbHeight);
-      ctx.fillStyle = palette.scrollbar;
-      ctx.fillRect(simX + simW - 3, sbY, 1.5, sbHeight);
 
       previewFrame.current += 1;
       animationFrameRef.current = requestAnimationFrame(render);
@@ -612,9 +660,7 @@ export default function BezierVisualizer({
     if (!pos) return;
 
     const [x1, y1, x2, y2] = getSelectedBezier();
-    const padding = 24;
-    const innerW = 316;
-    const innerH = 132;
+    const { padding, innerW, innerH } = graphLayoutRef.current;
 
     const cx1 = padding + x1 * innerW;
     const cy1 = padding + (1 - y1) * innerH;
@@ -624,7 +670,7 @@ export default function BezierVisualizer({
     const dist1 = Math.hypot(pos.x - cx1, pos.y - cy1);
     const dist2 = Math.hypot(pos.x - cx2, pos.y - cy2);
 
-    const hitRadius = 18;
+    const hitRadius = 20;
     if (dist1 < hitRadius && dist1 < dist2) {
       activeDragHandle.current = 1;
       if (e.cancelable) e.preventDefault();
@@ -641,9 +687,7 @@ export default function BezierVisualizer({
     const pos = getPosFromEvent(e);
     if (!pos) return;
 
-    const padding = 24;
-    const innerW = 316;
-    const innerH = 132;
+    const { padding, innerW, innerH } = graphLayoutRef.current;
 
     if (activeDragHandle.current) {
       if (e.cancelable) e.preventDefault();
@@ -681,7 +725,7 @@ export default function BezierVisualizer({
       const dist1 = Math.hypot(pos.x - cx1, pos.y - cy1);
       const dist2 = Math.hypot(pos.x - cx2, pos.y - cy2);
 
-      const hitRadius = 18;
+      const hitRadius = 20;
       if (dist1 < hitRadius && dist1 < dist2) {
         setHoveredHandle(1);
       } else if (dist2 < hitRadius) {
@@ -698,7 +742,9 @@ export default function BezierVisualizer({
 
   return (
     <div
-      className={`curve-preview${embedded ? " curve-preview-embedded" : ""}`}
+      className={`curve-preview${embedded ? " curve-preview-embedded" : ""}${simHover ? " is-sim-open" : ""}`}
+      onMouseEnter={() => setSimHover(true)}
+      onMouseLeave={() => setSimHover(false)}
     >
       <div className="curve-preview-head">
         <strong id="previewLabel">
@@ -710,7 +756,7 @@ export default function BezierVisualizer({
             : CURVES.find((c) => c.id === selectedCurve)?.desc}
         </span>
       </div>
-      <div className="canvas-container">
+      <div className="canvas-container" ref={containerRef}>
         <canvas
           id="curvePreview"
           ref={canvasRef}
@@ -721,14 +767,34 @@ export default function BezierVisualizer({
           onMouseMove={handleInteractionMove}
           onMouseUp={handleInteractionEnd}
           onMouseLeave={handleInteractionEnd}
-          onTouchStart={handleInteractionStart}
+          onTouchStart={(e) => {
+            setSimHover(true);
+            handleInteractionStart(e);
+          }}
           onTouchMove={handleInteractionMove}
           onTouchEnd={handleInteractionEnd}
           onTouchCancel={handleInteractionEnd}
         />
       </div>
+      {/* Fixed portal-like panel so sidebar overflow never clips it */}
+      <div
+        className={`curve-scroll-preview${simHover && simPos ? " is-visible" : ""}`}
+        aria-hidden={!simHover}
+        style={
+          simPos
+            ? { top: simPos.top, left: simPos.left }
+            : undefined
+        }
+      >
+        <canvas
+          ref={simCanvasRef}
+          className="curve-scroll-preview-canvas"
+          width="220"
+          height="320"
+        />
+      </div>
       <p className="canvas-tip">
-        Drag the handle points on the grid to visually customize the curve.
+        Hover for scroll preview · drag handles to customize the curve
       </p>
     </div>
   );

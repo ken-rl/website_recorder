@@ -80,6 +80,7 @@ export async function runScroll(page: Page, options: RunScrollOptions): Promise<
     page,
     options.pixelsPerFrame,
     options.bezier,
+    options.pauseTriggers ?? [],
     options.frameRecorder,
   );
   const frames = options.frameRecorder
@@ -93,10 +94,96 @@ export async function runScroll(page: Page, options: RunScrollOptions): Promise<
   };
 }
 
+function normalizePauseTriggers(triggers: PauseTrigger[]): PauseTrigger[] {
+  return triggers
+    .map((t) => ({
+      selector: (t.selector ?? "").trim(),
+      durationMs: Math.max(0, Math.round(Number(t.durationMs) || 0)),
+    }))
+    .filter((t) => t.selector.length > 0 && t.durationMs >= 100);
+}
+
+/** True when the first matching element intersects the viewport. */
+async function isSelectorInViewport(page: Page, selector: string): Promise<boolean> {
+  try {
+    return await page.evaluate((sel) => {
+      let el: Element | null = null;
+      try {
+        el = document.querySelector(sel);
+      } catch {
+        return false;
+      }
+      if (!el) return false;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return false;
+      const vh = window.innerHeight || document.documentElement.clientHeight;
+      const vw = window.innerWidth || document.documentElement.clientWidth;
+      // Visible if any part intersects the viewport (with a small top/bottom inset
+      // so sticky headers don't immediately fire every trigger).
+      const topInset = Math.min(80, vh * 0.08);
+      const bottomInset = Math.min(40, vh * 0.04);
+      return (
+        rect.bottom > topInset &&
+        rect.top < vh - bottomInset &&
+        rect.right > 0 &&
+        rect.left < vw
+      );
+    }, selector);
+  } catch {
+    return false;
+  }
+}
+
+async function settleScrollPaint(page: Page, scrollY: number) {
+  await page.evaluate(async (y) => {
+    window.scrollTo({ top: y, left: 0, behavior: "instant" });
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      });
+    });
+  }, scrollY);
+}
+
+/**
+ * Hold at the current scroll position for durationMs (document scroll only).
+ * With a frame recorder, writes repeated still frames; otherwise sleeps.
+ */
+async function holdAtScrollPosition(
+  page: Page,
+  scrollY: number,
+  durationMs: number,
+  frameRecorder: FrameRecorder | undefined,
+  frames: Array<{ file: string; y: number }>,
+) {
+  if (durationMs < 100) return;
+
+  if (!frameRecorder) {
+    await page.waitForTimeout(durationMs);
+    return;
+  }
+
+  const fps = frameRecorder.getFps();
+  const frameDurationMs = 1000 / fps;
+  const frameCount = Math.max(1, Math.round((durationMs / 1000) * fps));
+  const startedAt = performance.now();
+
+  for (let i = 0; i < frameCount; i += 1) {
+    const frameNumber = frameRecorder.getFrameCount();
+    await frameRecorder.writeFrame(page);
+    frames.push({
+      file: `frame-${String(frameNumber).padStart(6, "0")}.jpg`,
+      y: scrollY,
+    });
+    await waitForCadence(startedAt + (i + 1) * frameDurationMs);
+  }
+}
+
 async function runDocumentScroll(
   page: Page,
   pixelsPerFrame: number,
   bezier: BezierControlPoints,
+  pauseTriggers: PauseTrigger[],
   frameRecorder?: FrameRecorder,
 ): Promise<{ maxScroll: number; frames?: Array<{ file: string; y: number }> }> {
   // When a frameRecorder is attached (export mode), drive scrolling frame-by-frame
@@ -106,6 +193,7 @@ async function runDocumentScroll(
       page,
       pixelsPerFrame,
       bezier,
+      pauseTriggers,
       frameRecorder,
     );
   }
@@ -120,6 +208,8 @@ async function runDocumentScroll(
     return { maxScroll: 0 };
   }
 
+  const triggers = normalizePauseTriggers(pauseTriggers);
+  const fired = new Set<number>();
   const totalFrames = Math.max(1, Math.ceil(maxScroll / pixelsPerFrame));
 
   for (let frame = 0; frame <= totalFrames; frame++) {
@@ -131,6 +221,23 @@ async function runDocumentScroll(
     // 33ms wait roughly corresponds to ~30fps playback tick rate, giving the page's JS
     // (GSAP / WebGL loops) time to process the scroll event and redraw.
     await page.waitForTimeout(33);
+
+    for (let i = 0; i < triggers.length; i += 1) {
+      if (fired.has(i)) continue;
+      if (await isSelectorInViewport(page, triggers[i].selector)) {
+        fired.add(i);
+        console.log(
+          `Pause trigger fired: ${triggers[i].selector} @ y=${scrollY} for ${triggers[i].durationMs}ms`,
+        );
+        await holdAtScrollPosition(
+          page,
+          scrollY,
+          triggers[i].durationMs,
+          undefined,
+          [],
+        );
+      }
+    }
   }
 
   return { maxScroll };
@@ -140,11 +247,13 @@ async function runDocumentScroll(
  * Node.js-driven frame-by-frame scroll for export mode.
  * Applies the same easing curve as preview, settles paint with double-rAF
  * before each screenshot, and steps one frame at a time.
+ * Fires each pause trigger once when its selector first enters the viewport.
  */
 async function runDocumentScrollFrameByFrame(
   page: Page,
   pixelsPerFrame: number,
   bezier: BezierControlPoints,
+  pauseTriggers: PauseTrigger[],
   frameRecorder: FrameRecorder,
 ): Promise<{ maxScroll: number; frames: Array<{ file: string; y: number }> }> {
   const maxScroll: number = await page.evaluate(() =>
@@ -159,10 +268,14 @@ async function runDocumentScrollFrameByFrame(
     return { maxScroll: 0, frames };
   }
 
+  const triggers = normalizePauseTriggers(pauseTriggers);
+  const fired = new Set<number>();
   const totalFrames = Math.max(1, Math.ceil(maxScroll / pixelsPerFrame));
-  const startedAt = performance.now();
   const frameDurationMs = 1000 / frameRecorder.getFps();
   let lastY = -1;
+  // Cadence restarts after holds so inserted pause frames don't desync later timing.
+  let cadenceOrigin = performance.now();
+  let cadenceIndex = 0;
 
   for (let frame = 0; frame <= totalFrames; frame++) {
     const progress = frame / totalFrames;
@@ -174,16 +287,7 @@ async function runDocumentScrollFrameByFrame(
     );
 
     if (scrollY !== lastY) {
-      await page.evaluate(async (y) => {
-        window.scrollTo({ top: y, left: 0, behavior: "instant" });
-        // Wait for layout + paint so scroll-linked effects (sticky, parallax)
-        // settle before the screenshot — reduces micro-jitter on sites like Linear.
-        await new Promise<void>((resolve) => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => resolve());
-          });
-        });
-      }, scrollY);
+      await settleScrollPaint(page, scrollY);
       lastY = scrollY;
     }
 
@@ -192,7 +296,28 @@ async function runDocumentScrollFrameByFrame(
 
     const filename = `frame-${String(frameNumber).padStart(6, "0")}.jpg`;
     frames.push({ file: filename, y: scrollY });
-    await waitForCadence(startedAt + (frame + 1) * frameDurationMs);
+    cadenceIndex += 1;
+    await waitForCadence(cadenceOrigin + cadenceIndex * frameDurationMs);
+
+    for (let i = 0; i < triggers.length; i += 1) {
+      if (fired.has(i)) continue;
+      if (await isSelectorInViewport(page, triggers[i].selector)) {
+        fired.add(i);
+        console.log(
+          `Pause trigger fired: ${triggers[i].selector} @ y=${scrollY} for ${triggers[i].durationMs}ms`,
+        );
+        await holdAtScrollPosition(
+          page,
+          scrollY,
+          triggers[i].durationMs,
+          frameRecorder,
+          frames,
+        );
+        // Reset cadence after the hold so remaining scroll frames stay on tempo.
+        cadenceOrigin = performance.now();
+        cadenceIndex = 0;
+      }
+    }
   }
 
   return { maxScroll, frames };
