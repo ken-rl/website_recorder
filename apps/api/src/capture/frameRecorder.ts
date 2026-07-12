@@ -8,6 +8,7 @@ export interface FrameRecorderOptions {
   scaleFactor?: number;
   qualityJpeg?: number;
   parallelWorkers?: number;
+  beforeCapture?: (frameNumber: number) => Promise<void>;
 }
 
 export class FrameRecorder {
@@ -17,6 +18,7 @@ export class FrameRecorder {
   private scaleFactor: number;
   private qualityJpeg: number;
   private parallelWorkers: number;
+  private beforeCapture?: (frameNumber: number) => Promise<void>;
   private captureQueue: Array<{
     frameNum: number;
     page: Page;
@@ -31,6 +33,7 @@ export class FrameRecorder {
     this.scaleFactor = options.scaleFactor ?? 1;
     this.qualityJpeg = options.qualityJpeg ?? 95;
     this.parallelWorkers = options.parallelWorkers ?? 2;
+    this.beforeCapture = options.beforeCapture;
   }
 
   async writeFrame(page: Page): Promise<void> {
@@ -68,6 +71,7 @@ export class FrameRecorder {
     reject: (e: Error) => void;
   }): Promise<void> {
     try {
+      await this.beforeCapture?.(task.frameNum);
       const framePath = path.join(
         this.outputDir,
         `frame-${String(task.frameNum).padStart(6, "0")}.jpg`,
@@ -96,5 +100,9 @@ export class FrameRecorder {
 
   getScaleFactor(): number {
     return this.scaleFactor;
+  }
+
+  setBeforeCapture(beforeCapture: (frameNumber: number) => Promise<void>) {
+    this.beforeCapture = beforeCapture;
   }
 }

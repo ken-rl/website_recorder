@@ -23,6 +23,7 @@ import {
 import { resolveRecordingProfile } from "../config/recordingProfile.js";
 import { removeFileIfExists, transcodeToMp4 } from "../transcode/ffmpeg.js";
 import { FrameRecorder } from "../capture/frameRecorder.js";
+import { createMediaClockSync, installMediaClock } from "../browser/mediaClock.js";
 import { stitchFramesToVideo } from "../capture/stitchFrames.js";
 import { compileVideoFromFrames } from "../editor/compileVideo.js";
 import { renderRecordingStyle, SOURCE_FILENAME } from "./styleRecording.js";
@@ -352,6 +353,7 @@ async function runRecordSession(options: {
     });
     const page = await recordContext.newPage();
     await page.addInitScript("window.__name = (target) => target");
+    await installMediaClock(page);
 
     try {
       await gotoReachablePage(page, request.targetUrl);
@@ -360,6 +362,8 @@ async function runRecordSession(options: {
       await dismissCookieBanners(page);
       await sanitizeDom(page, removeOverlays);
       await primeLazyAssets(page);
+
+      frameRecorder.setBeforeCapture(await createMediaClockSync(page, captureFps));
 
       await page.evaluate(() =>
         window.scrollTo({ top: 0, left: 0, behavior: "instant" }),
