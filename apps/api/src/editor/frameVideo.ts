@@ -135,11 +135,12 @@ async function createStaticLayers(options: {
 
   if (shadowPath) {
     const shadowY = y + Math.max(3, Math.round(height * 0.006));
+    const shadowBlur = Math.max(12, Math.round(Math.min(width, height) * 0.016));
     await runFfmpeg([
       "-y", "-i", maskPath,
       "-f", "lavfi", "-i", `color=c=black:s=${contentWidth}x${contentHeight}:r=1`,
       "-filter_complex",
-      `[0:v]format=gray[mask];[1:v]format=rgba[black];[black][mask]alphamerge,colorchannelmixer=aa=0.16,gblur=sigma=22:steps=2,pad=${width}:${height}:${x}:${shadowY}:color=black@0,format=rgba[output]`,
+      `[0:v]format=gray[mask];[1:v]format=rgba[black];[black][mask]alphamerge,pad=${width}:${height}:${x}:${shadowY}:color=black@0,format=rgba,colorchannelmixer=aa=0.16,gblur=sigma=${shadowBlur}:steps=2[output]`,
       "-map", "[output]", "-frames:v", "1", "-c:v", "png", shadowPath,
     ]);
   }
@@ -162,7 +163,7 @@ function roundedMaskFilter(radius: number) {
     `gt(X,${right})*gt(Y,${bottom})*gt(hypot(X-(${right}),Y-(${bottom})),${radius})`,
   ].join("+");
 
-  return `format=gray,geq=lum='if(gt(${outsideCorner},0),0,255)',gblur=sigma=0.35:steps=1`;
+  return `format=gray,geq=lum='if(gt(${outsideCorner},0),0,255)'`;
 }
 
 async function resolvePresetPath(filename: string) {
