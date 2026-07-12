@@ -2,8 +2,9 @@ import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { randomUUID } from "node:crypto";
 import type { BackgroundPreset } from "../types.js";
-import { probeVideoFps, probeVideoSize } from "../transcode/probe.js";
+import { probeVideoDurationMs, probeVideoFps, probeVideoSize } from "../transcode/probe.js";
 import type { EncodeSettings } from "../transcode/quality.js";
 
 const PRESET_FILES: Record<Exclude<BackgroundPreset, "none">, string> = {
@@ -26,6 +27,7 @@ export async function frameVideoOnBackground(options: {
   const size = await probeVideoSize(inputPath);
   if (!size) throw new Error("Could not read video dimensions for background export");
   const fps = (await probeVideoFps(inputPath)) ?? 30;
+  const durationMs = await probeVideoDurationMs(inputPath);
 
   const width = even(size.width);
   const height = even(size.height);
@@ -38,52 +40,118 @@ export async function frameVideoOnBackground(options: {
     : 0;
   const backgroundPath = await resolvePresetPath(PRESET_FILES[preset]);
 
-  const filters = [
-    `[1:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},setsar=1[bg]`,
-    `[0:v]scale=${contentWidth}:${contentHeight}:flags=lanczos,setsar=1,format=rgba${roundedCornerFilter(cornerRadius)}[card]`,
-  ];
-
-  if (addShadow) {
-    filters.push(
-      `[card]split[card-output][card-shadow]`,
-      `[card-shadow]colorchannelmixer=rr=0:gg=0:bb=0:aa=0.16,gblur=sigma=22:steps=2[shadow]`,
-      `[bg][shadow]overlay=${x}:${y + Math.max(3, Math.round(height * 0.006))}[canvas]`,
-      `[canvas][card-output]overlay=${x}:${y}:shortest=1,fps=${fps},format=yuv420p[output]`,
-    );
-  } else {
-    filters.push(`[bg][card]overlay=${x}:${y}:shortest=1,fps=${fps},format=yuv420p[output]`);
-  }
-
-  await runFfmpeg([
-    "-y",
-    "-i",
-    inputPath,
-    "-loop",
-    "1",
-    "-i",
-    backgroundPath,
-    "-filter_complex",
-    filters.join(";"),
-    "-map",
-    "[output]",
-    "-an",
-    "-c:v",
-    "libx264",
-    "-preset",
-    encode.preset,
-    "-crf",
-    String(encode.crf),
-    "-pix_fmt",
-    "yuv420p",
-    "-shortest",
-    "-movflags",
-    "+faststart",
+  // Corners and shadows do not change from frame to frame. Building them once
+  // avoids running geq/gblur thousands of times on long recordings.
+  const staticLayers = await createStaticLayers({
     outputPath,
-  ]);
+    width,
+    height,
+    contentWidth,
+    contentHeight,
+    x,
+    y,
+    cornerRadius,
+    addShadow,
+  });
+
+  try {
+    const filters = [
+      `[1:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},setsar=1[bg]`,
+      `[0:v]scale=${contentWidth}:${contentHeight}:flags=lanczos,setsar=1,format=rgba[card-base]`,
+    ];
+    const inputs = ["-y", "-i", inputPath, "-loop", "1", "-framerate", String(fps), "-i", backgroundPath];
+    let inputIndex = 2;
+
+    if (staticLayers.maskPath) {
+      inputs.push("-loop", "1", "-framerate", String(fps), "-i", staticLayers.maskPath);
+      filters.push(`[${inputIndex}:v]format=gray[mask]`, `[card-base][mask]alphamerge[card]`);
+      inputIndex += 1;
+    } else {
+      filters.push("[card-base]copy[card]");
+    }
+
+    if (staticLayers.shadowPath) {
+      inputs.push("-loop", "1", "-framerate", String(fps), "-i", staticLayers.shadowPath);
+      filters.push(
+        `[${inputIndex}:v]format=rgba[shadow]`,
+        "[bg][shadow]overlay=0:0[canvas]",
+        `[canvas][card]overlay=${x}:${y}:shortest=1,fps=${fps},format=yuv420p[output]`,
+      );
+    } else {
+      filters.push(`[bg][card]overlay=${x}:${y}:shortest=1,fps=${fps},format=yuv420p[output]`);
+    }
+
+    await runFfmpeg([
+      ...inputs,
+      "-filter_complex",
+      filters.join(";"),
+      "-map",
+      "[output]",
+      "-an",
+      "-c:v",
+      "libx264",
+      "-preset",
+      encode.preset,
+      "-crf",
+      String(encode.crf),
+      "-pix_fmt",
+      "yuv420p",
+      ...(durationMs ? ["-t", (durationMs / 1000).toFixed(3)] : []),
+      "-shortest",
+      "-movflags",
+      "+faststart",
+      outputPath,
+    ]);
+  } finally {
+    await Promise.all(staticLayers.files.map((file) => fs.unlink(file).catch(() => undefined)));
+  }
 }
 
-function roundedCornerFilter(radius: number) {
-  if (radius === 0) return "";
+async function createStaticLayers(options: {
+  outputPath: string;
+  width: number;
+  height: number;
+  contentWidth: number;
+  contentHeight: number;
+  x: number;
+  y: number;
+  cornerRadius: number;
+  addShadow: boolean;
+}) {
+  const { outputPath, width, height, contentWidth, contentHeight, x, y, cornerRadius, addShadow } = options;
+  if (!cornerRadius && !addShadow) return { files: [], maskPath: undefined, shadowPath: undefined };
+
+  const id = randomUUID();
+  const dir = path.dirname(outputPath);
+  const maskPath = path.join(dir, `.style-mask-${id}.png`);
+  const shadowPath = addShadow ? path.join(dir, `.style-shadow-${id}.png`) : undefined;
+  const maskFilter = cornerRadius ? roundedMaskFilter(cornerRadius) : "format=gray";
+
+  await runFfmpeg([
+    "-y", "-f", "lavfi", "-i", `color=c=white:s=${contentWidth}x${contentHeight}:r=1`,
+    "-vf", maskFilter,
+    "-frames:v", "1", "-c:v", "png", maskPath,
+  ]);
+
+  if (shadowPath) {
+    const shadowY = y + Math.max(3, Math.round(height * 0.006));
+    await runFfmpeg([
+      "-y", "-i", maskPath,
+      "-f", "lavfi", "-i", `color=c=black:s=${contentWidth}x${contentHeight}:r=1`,
+      "-filter_complex",
+      `[0:v]format=gray[mask];[1:v]format=rgba[black];[black][mask]alphamerge,colorchannelmixer=aa=0.16,gblur=sigma=22:steps=2,pad=${width}:${height}:${x}:${shadowY}:color=black@0,format=rgba[output]`,
+      "-map", "[output]", "-frames:v", "1", "-c:v", "png", shadowPath,
+    ]);
+  }
+
+  return {
+    files: shadowPath ? [maskPath, shadowPath] : [maskPath],
+    maskPath: cornerRadius ? maskPath : undefined,
+    shadowPath,
+  };
+}
+
+function roundedMaskFilter(radius: number) {
 
   const right = `W-${radius}`;
   const bottom = `H-${radius}`;
@@ -94,7 +162,7 @@ function roundedCornerFilter(radius: number) {
     `gt(X,${right})*gt(Y,${bottom})*gt(hypot(X-(${right}),Y-(${bottom})),${radius})`,
   ].join("+");
 
-  return `,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(gt(${outsideCorner},0),0,255)',gblur=sigma=0.35:steps=1`;
+  return `format=gray,geq=lum='if(gt(${outsideCorner},0),0,255)',gblur=sigma=0.35:steps=1`;
 }
 
 async function resolvePresetPath(filename: string) {
