@@ -472,37 +472,38 @@ export default function App() {
               <div className="sidebar-section-card recorder-controls-card">
                 <div className="controls-card-left">
                   {/* Render quality tier selector */}
-                  <div
-                    className="render-tier-group"
-                    role="radiogroup"
-                    aria-label="Render quality"
-                  >
-                    {(Object.entries(TIER_CONFIG) as [RenderTier, typeof TIER_CONFIG[RenderTier]][])
-                      .filter(([tier]) => tier !== "draft")
-                      .map(([tier, cfg]) => {
-                        const TierIcon = tier === "cinematic" ? Sparkles : Clapperboard;
-                        return (
-                          <button
-                          key={tier}
-                          type="button"
-                          id={`renderTier-${tier}`}
-                          role="radio"
-                          aria-checked={renderTier === tier}
-                          className={`render-tier-btn render-tier-btn--${tier}${renderTier === tier ? " is-active" : ""}`}
-                          title={cfg.hint}
-                           onClick={() => {
-                             setRenderTier(tier);
-                             setVirtualScrollCycles(cfg.defaultCycles);
-                             setPixelsPerFrame(cfg.pixelsPerFrame);
-                           }}
-                        >
-                          <span className="render-tier-icon"><TierIcon size={16} strokeWidth={1.8} /></span>
-                          <span className="render-tier-name">{cfg.label}</span>
-                          <span className="render-tier-hint">{cfg.hint}</span>
-                        </button>
-                        );
-                      }
-                    )}
+                  <div className="recorder-capture-bar">
+                    <div
+                      className="render-tier-group"
+                      role="radiogroup"
+                      aria-label="Render quality"
+                    >
+                      {(Object.entries(TIER_CONFIG) as [RenderTier, typeof TIER_CONFIG[RenderTier]][])
+                        .filter(([tier]) => tier !== "draft")
+                        .map(([tier, cfg]) => {
+                          const TierIcon = tier === "cinematic" ? Sparkles : Clapperboard;
+                          return (
+                            <button
+                              key={tier}
+                              type="button"
+                              id={`renderTier-${tier}`}
+                              role="radio"
+                              aria-checked={renderTier === tier}
+                              className={`render-tier-btn render-tier-btn--${tier}${renderTier === tier ? " is-active" : ""}`}
+                              title={cfg.hint}
+                              onClick={() => {
+                                setRenderTier(tier);
+                                setVirtualScrollCycles(cfg.defaultCycles);
+                                setPixelsPerFrame(cfg.pixelsPerFrame);
+                              }}
+                            >
+                              <span className="render-tier-icon"><TierIcon size={15} strokeWidth={1.8} /></span>
+                              <span className="render-tier-name">{cfg.label}</span>
+                            </button>
+                          );
+                        }
+                      )}
+                    </div>
                     <button
                       type="submit"
                       id="submit"

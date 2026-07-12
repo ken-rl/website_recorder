@@ -2807,20 +2807,48 @@ input[type="number"]:disabled {
     box-shadow: none;
     padding: 0;
 }
+.recorder-capture-bar {
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    background: color-mix(in srgb, var(--surface) 82%, var(--bg));
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    width: 100%;
+}
 .render-tier-group {
-    display: grid;
-    grid-template-columns: max-content max-content minmax(150px, 1fr);
-    gap: 0.55rem;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 9px;
+    background: var(--surface-muted);
 }
 .render-tier-btn {
     position: relative;
-    min-height: 42px;
+    min-height: 34px;
     flex-direction: row;
     justify-content: flex-start;
-    padding: 0.45rem 0.68rem;
-    border-radius: 10px;
+    padding: 0.35rem 0.58rem;
+    border: 1px solid transparent;
+    border-radius: 7px;
     gap: 0.42rem;
+    background: transparent;
+    color: var(--muted);
+    box-shadow: none;
+}
+.render-tier-btn:hover:not(.is-active) {
+    color: var(--text);
+    background: color-mix(in srgb, var(--surface) 70%, transparent);
+    border-color: color-mix(in srgb, var(--border) 65%, transparent);
+}
+.render-tier-btn.is-active {
+    color: var(--text);
     background: var(--surface);
+    border-color: var(--border);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
 }
 .render-tier-icon {
     color: var(--muted);
@@ -2838,10 +2866,11 @@ input[type="number"]:disabled {
     display: none;
 }
 .recorder-capture-btn-sm {
-    box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 24%, transparent);
+    flex: 0 0 auto;
+    box-shadow: 0 5px 14px color-mix(in srgb, var(--accent) 22%, transparent);
     gap: 0.45rem;
-    min-height: 42px;
-    padding: 0.45rem 0.85rem !important;
+    min-height: 34px;
+    padding: 0.35rem 0.78rem !important;
     font-size: 0.76rem;
 }
 .recorder-export-btn {
@@ -3066,12 +3095,15 @@ input[type="number"]:disabled {
     }
 }
 @media (max-width: 640px) {
+    .recorder-capture-bar {
+        flex-wrap: wrap;
+    }
     .render-tier-group {
-        grid-template-columns: 1fr 1fr;
+        flex: 1;
     }
     .recorder-capture-btn-sm {
-        grid-column: 1 / -1;
-        min-height: 48px;
+        width: 100%;
+        min-height: 40px;
     }
     .recorder-preview-panel {
         min-height: 250px;
