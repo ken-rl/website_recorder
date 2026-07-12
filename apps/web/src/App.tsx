@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { ChevronDown, Clapperboard, Play, SlidersHorizontal, Sparkles } from "lucide-react";
+import { ChevronDown, Clapperboard, Download, Play, SlidersHorizontal, Sparkles } from "lucide-react";
 import AppTopbar from "./components/AppTopbar";
 import { LORDICON } from "./lib/icons";
 import LordIcon from "./components/LordIcon";
@@ -519,12 +519,34 @@ export default function App() {
                             : "Start capture"}
                       </span>
                     </button>
+                    {resultVideo && (
+                      isStylePreview || isApplyingStyle ? (
+                        <button
+                          type="button"
+                          className="recorder-export-btn"
+                          disabled
+                          title="Render the canvas style before exporting"
+                        >
+                          {isApplyingStyle ? <span className="loader-circle" /> : <Download size={16} aria-hidden="true" />}
+                          <span>{isApplyingStyle ? "Rendering…" : "Render to export"}</span>
+                        </button>
+                      ) : (
+                        <a
+                          className="recorder-export-btn"
+                          href={resultVideo.url}
+                          download="recording.mp4"
+                        >
+                          <Download size={16} aria-hidden="true" />
+                          <span>Export MP4</span>
+                        </a>
+                      )
+                    )}
                   </div>
                 </div>
               </div>
 
               {/* Progress & Error indicators if any */}
-              {(isSubmitting || statusType === "error") && (
+              {(isSubmitting || isApplyingStyle || statusType === "error") && (
                 <div className="sidebar-section-card status-indicator-card">
                   {isSubmitting && (
                     <ProgressCard
@@ -532,6 +554,12 @@ export default function App() {
                       status={progressStatus}
                       elapsed={elapsedTime}
                     />
+                  )}
+                  {isApplyingStyle && (
+                    <p className="style-render-status" aria-live="polite">
+                      <span className="loader-circle" aria-hidden="true" />
+                      Rendering the final MP4 — the preview is ready now, export follows when encoding finishes.
+                    </p>
                   )}
                   {statusType === "error" && (
                     <p className="status error" id="status" aria-live="polite">

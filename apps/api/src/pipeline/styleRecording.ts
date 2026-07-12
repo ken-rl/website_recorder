@@ -11,7 +11,7 @@ export const OUTPUT_FILENAME = "output.mp4";
 // retaining enough detail for a single-generation H.264 render.
 const STYLE_ENCODE: EncodeSettings = {
   crf: 18,
-  preset: "veryfast",
+  preset: "superfast",
   deviceScaleFactor: 1,
 };
 

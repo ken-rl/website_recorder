@@ -660,7 +660,8 @@ body > * {
     color: hsl(270 85% 72%);
 }
 .recorder-capture-btn-sm,
-.recorder-editor-btn-sm {
+.recorder-editor-btn-sm,
+.recorder-export-btn {
     font-family: var(--font-sans);
     font-size: 0.74rem;
     padding: 0.45rem 1rem;
@@ -678,6 +679,28 @@ body > * {
 .recorder-capture-btn-sm:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+}
+.recorder-export-btn {
+    color: var(--text);
+    background: var(--surface);
+    text-decoration: none;
+    min-width: 0;
+}
+.recorder-export-btn:not(:disabled):hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.recorder-export-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+.style-render-status {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: var(--muted);
+    font-size: 0.78rem;
 }
 .status-indicator-card {
     padding: 1rem 1.5rem;
@@ -2822,6 +2845,12 @@ input[type="number"]:disabled {
     min-height: 72px;
     padding: 0.75rem !important;
     font-size: 0.76rem;
+}
+.recorder-export-btn {
+    min-height: 72px;
+    padding: 0.75rem;
+    font-size: 0.76rem;
+    white-space: nowrap;
 }
 .recorder-preview-panel {
     background:

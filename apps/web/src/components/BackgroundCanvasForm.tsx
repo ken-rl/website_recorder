@@ -121,7 +121,7 @@ export default function BackgroundCanvasForm({
           disabled={isApplyingStyle}
         >
           <Wand2 size={15} />
-          <span>{isApplyingStyle ? "Styling…" : "Apply to recording"}</span>
+          <span>{isApplyingStyle ? "Rendering video…" : "Render style"}</span>
         </button>
       )}
     </section>
