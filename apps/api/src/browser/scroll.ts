@@ -102,7 +102,12 @@ async function runDocumentScroll(
   // When a frameRecorder is attached (export mode), drive scrolling frame-by-frame
   // from Node.js so we can take a screenshot after each step.
   if (frameRecorder) {
-    return runDocumentScrollFrameByFrame(page, pixelsPerFrame, frameRecorder);
+    return runDocumentScrollFrameByFrame(
+      page,
+      pixelsPerFrame,
+      bezier,
+      frameRecorder,
+    );
   }
 
   // Preview mode (no recorder): drive the scroll frame-by-frame from Node.js
@@ -132,13 +137,14 @@ async function runDocumentScroll(
 }
 
 /**
- * Node.js-driven linear frame-by-frame scroll for export mode.
- * Steps one frame at a time, takes a screenshot after each step,
- * returning metadata mapping each frame to its scroll position.
+ * Node.js-driven frame-by-frame scroll for export mode.
+ * Applies the same easing curve as preview, settles paint with double-rAF
+ * before each screenshot, and steps one frame at a time.
  */
 async function runDocumentScrollFrameByFrame(
   page: Page,
   pixelsPerFrame: number,
+  bezier: BezierControlPoints,
   frameRecorder: FrameRecorder,
 ): Promise<{ maxScroll: number; frames: Array<{ file: string; y: number }> }> {
   const maxScroll: number = await page.evaluate(() =>
@@ -154,15 +160,33 @@ async function runDocumentScrollFrameByFrame(
   }
 
   const totalFrames = Math.max(1, Math.ceil(maxScroll / pixelsPerFrame));
-
   const startedAt = performance.now();
   const frameDurationMs = 1000 / frameRecorder.getFps();
+  let lastY = -1;
 
   for (let frame = 0; frame <= totalFrames; frame++) {
     const progress = frame / totalFrames;
-    const scrollY = Math.round(maxScroll * progress);
+    const easedProgress = applyScrollCurve(progress, bezier);
+    // Floor keeps per-frame deltas monotonic and avoids 1px round-trip jitter.
+    const scrollY = Math.min(
+      maxScroll,
+      Math.floor(maxScroll * easedProgress + 1e-6),
+    );
 
-    await page.evaluate((y) => window.scrollTo({ top: y, left: 0, behavior: "instant" }), scrollY);
+    if (scrollY !== lastY) {
+      await page.evaluate(async (y) => {
+        window.scrollTo({ top: y, left: 0, behavior: "instant" });
+        // Wait for layout + paint so scroll-linked effects (sticky, parallax)
+        // settle before the screenshot — reduces micro-jitter on sites like Linear.
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => resolve());
+          });
+        });
+      }, scrollY);
+      lastY = scrollY;
+    }
+
     const frameNumber = frameRecorder.getFrameCount();
     await frameRecorder.writeFrame(page);
 

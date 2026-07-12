@@ -13,6 +13,8 @@ interface BrowserMockupProps {
   isRenderingStyle?: boolean;
   /** Elapsed capture time (e.g. "12.4s"). */
   recordingElapsed?: string;
+  recordingPercent?: number;
+  recordingStatus?: string;
 }
 
 export default function BrowserMockup({
@@ -26,6 +28,8 @@ export default function BrowserMockup({
   isSubmitting,
   isRenderingStyle = false,
   recordingElapsed,
+  recordingPercent = 0,
+  recordingStatus,
 }: BrowserMockupProps) {
   const isPortrait = width < height;
   const displayUrl = url || "https://example.com";
@@ -430,6 +434,19 @@ export default function BrowserMockup({
                 </span>
                 {shortUrl}
               </p>
+              <div className="rec-progress" aria-hidden={recordingPercent <= 0}>
+                <div className="rec-progress-track">
+                  <div
+                    className="rec-progress-fill"
+                    style={{
+                      width: `${Math.max(0, Math.min(100, recordingPercent))}%`,
+                    }}
+                  />
+                </div>
+                {recordingStatus ? (
+                  <p className="rec-progress-status">{recordingStatus}</p>
+                ) : null}
+              </div>
             </div>
           ) : (
             <div className="browser-placeholder browser-placeholder-idle">

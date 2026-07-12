@@ -344,7 +344,8 @@ async function runRecordSession(options: {
       fps: captureFps,
       scaleFactor: deviceScaleFactor,
       qualityJpeg: 95,
-      parallelWorkers: 3,
+      // Sequential captures only: parallel workers can race scroll position vs paint.
+      parallelWorkers: 1,
     });
 
     const recordContext = await browser.newContext({

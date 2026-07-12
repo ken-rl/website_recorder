@@ -579,18 +579,58 @@ body > * {
     border-radius: var(--ui-radius);
     color: var(--muted);
 }
-/* ── Capture toolbar: quality segment + primary action ───────────────── */
+/* ── Capture toolbar: URL, size, quality, record ─────────────────────── */
 .recorder-capture-bar {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem 1rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.55rem;
     width: 100%;
-    padding: 0.55rem 0.65rem;
+    padding: 0.65rem;
     border: 1px solid var(--border);
     border-radius: 14px;
     background: var(--surface);
     box-shadow: var(--shadow-soft);
+}
+.capture-target-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+.capture-url-wrap {
+    flex: 1 1 220px;
+    min-width: 0;
+}
+.capture-url-wrap .recorder-url-input {
+    font-size: 0.8rem !important;
+    padding: 0.5rem 0.65rem 0.5rem 2.15rem !important;
+    min-height: 38px;
+}
+.capture-device-row {
+    flex: 0 1 auto;
+    display: flex !important;
+    grid-template-columns: none !important;
+    flex-wrap: nowrap;
+    gap: 0.3rem;
+}
+.capture-device-row .recorder-device-btn {
+    padding: 0.42rem 0.55rem;
+    font-size: 0.6rem;
+    white-space: nowrap;
+}
+.capture-device-locked {
+    flex: 0 0 auto;
+    min-height: 38px;
+}
+.recorder-capture-bar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem 1rem;
+    flex-wrap: wrap;
+    min-width: 0;
 }
 .recorder-capture-quality {
     display: flex;
@@ -2312,6 +2352,39 @@ button[type="submit"]:disabled .loader-circle {
     margin: 0 0.4rem;
     opacity: 0.55;
 }
+.rec-progress {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    width: min(220px, 70%);
+    margin-top: 0.35rem;
+}
+.rec-progress-track {
+    width: 100%;
+    height: 3px;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 10%);
+    overflow: hidden;
+}
+.rec-progress-fill {
+    height: 100%;
+    border-radius: inherit;
+    background: #ef4444;
+    transition: width 0.25s ease-out;
+}
+.rec-progress-status {
+    margin: 0;
+    max-width: 100%;
+    color: #52525b;
+    font-size: 0.62rem;
+    font-weight: 500;
+    line-height: 1.3;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .video-preview-wrapper.is-recording {
     border-color: rgb(255 255 255 / 10%) !important;
     box-shadow: 0 12px 32px rgb(0 0 0 / 22%) !important;
@@ -3335,15 +3408,31 @@ input[type="number"]:disabled {
 }
 @media (max-width: 640px) {
     .recorder-capture-bar {
-        flex-wrap: wrap;
-        align-items: stretch;
         padding: 0.6rem;
-        gap: 0.65rem;
+        gap: 0.55rem;
+    }
+    .capture-target-fields {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .capture-device-row {
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        width: 100%;
+    }
+    .capture-device-row .recorder-device-btn {
+        padding: 0.45rem 0.25rem;
+    }
+    .capture-device-row .recorder-device-btn span {
+        display: none;
+    }
+    .recorder-capture-bar-row {
+        flex-direction: column;
+        align-items: stretch;
     }
     .recorder-capture-quality,
     .recorder-capture-ready {
         width: 100%;
-        flex: 1 1 100%;
     }
     .recorder-capture-quality {
         flex-direction: column;
