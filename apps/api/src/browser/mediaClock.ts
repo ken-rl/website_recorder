@@ -25,7 +25,7 @@ export async function installMediaClock(page: Page): Promise<void> {
       register(video) {
         this.videos.add(video);
         video.muted = true;
-        video.playbackRate = this.rate;
+        setPlaybackRate(video, this.rate);
         if (!this.active) video.pause();
       },
       sync(rate) {
@@ -35,11 +35,25 @@ export async function installMediaClock(page: Page): Promise<void> {
         for (const video of this.videos) {
           if (!video.isConnected) continue;
           video.muted = true;
-          video.playbackRate = rate;
+          setPlaybackRate(video, rate);
           video.play().catch(() => undefined);
         }
       },
     };
+
+    // Chromium's supported range varies by media implementation. Keep the
+    // controller from failing the whole capture when a page rejects a rate.
+    function setPlaybackRate(video: HTMLVideoElement, rate: number) {
+      try {
+        video.playbackRate = Math.max(0.0625, Math.min(16, rate));
+      } catch {
+        try {
+          video.playbackRate = 0.25;
+        } catch {
+          // Leave the site's default rate in place rather than failing capture.
+        }
+      }
+    }
 
     Object.defineProperty(window, key, { value: state, configurable: true });
     document.addEventListener("play", (event) => {
@@ -59,7 +73,7 @@ export async function createMediaClockSync(page: Page, fps: number) {
     const outputSeconds = frameNumber / fps;
     const wallSeconds = Math.max(0.001, (performance.now() - startedAt) / 1000);
     // A little floor avoids stalling media on very slow, high-resolution captures.
-    const rate = Math.min(1, Math.max(0.04, outputSeconds / wallSeconds || 0.08));
+    const rate = Math.min(1, Math.max(0.0625, outputSeconds / wallSeconds || 0.08));
     await page.evaluate(
       ({ key, rate: nextRate }) => {
         const state = (window as unknown as Record<string, {
