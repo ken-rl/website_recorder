@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { ChevronDown, Clapperboard, Download, Play, SlidersHorizontal, Sparkles } from "lucide-react";
+import { ChevronDown, Clapperboard, Play, SlidersHorizontal, Sparkles } from "lucide-react";
 import AppTopbar from "./components/AppTopbar";
 import { LORDICON } from "./lib/icons";
 import LordIcon from "./components/LordIcon";
@@ -489,6 +489,7 @@ export default function App() {
                           role="radio"
                           aria-checked={renderTier === tier}
                           className={`render-tier-btn render-tier-btn--${tier}${renderTier === tier ? " is-active" : ""}`}
+                          title={cfg.hint}
                            onClick={() => {
                              setRenderTier(tier);
                              setVirtualScrollCycles(cfg.defaultCycles);
@@ -507,7 +508,7 @@ export default function App() {
                       id="submit"
                       className="recorder-capture-btn-sm product-btn-primary"
                       disabled={isSubmitting || !url.trim()}
-                      style={{ flex: 1, minWidth: 0, alignSelf: "stretch", paddingInline: "1.5rem", borderRadius: "var(--ui-radius)", display: "flex", alignItems: "center", justifyContent: "center" }}
+                      style={{ flex: 1, minWidth: 0, alignSelf: "stretch", borderRadius: "var(--ui-radius)", display: "flex", alignItems: "center", justifyContent: "center" }}
                     >
                       {isSubmitting && <span className="loader-circle" />}
                       {!isSubmitting && <Play size={16} fill="currentColor" aria-hidden="true" />}
@@ -519,34 +520,12 @@ export default function App() {
                             : "Start capture"}
                       </span>
                     </button>
-                    {resultVideo && (
-                      isStylePreview || isApplyingStyle ? (
-                        <button
-                          type="button"
-                          className="recorder-export-btn"
-                          disabled
-                          title="Render the canvas style before exporting"
-                        >
-                          {isApplyingStyle ? <span className="loader-circle" /> : <Download size={16} aria-hidden="true" />}
-                          <span>{isApplyingStyle ? "Rendering…" : "Render to export"}</span>
-                        </button>
-                      ) : (
-                        <a
-                          className="recorder-export-btn"
-                          href={resultVideo.url}
-                          download="recording.mp4"
-                        >
-                          <Download size={16} aria-hidden="true" />
-                          <span>Export MP4</span>
-                        </a>
-                      )
-                    )}
                   </div>
                 </div>
               </div>
 
               {/* Progress & Error indicators if any */}
-              {(isSubmitting || isApplyingStyle || statusType === "error") && (
+              {(isSubmitting || statusType === "error") && (
                 <div className="sidebar-section-card status-indicator-card">
                   {isSubmitting && (
                     <ProgressCard
@@ -554,12 +533,6 @@ export default function App() {
                       status={progressStatus}
                       elapsed={elapsedTime}
                     />
-                  )}
-                  {isApplyingStyle && (
-                    <p className="style-render-status" aria-live="polite">
-                      <span className="loader-circle" aria-hidden="true" />
-                      Rendering the final MP4 — the preview is ready now, export follows when encoding finishes.
-                    </p>
                   )}
                   {statusType === "error" && (
                     <p className="status error" id="status" aria-live="polite">
@@ -583,6 +556,7 @@ export default function App() {
                     url={url}
                     videoUrl={(isStylePreview ? resultVideo?.sourceUrl : resultVideo?.url) || null}
                     downloadUrl={isStylePreview ? null : resultVideo?.url || null}
+                    isRenderingStyle={isApplyingStyle}
                     duration={resultVideo?.duration || null}
                     scrollStrategy={resultVideo?.scrollStrategy}
                     width={width}

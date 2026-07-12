@@ -10,6 +10,7 @@ interface BrowserMockupProps {
   width: number;
   height: number;
   isSubmitting: boolean;
+  isRenderingStyle?: boolean;
 }
 
 export default function BrowserMockup({
@@ -21,6 +22,7 @@ export default function BrowserMockup({
   width,
   height,
   isSubmitting,
+  isRenderingStyle = false,
 }: BrowserMockupProps) {
   const isPortrait = width < height;
   const displayUrl = url || "https://example.com";
@@ -168,48 +170,13 @@ export default function BrowserMockup({
             }}
           />
 
-          {/* Floating Download Overlay (fades out with controls) */}
-          {downloadUrl && <a
-            id="download"
-            href={downloadUrl}
-            download="recording.mp4"
-            title="Download video file"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: "absolute",
-              top: "14px",
-              right: "14px",
-              zIndex: 10,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "36px",
-              height: "36px",
-              borderRadius: "50%",
-              background: "rgba(20, 20, 25, 0.8)",
-              color: "var(--accent)",
-              backdropFilter: "blur(6px)",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-              opacity: showControls ? 1 : 0,
-              transform: showControls ? "scale(1)" : "scale(0.9)",
-            }}
-            className="download-overlay-btn"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ width: "16px", height: "16px" }}
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-          </a>}
+          {isRenderingStyle && (
+            <div className="style-render-veil" role="status" aria-live="polite" onClick={(e) => e.stopPropagation()}>
+              <span className="style-render-spinner" aria-hidden="true" />
+              <span>Rendering style</span>
+              <small>Export unlocks when it’s ready</small>
+            </div>
+          )}
 
           {/* Premium Custom Player Control Deck */}
           <div
@@ -385,6 +352,24 @@ export default function BrowserMockup({
                 <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
               </svg>
             </button>
+
+            {downloadUrl && (
+              <a
+                id="download"
+                href={downloadUrl}
+                download="recording.mp4"
+                title="Export MP4"
+                aria-label="Export MP4"
+                onClick={(e) => e.stopPropagation()}
+                className="player-control-btn player-export-btn"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: "18px", height: "18px" }}>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              </a>
+            )}
           </div>
         </div>
 

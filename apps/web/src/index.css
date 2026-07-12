@@ -2809,22 +2809,22 @@ input[type="number"]:disabled {
 }
 .render-tier-group {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(150px, 0.7fr);
+    grid-template-columns: max-content max-content minmax(150px, 1fr);
     gap: 0.55rem;
 }
 .render-tier-btn {
     position: relative;
-    min-height: 72px;
-    justify-content: center;
-    padding: 0.8rem 0.9rem 0.8rem 2.8rem;
-    border-radius: 12px;
+    min-height: 42px;
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: 0.45rem 0.68rem;
+    border-radius: 10px;
+    gap: 0.42rem;
     background: var(--surface);
 }
 .render-tier-icon {
     color: var(--muted);
-    position: absolute;
-    top: 0.85rem;
-    left: 0.85rem;
+    position: static;
     display: grid;
     place-items: center;
 }
@@ -2835,15 +2835,13 @@ input[type="number"]:disabled {
     font-size: 0.76rem;
 }
 .render-tier-hint {
-    white-space: normal;
-    font-size: 0.6rem;
+    display: none;
 }
 .recorder-capture-btn-sm {
-    box-shadow: 0 10px 22px color-mix(in srgb, var(--accent) 28%, transparent);
+    box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 24%, transparent);
     gap: 0.45rem;
-    height: auto;
-    min-height: 72px;
-    padding: 0.75rem !important;
+    min-height: 42px;
+    padding: 0.45rem 0.85rem !important;
     font-size: 0.76rem;
 }
 .recorder-export-btn {
@@ -2889,6 +2887,7 @@ input[type="number"]:disabled {
     isolation: isolate;
     border: 1px solid color-mix(in srgb, var(--border) 82%, white);
     border-radius: 16px;
+    clip-path: inset(0 round 16px);
     background: #050505;
     cursor: pointer;
     box-shadow:
@@ -2903,6 +2902,12 @@ input[type="number"]:disabled {
 }
 .recorder-preview-panel.has-canvas-rounded .custom-video-player-container {
     border-radius: clamp(10px, 1.15vw, 18px);
+    clip-path: inset(0 round clamp(10px, 1.15vw, 18px));
+}
+.recorder-preview-panel.has-canvas-rounded .video-preview-wrapper,
+.recorder-preview-panel.has-canvas-rounded .browser-content {
+    clip-path: inset(0 round clamp(10px, 1.15vw, 18px));
+    overflow: hidden !important;
 }
 .recorder-preview-panel.has-canvas-shadow .custom-video-player-container {
     border-color: rgb(255 255 255 / 20%);
@@ -2919,11 +2924,40 @@ input[type="number"]:disabled {
     background: rgb(10 12 16 / 72%) !important;
     box-shadow: 0 10px 30px rgb(0 0 0 / 20%);
 }
-.custom-video-player-container .download-overlay-btn {
-    top: 14px !important;
-    right: 14px !important;
-    box-shadow: 0 8px 22px rgb(0 0 0 / 22%);
+.player-export-btn {
+    color: var(--accent) !important;
+    text-decoration: none;
 }
+.style-render-veil {
+    position: absolute;
+    inset: 0;
+    z-index: 12;
+    display: grid;
+    place-content: center;
+    gap: 0.3rem;
+    text-align: center;
+    color: white;
+    background: linear-gradient(180deg, rgb(4 7 12 / 20%), rgb(4 7 12 / 62%));
+    backdrop-filter: blur(3px);
+    font-size: 0.82rem;
+    font-weight: 650;
+    pointer-events: auto;
+}
+.style-render-veil small {
+    color: rgb(255 255 255 / 65%);
+    font-size: 0.67rem;
+    font-weight: 500;
+}
+.style-render-spinner {
+    width: 18px;
+    height: 18px;
+    margin: 0 auto 0.25rem;
+    border: 2px solid rgb(255 255 255 / 22%);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: recorder-spin 850ms linear infinite;
+}
+@keyframes recorder-spin { to { transform: rotate(360deg); } }
 .scrub-container::after {
     content: "";
     position: absolute;
