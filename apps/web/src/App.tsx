@@ -128,7 +128,7 @@ export default function App() {
     },
   };
 
-  const [selectedCurve, setSelectedCurve] = useState("ease-in-out");
+  const [selectedCurve, setSelectedCurve] = useState("linear");
   const [customBezier, setCustomBezier] = useState<
     [number, number, number, number]
   >([0.42, 0, 0.58, 1]);
@@ -554,6 +554,7 @@ export default function App() {
                   <BrowserMockup
                     url={url}
                     videoUrl={(isStylePreview ? resultVideo?.sourceUrl : resultVideo?.url) || null}
+                    downloadUrl={isStylePreview ? null : resultVideo?.url || null}
                     duration={resultVideo?.duration || null}
                     scrollStrategy={resultVideo?.scrollStrategy}
                     width={width}

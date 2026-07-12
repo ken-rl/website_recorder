@@ -3,6 +3,8 @@ import React, { useRef, useState, useEffect } from "react";
 interface BrowserMockupProps {
   url: string;
   videoUrl: string | null;
+  /** Final, baked video only. Omit while the preview is showing an unstaged source. */
+  downloadUrl?: string | null;
   duration: string | null;
   scrollStrategy?: "document" | "virtual";
   width: number;
@@ -13,6 +15,7 @@ interface BrowserMockupProps {
 export default function BrowserMockup({
   url,
   videoUrl,
+  downloadUrl,
   duration,
   scrollStrategy,
   width,
@@ -155,9 +158,9 @@ export default function BrowserMockup({
           />
 
           {/* Floating Download Overlay (fades out with controls) */}
-          <a
+          {downloadUrl && <a
             id="download"
-            href={videoUrl}
+            href={downloadUrl}
             download="recording.mp4"
             title="Download video file"
             onClick={(e) => e.stopPropagation()}
@@ -195,7 +198,7 @@ export default function BrowserMockup({
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-          </a>
+          </a>}
 
           {/* Premium Custom Player Control Deck */}
           <div
