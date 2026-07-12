@@ -1,19 +1,24 @@
-# Website Recorder
+# SmoothScroll
+
+**Auto smooth-scroll recorder for the web.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
 
-Record a polished scroll-through of any webpage as an MP4. Website Recorder loads the page with Playwright, hydrates lazy content, captures a controlled scroll (document or virtual wheel), and encodes H.264 video. Frame the result with backgrounds, rounded corners, and drop shadows.
+Paste a URL → SmoothScroll loads the page, hydrates lazy content, runs a controlled scroll (eased document scroll or virtual wheel), and exports a clean H.264 MP4. Optional canvas framing (background, shadow, corners) for marketing-ready clips.
+
+> Repo package names still use `websiterecorder-*`; the product name is **SmoothScroll**.
 
 ## Features
 
-- **Smooth scroll capture** — frame-by-frame document scroll or virtual wheel input for fixed-viewport / WebGL sites
-- **Motion control** — easing curves (presets + visual bezier handles), scroll speed, hero hold
+- **Automatic smooth scroll** — not a hand-held screen recording; frame-timed scroll with easing
+- **Document + virtual capture** — normal pages and fixed-viewport / WebGL scroll sites
+- **Motion control** — curve presets + visual bezier handles, speed slider, hero hold
 - **Pause triggers** — hold when a CSS selector first enters the viewport (document scroll)
-- **Quality tiers** — Standard and Cinematic capture profiles in the UI (draft/fast available via API)
-- **Canvas framing** — background presets, soft bottom shadow, rounded corners; re-style without re-recording
+- **Quality tiers** — Standard and Cinematic in the UI (draft/fast via API)
+- **Canvas framing** — backgrounds, bottom drop shadow, rounded corners; re-style without re-recording
 - **Overlay cleanup** — strips cookie banners, modals, and popups by default
-- **Three interfaces** — web UI, CLI, and HTTP API
+- **Web UI, CLI, and HTTP API**
 
 ## Requirements
 
@@ -40,7 +45,7 @@ pnpm dev
 - **API + static UI:** [http://localhost:3847](http://localhost:3847)
 - **Vite frontend (hot reload):** URL printed by `pnpm dev:web` (proxies API to 3847)
 
-Enter a URL, choose screen size and quality, then **Start capture**.
+Enter a URL, choose screen size and quality, then **Start capture**. SmoothScroll handles the scroll and encode.
 
 ## Usage
 
@@ -53,7 +58,7 @@ pnpm dev:api      # API only (serves built/public UI on :3847)
 pnpm dev:web      # Vite frontend only
 ```
 
-**Recorder workflow**
+**Capture workflow**
 
 1. Paste a website URL and pick a viewport (desktop / laptop / tablet / mobile).
 2. Choose quality (**Standard** or **Cinematic**).
@@ -62,7 +67,7 @@ pnpm dev:web      # Vite frontend only
 5. Start capture → preview plays inline → download MP4.
 6. After capture, restyle the canvas and **Render style** without recording again.
 
-The left nav switches between Recorder and Roadmap; collapse it for more workspace.
+Left nav: Capture and Roadmap (collapsible).
 
 ### CLI
 
@@ -184,7 +189,7 @@ Copy the API env example if present, or set variables in the shell:
 
 ### Virtual scroll
 
-Some sites lock the document to one viewport (WebGL, scroll-scrubbing, infinite loops). With `scrollMode: "auto"`, Website Recorder detects this and switches to **virtual scroll** (wheel input over time). Force with `"virtual"` or `"document"`.
+Some sites lock the document to one viewport (WebGL, scroll-scrubbing, infinite loops). With `scrollMode: "auto"`, SmoothScroll detects this and switches to **virtual scroll** (wheel input over time). Force with `"virtual"` or `"document"`.
 
 ```json
 "animationConfig": {
