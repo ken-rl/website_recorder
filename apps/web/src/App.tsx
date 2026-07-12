@@ -104,9 +104,9 @@ export default function App() {
       captureMode: "export",
       fastMode: false,
       qualityPreset: "medium",
-      framerate: 30,
+      framerate: 60,
       deviceScaleFactor: 1,
-      pixelsPerFrame: 32,
+      pixelsPerFrame: 16,
       preRecordingDelayMs: 2000,
       defaultCycles: 8,
       expectedDurationMs: 25000,
@@ -140,7 +140,7 @@ export default function App() {
   const [virtualScrollCycles, setVirtualScrollCycles] = useState(8);
   const [useFixedDuration, setUseFixedDuration] = useState(false);
   const [virtualScrollDurationMs, setVirtualScrollDurationMs] = useState(30000);
-  const [pixelsPerFrame, setPixelsPerFrame] = useState(32);
+  const [pixelsPerFrame, setPixelsPerFrame] = useState(16);
   const [heroHoldMs, setHeroHoldMs] = useState(1500);
   const [backgroundPreset, setBackgroundPreset] =
     useState<BackgroundPreset>("none");

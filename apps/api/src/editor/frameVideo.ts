@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BackgroundPreset } from "../types.js";
-import { probeVideoSize } from "../transcode/probe.js";
+import { probeVideoFps, probeVideoSize } from "../transcode/probe.js";
 import type { EncodeSettings } from "../transcode/quality.js";
 
 const PRESET_FILES: Record<Exclude<BackgroundPreset, "none">, string> = {
@@ -25,6 +25,7 @@ export async function frameVideoOnBackground(options: {
   const { inputPath, outputPath, preset, addShadow, roundedCorners = false, encode } = options;
   const size = await probeVideoSize(inputPath);
   if (!size) throw new Error("Could not read video dimensions for background export");
+  const fps = (await probeVideoFps(inputPath)) ?? 30;
 
   const width = even(size.width);
   const height = even(size.height);
@@ -45,12 +46,12 @@ export async function frameVideoOnBackground(options: {
   if (addShadow) {
     filters.push(
       `[card]split[card-output][card-shadow]`,
-      `[card-shadow]colorchannelmixer=rr=0:gg=0:bb=0:aa=0.23,gblur=sigma=16:steps=2[shadow]`,
-      `[bg][shadow]overlay=${x}:${y + Math.max(5, Math.round(height * 0.009))}[canvas]`,
-      `[canvas][card-output]overlay=${x}:${y}:shortest=1,format=yuv420p[output]`,
+      `[card-shadow]colorchannelmixer=rr=0:gg=0:bb=0:aa=0.16,gblur=sigma=22:steps=2[shadow]`,
+      `[bg][shadow]overlay=${x}:${y + Math.max(3, Math.round(height * 0.006))}[canvas]`,
+      `[canvas][card-output]overlay=${x}:${y}:shortest=1,fps=${fps},format=yuv420p[output]`,
     );
   } else {
-    filters.push(`[bg][card]overlay=${x}:${y}:shortest=1,format=yuv420p[output]`);
+    filters.push(`[bg][card]overlay=${x}:${y}:shortest=1,fps=${fps},format=yuv420p[output]`);
   }
 
   await runFfmpeg([
