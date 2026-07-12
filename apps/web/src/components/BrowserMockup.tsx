@@ -38,6 +38,7 @@ export default function BrowserMockup({
   const [videoDuration, setVideoDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [isScrubbing, setIsScrubbing] = useState(false);
 
   // Auto-hide controls during playback
   useEffect(() => {
@@ -98,14 +99,34 @@ export default function BrowserMockup({
     }
   };
 
-  const handleScrub = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.stopPropagation();
+  const seekFromPointer = (clientX: number, element: HTMLDivElement) => {
     if (!videoRef.current || videoDuration === 0) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
+    const rect = element.getBoundingClientRect();
+    const clickX = clientX - rect.left;
     const percentage = Math.max(0, Math.min(1, clickX / rect.width));
     videoRef.current.currentTime = percentage * videoDuration;
     setCurrentTime(percentage * videoDuration);
+  };
+
+  const handleScrubStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setIsScrubbing(true);
+    seekFromPointer(e.clientX, e.currentTarget);
+  };
+
+  const handleScrubMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    e.stopPropagation();
+    seekFromPointer(e.clientX, e.currentTarget);
+  };
+
+  const handleScrubEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    setIsScrubbing(false);
   };
 
   const formatTime = (timeInSecs: number) => {
@@ -126,16 +147,6 @@ export default function BrowserMockup({
         <div
           ref={containerRef}
           onClick={() => handlePlayPause()}
-          style={{
-            position: "relative",
-            width: "100%",
-            borderRadius: "12px",
-            overflow: "hidden",
-            border: "1px solid var(--border)",
-            boxShadow: "0 20px 40px rgba(0, 0, 0, 0.4)",
-            background: "#050505",
-            cursor: "pointer",
-          }}
           className="custom-video-player-container"
         >
           <video
@@ -269,7 +280,10 @@ export default function BrowserMockup({
 
             {/* Custom Interactive Timeline Scrubber */}
             <div
-              onClick={handleScrub}
+              onPointerDown={handleScrubStart}
+              onPointerMove={handleScrubMove}
+              onPointerUp={handleScrubEnd}
+              onPointerCancel={handleScrubEnd}
               style={{
                 flex: 1,
                 height: "16px",
@@ -277,8 +291,9 @@ export default function BrowserMockup({
                 alignItems: "center",
                 cursor: "pointer",
                 position: "relative",
+                touchAction: "none",
               }}
-              className="scrub-container"
+              className={`scrub-container${isScrubbing ? " is-scrubbing" : ""}`}
             >
               <div
                 style={{
