@@ -728,6 +728,8 @@ export default function App() {
                     width={previewWidth}
                     height={previewHeight}
                     isSubmitting={isSubmitting}
+                    recordingStatus={isSubmitting ? progressStatus : undefined}
+                    recordingElapsed={isSubmitting ? elapsedTime : undefined}
                   />
                 </section>
               </div>
