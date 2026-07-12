@@ -35,21 +35,19 @@ export default function AppSidebar({
           type="button"
           className="app-nav-brand"
           onClick={() => onNavigate("/")}
-          title="Website Recorder"
+          title="Scrollizard"
         >
-          <LordIcon
-            src={LORDICON.logo}
-            size={26}
-            trigger={isRecording ? "loop" : "hover"}
-            colors={
-              theme === "light"
-                ? "primary:#090d16,secondary:#3e4e63"
-                : "primary:#f4f4f5,secondary:#a1a1aa"
-            }
+          <img
+            src="/logo.png"
+            alt=""
+            className="app-nav-logo"
+            width={28}
+            height={28}
+            draggable={false}
           />
           {!collapsed && (
             <span className="app-nav-brand-text">
-              <strong>Website Recorder</strong>
+              <strong>Scrollizard</strong>
               {isRecording && (
                 <span className="app-nav-live">Recording</span>
               )}
@@ -62,14 +60,14 @@ export default function AppSidebar({
             type="button"
             className={`app-nav-link${isRecorder ? " is-active" : ""}`}
             onClick={() => onNavigate("/")}
-            title="Recorder"
+            title="Capture"
           >
             <LordIcon
               src={LORDICON.recorder}
               size={18}
               trigger={isRecorder ? "loop" : "hover"}
             />
-            {!collapsed && <span>Recorder</span>}
+            {!collapsed && <span>Capture</span>}
           </button>
           <button
             type="button"

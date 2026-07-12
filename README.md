@@ -1,22 +1,31 @@
-# SmoothScroll
+# Scrollizard
 
-**Auto smooth-scroll recorder for the web.**
+<p align="center">
+  <img src="assets/logo.png" alt="Scrollizard logo — lizard with a red recording head" width="160" />
+</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
+<p align="center">
+  <strong>Auto smooth-scroll recordings of live websites.</strong><br />
+  Paste a URL. Get a polished scroll demo MP4.
+</p>
 
-Paste a URL → SmoothScroll loads the page, hydrates lazy content, runs a controlled scroll (eased document scroll or virtual wheel), and exports a clean H.264 MP4. Optional canvas framing (background, shadow, corners) for marketing-ready clips.
+<p align="center">
+  <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" />
+  <img alt="Node.js" src="https://img.shields.io/badge/node-%3E%3D20-brightgreen" />
+</p>
 
-> Repo package names still use `websiterecorder-*`; the product name is **SmoothScroll**.
+Scrollizard loads a page with Playwright, hydrates lazy content, runs a controlled scroll (eased document scroll or virtual wheel), and exports H.264 MP4. Optional canvas framing — backgrounds, soft bottom shadow, rounded corners — for marketing-ready clips.
+
+> Package paths still use `websiterecorder-*`; the product is **Scrollizard**.
 
 ## Features
 
-- **Automatic smooth scroll** — not a hand-held screen recording; frame-timed scroll with easing
+- **Automatic smooth scroll** — frame-timed scroll with easing, not a hand-held screen record
 - **Document + virtual capture** — normal pages and fixed-viewport / WebGL scroll sites
 - **Motion control** — curve presets + visual bezier handles, speed slider, hero hold
 - **Pause triggers** — hold when a CSS selector first enters the viewport (document scroll)
 - **Quality tiers** — Standard and Cinematic in the UI (draft/fast via API)
-- **Canvas framing** — backgrounds, bottom drop shadow, rounded corners; re-style without re-recording
+- **Canvas framing** — backgrounds, drop shadow, rounded corners; re-style without re-recording
 - **Overlay cleanup** — strips cookie banners, modals, and popups by default
 - **Web UI, CLI, and HTTP API**
 
@@ -45,7 +54,7 @@ pnpm dev
 - **API + static UI:** [http://localhost:3847](http://localhost:3847)
 - **Vite frontend (hot reload):** URL printed by `pnpm dev:web` (proxies API to 3847)
 
-Enter a URL, choose screen size and quality, then **Start capture**. SmoothScroll handles the scroll and encode.
+Enter a URL, choose screen size and quality, then **Start capture**. Scrollizard handles the scroll and encode.
 
 ## Usage
 
@@ -156,8 +165,6 @@ Content-Type: application/json
 
 ## Configuration
 
-Copy the API env example if present, or set variables in the shell:
-
 | Variable | Default | Description |
 | -------- | ------- | ----------- |
 | `PORT` | `3847` | HTTP server port |
@@ -189,7 +196,7 @@ Copy the API env example if present, or set variables in the shell:
 
 ### Virtual scroll
 
-Some sites lock the document to one viewport (WebGL, scroll-scrubbing, infinite loops). With `scrollMode: "auto"`, SmoothScroll detects this and switches to **virtual scroll** (wheel input over time). Force with `"virtual"` or `"document"`.
+Some sites lock the document to one viewport (WebGL, scroll-scrubbing, infinite loops). With `scrollMode: "auto"`, Scrollizard detects this and switches to **virtual scroll** (wheel input over time). Force with `"virtual"` or `"document"`.
 
 ```json
 "animationConfig": {
@@ -244,12 +251,14 @@ apps/
       editor/          framing / style composite
       pipeline/        record + style orchestration
       transcode/       ffmpeg
-    public/            built web assets served by the API
+    public/            built web assets + logo.png
   web/                 React + Vite UI
     src/
       App.tsx
       components/      motion, canvas, pause triggers, preview player
-docs/                  design notes, roadmap, production readiness
+    public/logo.png
+assets/
+  logo.png             README / brand mark
 outputs/               recorded videos (gitignored)
 ```
 

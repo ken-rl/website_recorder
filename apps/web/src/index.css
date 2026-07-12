@@ -247,6 +247,14 @@ body > * {
 .app-nav-brand:hover {
     background: var(--surface-muted);
 }
+.app-nav-logo {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border-radius: 7px;
+    object-fit: contain;
+    display: block;
+}
 .app-nav-brand-text {
     display: flex;
     flex-direction: column;
