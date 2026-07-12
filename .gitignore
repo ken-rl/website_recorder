@@ -8,7 +8,7 @@ outputs/*
 
 apps/api/outputs/*
 
-# Ignore non-markdown docs assets by default; keep design notes in git
+# Private product/design notes — not published with the repo
 docs/*
 
 *.webm
