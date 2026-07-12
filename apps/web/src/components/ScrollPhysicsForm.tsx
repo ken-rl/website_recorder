@@ -7,8 +7,6 @@ interface ScrollPhysicsFormProps {
   setSelectedCurve: (c: string) => void;
   customBezier: [number, number, number, number];
   setCustomBezier: (b: [number, number, number, number]) => void;
-  customInputText: string;
-  setCustomInputText: (t: string) => void;
   pixelsPerFrame: number;
   setPixelsPerFrame: (p: number) => void;
   heroHoldMs: number;
@@ -20,26 +18,11 @@ export default function ScrollPhysicsForm({
   setSelectedCurve,
   customBezier,
   setCustomBezier,
-  customInputText,
-  setCustomInputText,
   pixelsPerFrame,
   setPixelsPerFrame,
   heroHoldMs,
   setHeroHoldMs,
 }: ScrollPhysicsFormProps) {
-  const handleBezierTextInputChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const val = e.target.value;
-    setCustomInputText(val);
-    if (selectedCurve === "custom") {
-      const parts = val.split(",").map((p) => Number(p.trim()));
-      if (parts.length === 4 && parts.every((n) => !Number.isNaN(n))) {
-        setCustomBezier(parts as [number, number, number, number]);
-      }
-    }
-  };
-
   return (
     <div className="scroll-physics-form">
       <div className="field">
@@ -49,15 +32,7 @@ export default function ScrollPhysicsForm({
         <select
           id="curveSelect"
           value={selectedCurve}
-          onChange={(e) => {
-            const val = e.target.value;
-            setSelectedCurve(val);
-            if (val === "custom") {
-              setCustomInputText(
-                customBezier.map((n) => n.toFixed(2)).join(", "),
-              );
-            }
-          }}
+          onChange={(e) => setSelectedCurve(e.target.value)}
         >
           <option value="linear">Linear (Constant speed)</option>
           <option value="ease-in">Ease In (Slow start)</option>
@@ -182,30 +157,8 @@ export default function ScrollPhysicsForm({
           setSelectedCurve={setSelectedCurve}
           customBezier={customBezier}
           setCustomBezier={setCustomBezier}
-          customInputText={customInputText}
-          setCustomInputText={setCustomInputText}
           embedded={true}
           pixelsPerFrame={pixelsPerFrame}
-        />
-      </div>
-
-      <div
-        className={`field${selectedCurve !== "custom" ? " hidden" : ""}`}
-        id="customBezierField"
-      >
-        <FieldLabel
-          htmlFor="customBezier"
-          hint="Standard CSS cubic-bezier parameters, e.g. 0.42, 0, 0.58, 1"
-        >
-          Custom Cubic Bezier
-        </FieldLabel>
-        <input
-          type="text"
-          id="customBezier"
-          name="customBezier"
-          value={customInputText}
-          onChange={handleBezierTextInputChange}
-          placeholder="x1, y1, x2, y2"
         />
       </div>
     </div>

@@ -134,13 +134,28 @@ async function createStaticLayers(options: {
   ]);
 
   if (shadowPath) {
-    const shadowY = y + Math.max(3, Math.round(height * 0.006));
-    const shadowBlur = Math.max(12, Math.round(Math.min(width, height) * 0.016));
+    // Soft bottom drop-shadow: mainly below the card so it reads on light and busy
+    // backgrounds. Slight X inset + wider blur keeps it natural without a hard halo.
+    const shadowOffsetY = Math.max(22, Math.round(height * 0.032));
+    const shadowY = y + shadowOffsetY;
+    const shadowBlur = Math.max(28, Math.round(Math.min(width, height) * 0.034));
+    const shadowAlpha = 0.38;
+    // Grow the shadow plate a touch so blur doesn't thin out at the sides.
+    const shadowPadX = Math.max(8, Math.round(contentWidth * 0.012));
+    const shadowW = even(contentWidth + shadowPadX * 2);
+    const shadowH = even(contentHeight + Math.round(shadowOffsetY * 0.35));
+    const shadowX = Math.max(0, x - shadowPadX);
     await runFfmpeg([
       "-y", "-i", maskPath,
       "-f", "lavfi", "-i", `color=c=black:s=${contentWidth}x${contentHeight}:r=1`,
       "-filter_complex",
-      `[0:v]format=gray[mask];[1:v]format=rgba[black];[black][mask]alphamerge,pad=${width}:${height}:${x}:${shadowY}:color=black@0,format=rgba,colorchannelmixer=aa=0.16,gblur=sigma=${shadowBlur}:steps=2[output]`,
+      // Soft plate → pad into full frame (offset down) → opacity → blur
+      `[0:v]format=gray,scale=${shadowW}:${shadowH}:flags=bilinear[mask];` +
+        `[1:v]format=rgba,scale=${shadowW}:${shadowH}:flags=bilinear[black];` +
+        `[black][mask]alphamerge,` +
+        `pad=${width}:${height}:${shadowX}:${shadowY}:color=black@0,` +
+        `format=rgba,colorchannelmixer=aa=${shadowAlpha},` +
+        `gblur=sigma=${shadowBlur}:steps=3[output]`,
       "-map", "[output]", "-frames:v", "1", "-c:v", "png", shadowPath,
     ]);
   }

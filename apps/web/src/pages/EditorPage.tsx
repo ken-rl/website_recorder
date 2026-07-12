@@ -986,8 +986,6 @@ export default function EditorPage({
                         setSelectedCurve={setCurvePreset}
                         customBezier={customBezier}
                         setCustomBezier={setCustomBezier}
-                        customInputText={customBezier.map(n => n.toFixed(2)).join(", ")}
-                        setCustomInputText={() => {}}
                         embedded={true}
                       />
                     </div>

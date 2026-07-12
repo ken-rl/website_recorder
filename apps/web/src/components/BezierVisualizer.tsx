@@ -65,8 +65,6 @@ interface BezierVisualizerProps {
   setSelectedCurve: (c: string) => void;
   customBezier: [number, number, number, number];
   setCustomBezier: (b: [number, number, number, number]) => void;
-  customInputText: string;
-  setCustomInputText: (t: string) => void;
   embedded?: boolean;
   pixelsPerFrame?: number;
 }
@@ -118,21 +116,156 @@ export function sampleCurveY(
   return sampleYVal(Math.min(1, Math.max(0, param)));
 }
 
+/** Resolve a CSS color (including custom properties) to "r, g, b" for rgba(). */
+function cssColorToRgbChannels(color: string): string {
+  if (typeof document === "undefined") return "0, 0, 0";
+  const probe = document.createElement("span");
+  probe.style.color = color;
+  probe.style.position = "absolute";
+  probe.style.visibility = "hidden";
+  document.body.appendChild(probe);
+  const resolved = getComputedStyle(probe).color;
+  document.body.removeChild(probe);
+  const match = resolved.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+  if (!match) return "0, 0, 0";
+  return `${Math.round(Number(match[1]))}, ${Math.round(Number(match[2]))}, ${Math.round(Number(match[3]))}`;
+}
+
+type CurveCanvasPalette = {
+  isLight: boolean;
+  ink: string;
+  inkRgb: string;
+  accent: string;
+  accentRgb: string;
+  border: string;
+  surface: string;
+  surfaceMuted: string;
+  grid: string;
+  control: string;
+  simChrome: string;
+  simBlock: string;
+  simLine: string;
+  simTitle: string;
+  scrollbar: string;
+};
+
+function readCurveCanvasPalette(): CurveCanvasPalette {
+  const root = document.documentElement;
+  const themeAttr = root.getAttribute("data-theme");
+  const isLight =
+    themeAttr === "light" ||
+    (!themeAttr &&
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-color-scheme: light)").matches);
+
+  const style = getComputedStyle(root);
+  const text = style.getPropertyValue("--text").trim() || (isLight ? "#090d16" : "#fafafa");
+  const muted = style.getPropertyValue("--muted").trim() || (isLight ? "#3e4e63" : "#8e8e93");
+  const border = style.getPropertyValue("--border").trim() || (isLight ? "#e2e8f0" : "rgba(255,255,255,0.07)");
+  const surface = style.getPropertyValue("--surface").trim() || (isLight ? "#ffffff" : "#121214");
+  const surfaceMuted =
+    style.getPropertyValue("--surface-muted").trim() ||
+    style.getPropertyValue("--surface-elevated").trim() ||
+    (isLight ? "#f8fafc" : "#1e1e24");
+  const accent = style.getPropertyValue("--accent").trim() || (isLight ? "#2563eb" : "#3b82f6");
+  const bg = style.getPropertyValue("--bg").trim() || (isLight ? "#f8fafc" : "#09090b");
+
+  const inkRgb = cssColorToRgbChannels(text);
+  const accentRgb = cssColorToRgbChannels(accent);
+  const mutedRgb = cssColorToRgbChannels(muted);
+
+  if (isLight) {
+    return {
+      isLight: true,
+      ink: text,
+      inkRgb,
+      accent,
+      accentRgb,
+      border: border.startsWith("#") || border.startsWith("rgb") ? border : "#e2e8f0",
+      surface,
+      surfaceMuted,
+      grid: `rgba(${inkRgb}, 0.07)`,
+      control: `rgba(${mutedRgb}, 0.55)`,
+      simChrome: surfaceMuted,
+      simBlock: `rgba(${inkRgb}, 0.06)`,
+      simLine: `rgba(${inkRgb}, 0.14)`,
+      simTitle: `rgba(${inkRgb}, 0.28)`,
+      scrollbar: `rgba(${inkRgb}, 0.28)`,
+    };
+  }
+
+  return {
+    isLight: false,
+    ink: text,
+    inkRgb,
+    accent,
+    accentRgb,
+    border: border.includes("rgb") || border.startsWith("#") ? border : `rgba(${inkRgb}, 0.12)`,
+    surface: surface || bg,
+    surfaceMuted,
+    grid: `rgba(${inkRgb}, 0.06)`,
+    control: `rgba(${inkRgb}, 0.28)`,
+    simChrome: `rgba(${inkRgb}, 0.04)`,
+    simBlock: `rgba(${inkRgb}, 0.06)`,
+    simLine: `rgba(${inkRgb}, 0.14)`,
+    simTitle: `rgba(${inkRgb}, 0.28)`,
+    scrollbar: `rgba(${inkRgb}, 0.28)`,
+  };
+}
+
 export default function BezierVisualizer({
   selectedCurve,
   setSelectedCurve,
   customBezier,
   setCustomBezier,
-  customInputText,
-  setCustomInputText,
   embedded = false,
   pixelsPerFrame = 16,
 }: BezierVisualizerProps) {
   const [hoveredHandle, setHoveredHandle] = useState<number | null>(null);
+  const [themeKey, setThemeKey] = useState(() =>
+    typeof document !== "undefined"
+      ? document.documentElement.getAttribute("data-theme") || "dark"
+      : "dark",
+  );
   const activeDragHandle = useRef<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const previewFrame = useRef(0);
+  const paletteRef = useRef<CurveCanvasPalette>(
+    typeof document !== "undefined"
+      ? readCurveCanvasPalette()
+      : {
+          isLight: false,
+          ink: "#fafafa",
+          inkRgb: "250, 250, 250",
+          accent: "#3b82f6",
+          accentRgb: "59, 130, 246",
+          border: "rgba(255,255,255,0.12)",
+          surface: "#121214",
+          surfaceMuted: "#1e1e24",
+          grid: "rgba(255,255,255,0.06)",
+          control: "rgba(255,255,255,0.28)",
+          simChrome: "rgba(255,255,255,0.04)",
+          simBlock: "rgba(255,255,255,0.06)",
+          simLine: "rgba(255,255,255,0.14)",
+          simTitle: "rgba(255,255,255,0.28)",
+          scrollbar: "rgba(255,255,255,0.28)",
+        },
+  );
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const syncTheme = () => {
+      const next = root.getAttribute("data-theme") || "dark";
+      paletteRef.current = readCurveCanvasPalette();
+      setThemeKey(next);
+    };
+    syncTheme();
+
+    const observer = new MutationObserver(syncTheme);
+    observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
 
   const getSelectedBezier = (): [number, number, number, number] => {
     if (selectedCurve === "custom") {
@@ -172,6 +305,7 @@ export default function BezierVisualizer({
 
     function render() {
       if (!canvas || !ctx) return;
+      const palette = paletteRef.current;
       const bezier = getSelectedBezier();
       const [x1, y1, x2, y2] = bezier;
       const width = canvas.width;
@@ -180,12 +314,9 @@ export default function BezierVisualizer({
       const innerW = 316;
       const innerH = 132;
 
-      const compStyle = window.getComputedStyle(canvas);
-      const textCol = compStyle.getPropertyValue("--text-primary").trim() || "#ffffff";
-      const isLightTheme = textCol.includes("0, 0, 0") || textCol.startsWith("#0") || textCol.startsWith("#1") || textCol.startsWith("#2") || textCol.startsWith("#3") || textCol.startsWith("#4") || textCol.startsWith("#5") || textCol.includes("rgb(17") || textCol.includes("rgb(34");
-      
-      const themeColor = isLightTheme ? "#111827" : "#ffffff";
-      const themeColorRgb = isLightTheme ? "17, 24, 39" : "255, 255, 255";
+      // Curve stroke uses brand accent in light mode for contrast; ink in dark.
+      const curveColor = palette.isLight ? palette.accent : palette.ink;
+      const curveRgb = palette.isLight ? palette.accentRgb : palette.inkRgb;
 
       const points = curvePoints(bezier, 364, height, padding);
 
@@ -214,8 +345,18 @@ export default function BezierVisualizer({
 
       ctx.clearRect(0, 0, width, height);
 
+      // Soft plot background (light mode only — dark stays transparent)
+      if (palette.isLight) {
+        ctx.fillStyle = palette.surfaceMuted;
+        ctx.beginPath();
+        ctx.roundRect(padding - 4, padding - 4, innerW + 8, innerH + 8, 8);
+        ctx.fill();
+      }
+
       // 1. Draw separator
-      ctx.strokeStyle = `rgba(${themeColorRgb}, 0.1)`;
+      ctx.strokeStyle = palette.isLight
+        ? `rgba(${palette.inkRgb}, 0.1)`
+        : `rgba(${palette.inkRgb}, 0.1)`;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(380, 16);
@@ -223,7 +364,7 @@ export default function BezierVisualizer({
       ctx.stroke();
 
       // 2. Draw grids
-      ctx.strokeStyle = `rgba(${themeColorRgb}, 0.04)`;
+      ctx.strokeStyle = palette.grid;
       ctx.lineWidth = 1;
       for (let i = 1; i <= 3; i++) {
         const y = padding + (i / 4) * innerH;
@@ -240,7 +381,7 @@ export default function BezierVisualizer({
       }
 
       // 3. Draw border
-      ctx.strokeStyle = "var(--border)";
+      ctx.strokeStyle = palette.border;
       ctx.lineWidth = 1;
       ctx.strokeRect(padding, padding, innerW, innerH);
 
@@ -250,7 +391,7 @@ export default function BezierVisualizer({
       const cx2 = padding + x2 * innerW;
       const cy2 = padding + (1 - y2) * innerH;
 
-      ctx.strokeStyle = `rgba(${themeColorRgb}, 0.25)`;
+      ctx.strokeStyle = palette.control;
       ctx.lineWidth = 1.25;
       ctx.setLineDash([3, 3]);
 
@@ -267,7 +408,7 @@ export default function BezierVisualizer({
       ctx.setLineDash([]);
 
       // 5. Draw curve
-      ctx.strokeStyle = themeColor;
+      ctx.strokeStyle = curveColor;
       ctx.lineWidth = 2.5;
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
@@ -279,39 +420,61 @@ export default function BezierVisualizer({
       ctx.stroke();
 
       // 6. Draw handles
-      let g1 =
-        hoveredHandle === 1 || activeDragHandle.current === 1 ? 0.35 : 0.15;
-      ctx.fillStyle = `rgba(${themeColorRgb}, ${g1})`;
+      const handleHalo =
+        hoveredHandle === 1 || activeDragHandle.current === 1 ? 0.22 : 0.1;
+      ctx.fillStyle = `rgba(${curveRgb}, ${handleHalo})`;
       ctx.beginPath();
       ctx.arc(cx1, cy1, 10, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = themeColor;
+      ctx.fillStyle = palette.surface;
       ctx.beginPath();
-      ctx.arc(cx1, cy1, 4.5, 0, Math.PI * 2);
+      ctx.arc(cx1, cy1, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = curveColor;
+      ctx.lineWidth = 1.75;
+      ctx.beginPath();
+      ctx.arc(cx1, cy1, 5.5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = curveColor;
+      ctx.beginPath();
+      ctx.arc(cx1, cy1, 2.75, 0, Math.PI * 2);
       ctx.fill();
 
-      let g2 =
-        hoveredHandle === 2 || activeDragHandle.current === 2 ? 0.35 : 0.15;
-      ctx.fillStyle = `rgba(${themeColorRgb}, ${g2})`;
+      const handleHalo2 =
+        hoveredHandle === 2 || activeDragHandle.current === 2 ? 0.22 : 0.1;
+      ctx.fillStyle = `rgba(${curveRgb}, ${handleHalo2})`;
       ctx.beginPath();
       ctx.arc(cx2, cy2, 10, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = themeColor;
+      ctx.fillStyle = palette.surface;
       ctx.beginPath();
-      ctx.arc(cx2, cy2, 4.5, 0, Math.PI * 2);
+      ctx.arc(cx2, cy2, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = curveColor;
+      ctx.lineWidth = 1.75;
+      ctx.beginPath();
+      ctx.arc(cx2, cy2, 5.5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = curveColor;
+      ctx.beginPath();
+      ctx.arc(cx2, cy2, 2.75, 0, Math.PI * 2);
       ctx.fill();
 
       // 7. Draw marker
-      ctx.fillStyle = themeColor;
+      ctx.fillStyle = `rgba(${curveRgb}, 0.16)`;
+      ctx.beginPath();
+      ctx.arc(marker.x, marker.y, 10, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = palette.surface;
       ctx.beginPath();
       ctx.arc(marker.x, marker.y, 5, 0, Math.PI * 2);
       ctx.fill();
-
-      ctx.fillStyle = `rgba(${themeColorRgb}, 0.15)`;
+      ctx.fillStyle = curveColor;
       ctx.beginPath();
-      ctx.arc(marker.x, marker.y, 10, 0, Math.PI * 2);
+      ctx.arc(marker.x, marker.y, 3.5, 0, Math.PI * 2);
       ctx.fill();
 
       // 8. Draw simulator
@@ -321,21 +484,38 @@ export default function BezierVisualizer({
       const simH = innerH;
       const headerH = 14;
 
-      ctx.fillStyle = "var(--surface)";
+      ctx.fillStyle = palette.isLight ? palette.surface : palette.surface;
       ctx.fillRect(simX, simY, simW, simH);
 
-      ctx.fillStyle = `rgba(${themeColorRgb}, 0.03)`;
+      // Light mode: subtle card shadow so the sim reads against the plot
+      if (palette.isLight) {
+        ctx.save();
+        ctx.shadowColor = "rgba(15, 23, 42, 0.08)";
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 2;
+        ctx.fillStyle = palette.surface;
+        ctx.fillRect(simX, simY, simW, simH);
+        ctx.restore();
+      }
+
+      ctx.fillStyle = palette.simChrome;
       ctx.fillRect(simX, simY, simW, headerH);
 
-      ctx.strokeStyle = "var(--border)";
+      ctx.strokeStyle = palette.border;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(simX, simY + headerH);
       ctx.lineTo(simX + simW, simY + headerH);
       ctx.stroke();
 
-      ctx.fillStyle = `rgba(${themeColorRgb}, 0.2)`;
+      // Traffic lights
+      const dotColors = palette.isLight
+        ? ["#ff5f57", "#febc2e", "#28c840"]
+        : null;
       for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = dotColors
+          ? dotColors[i]
+          : `rgba(${palette.inkRgb}, 0.22)`;
         ctx.beginPath();
         ctx.arc(simX + 10 + i * 5, simY + headerH / 2, 1.5, 0, Math.PI * 2);
         ctx.fill();
@@ -346,6 +526,10 @@ export default function BezierVisualizer({
       ctx.rect(simX, simY + headerH, simW, simH - headerH);
       ctx.clip();
 
+      // Simulated page background
+      ctx.fillStyle = palette.isLight ? "#f8fafc" : `rgba(${palette.inkRgb}, 0.02)`;
+      ctx.fillRect(simX, simY + headerH, simW, simH - headerH);
+
       const pageHeight = 320;
       const maxScroll = pageHeight - (simH - headerH);
       const scrollY = eased * maxScroll;
@@ -354,14 +538,14 @@ export default function BezierVisualizer({
         const elemY = simY + headerH + y - scrollY;
 
         if (y === 26 || y === 122 || y === 218) {
-          ctx.fillStyle = `rgba(${themeColorRgb}, 0.05)`;
+          ctx.fillStyle = palette.simBlock;
           ctx.fillRect(simX + 10, elemY, simW - 20, 24);
           y += 18;
         } else if (y === 58 || y === 154 || y === 250) {
-          ctx.fillStyle = `rgba(${themeColorRgb}, 0.25)`;
+          ctx.fillStyle = palette.simTitle;
           ctx.fillRect(simX + 10, elemY, 50, 4);
         } else {
-          ctx.fillStyle = `rgba(${themeColorRgb}, 0.12)`;
+          ctx.fillStyle = palette.simLine;
           const lineW = y % 3 === 0 ? 90 : y % 2 === 0 ? 75 : 105;
           ctx.fillRect(simX + 10, elemY, Math.min(lineW, simW - 20), 2.5);
         }
@@ -369,14 +553,14 @@ export default function BezierVisualizer({
 
       ctx.restore();
 
-      ctx.strokeStyle = "var(--border)";
+      ctx.strokeStyle = palette.border;
       ctx.lineWidth = 1.25;
       ctx.strokeRect(simX, simY, simW, simH);
 
       const sbHeight = ((simH - headerH) / pageHeight) * (simH - headerH);
       const sbY =
         simY + headerH + (scrollY / maxScroll) * (simH - headerH - sbHeight);
-      ctx.fillStyle = `rgba(${themeColorRgb}, 0.25)`;
+      ctx.fillStyle = palette.scrollbar;
       ctx.fillRect(simX + simW - 3, sbY, 1.5, sbHeight);
 
       previewFrame.current += 1;
@@ -389,7 +573,7 @@ export default function BezierVisualizer({
       if (animationFrameRef.current)
         cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [selectedCurve, customBezier, hoveredHandle, pixelsPerFrame]);
+  }, [selectedCurve, customBezier, hoveredHandle, pixelsPerFrame, themeKey]);
 
   function getPosFromEvent(
     e:
@@ -487,7 +671,6 @@ export default function BezierVisualizer({
       }
 
       setCustomBezier(nextBezier);
-      setCustomInputText(nextBezier.map((n) => n.toFixed(2)).join(", "));
     } else {
       const [x1, y1, x2, y2] = getSelectedBezier();
       const cx1 = padding + x1 * innerW;
@@ -545,8 +728,7 @@ export default function BezierVisualizer({
         />
       </div>
       <p className="canvas-tip">
-        Drag the white handle points on the grid to visually customize the
-        curve.
+        Drag the handle points on the grid to visually customize the curve.
       </p>
     </div>
   );

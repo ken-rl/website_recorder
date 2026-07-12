@@ -138,9 +138,6 @@ export default function App() {
   const [customBezier, setCustomBezier] = useState<
     [number, number, number, number]
   >([0.42, 0, 0.58, 1]);
-  const [customInputText, setCustomInputText] = useState(
-    "0.42, 0.00, 0.58, 1.00",
-  );
 
   const [scrollMode, setScrollMode] = useState<ScrollModeOption>("auto");
   const [virtualScrollCycles, setVirtualScrollCycles] = useState(8);
@@ -524,8 +521,6 @@ export default function App() {
                         setSelectedCurve={setSelectedCurve}
                         customBezier={customBezier}
                         setCustomBezier={setCustomBezier}
-                        customInputText={customInputText}
-                        setCustomInputText={setCustomInputText}
                         pixelsPerFrame={pixelsPerFrame}
                         setPixelsPerFrame={setPixelsPerFrame}
                         heroHoldMs={heroHoldMs}

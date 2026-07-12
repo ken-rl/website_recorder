@@ -154,6 +154,8 @@ export default function BrowserMockup({
         className={`result-container capture-window${isPortrait ? " is-portrait-device" : " is-landscape-device"}`}
         style={previewVars}
       >
+        {/* Outer shell holds drop-shadow (must not use overflow/clip-path). */}
+        <div className="video-card-shell">
         <div
           ref={containerRef}
           onClick={() => handlePlayPause()}
@@ -379,6 +381,7 @@ export default function BrowserMockup({
               </a>
             )}
           </div>
+        </div>
         </div>
 
         {duration && (

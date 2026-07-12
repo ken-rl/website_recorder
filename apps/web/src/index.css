@@ -1868,6 +1868,10 @@ select {
     margin-bottom: 1.15rem;
     padding: 0.85rem;
 }
+html[data-theme="light"] .curve-preview {
+    background: var(--surface);
+    box-shadow: var(--shadow-soft);
+}
 .curve-preview-head {
     justify-content: space-between;
     align-items: baseline;
@@ -1893,10 +1897,26 @@ select {
     position: relative;
     overflow: hidden;
 }
+html[data-theme="light"] .canvas-container {
+    background: var(--surface-muted);
+    border-color: var(--border);
+}
+html[data-theme="light"] .curve-preview-embedded .canvas-container {
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
 .curve-preview-canvas {
     width: 100%;
     height: 180px;
     display: block;
+}
+.canvas-tip {
+    color: var(--muted);
+    text-align: center;
+    margin-top: 0.65rem;
+    font-size: 0.72rem;
+    line-height: 1.4;
 }
 .curve-preview-embedded {
     background: 0 0;
@@ -1975,13 +1995,6 @@ select {
     max-width: 90%;
     font-size: 0.62rem;
     overflow: hidden;
-}
-.canvas-tip {
-    color: var(--muted);
-    text-align: center;
-    margin-top: 0.65rem;
-    font-size: 0.72rem;
-    line-height: 1.4;
 }
 .curve-selection-area {
     margin-top: 1.5rem;
@@ -3201,7 +3214,8 @@ input[type="number"]:disabled {
     min-height: 0;
     padding: clamp(1.5rem, 4vw, 4rem);
     position: relative;
-    overflow: hidden;
+    /* Visible so card drop-shadows aren't clipped by the stage */
+    overflow: visible;
 }
 .recorder-preview-panel::before {
     content: "";
@@ -3211,6 +3225,7 @@ input[type="number"]:disabled {
     background-size: 14px 14px;
     position: absolute;
     inset: 0;
+    border-radius: inherit;
     mask-image: linear-gradient(to bottom, #000, transparent 76%);
 }
 .recorder-preview {
@@ -3221,41 +3236,63 @@ input[type="number"]:disabled {
     border-radius: 14px !important;
     box-shadow: 0 24px 60px #0000002e !important;
 }
+/* Shadow lives on the shell so overflow/radius on the player don't clip it. */
+.video-card-shell {
+    position: relative;
+    width: 100%;
+    border-radius: 16px;
+    /* Default ambient lift for unframed playback */
+    box-shadow:
+        0 1px 0 color-mix(in srgb, white 14%, transparent) inset,
+        0 18px 40px -18px rgb(0 0 0 / 45%);
+}
 .custom-video-player-container {
     position: relative;
     width: 100%;
     overflow: hidden;
     isolation: isolate;
     border: 1px solid color-mix(in srgb, var(--border) 82%, white);
-    border-radius: 16px;
-    clip-path: inset(0 round 16px);
+    border-radius: inherit;
     background: #050505;
     cursor: pointer;
-    box-shadow:
-        0 1px 0 color-mix(in srgb, white 18%, transparent) inset,
-        0 18px 40px -18px rgb(0 0 0 / 45%);
+    /* No box-shadow here — parent .video-card-shell owns it */
+    box-shadow: none;
 }
 .custom-video-player-container video {
     display: block;
     width: 100%;
     height: auto;
-    border-radius: inherit;
+    border-radius: 0;
 }
+/* Framed canvas preview: soft bottom-weighted drop shadow + clean radius */
+.recorder-preview-panel.has-canvas-rounded .video-card-shell,
 .recorder-preview-panel.has-canvas-rounded .custom-video-player-container {
-    border-radius: clamp(10px, 1.15vw, 18px);
-    clip-path: inset(0 round clamp(10px, 1.15vw, 18px));
+    border-radius: clamp(12px, 1.2vw, 20px);
 }
-.recorder-preview-panel.has-canvas-rounded .video-preview-wrapper,
+.recorder-preview-panel.has-canvas-rounded .video-preview-wrapper {
+    border-radius: clamp(12px, 1.2vw, 20px) !important;
+    overflow: hidden;
+}
 .recorder-preview-panel.has-canvas-rounded .browser-content {
-    clip-path: inset(0 round clamp(10px, 1.15vw, 18px));
+    border-radius: clamp(12px, 1.2vw, 20px);
     overflow: hidden !important;
 }
-.recorder-preview-panel.has-canvas-shadow .custom-video-player-container {
-    border-color: rgb(255 255 255 / 20%);
+.recorder-preview-panel.has-canvas-shadow .video-card-shell {
+    border-radius: clamp(12px, 1.2vw, 20px);
     box-shadow:
-        0 2px 2px rgb(0 0 0 / 10%),
-        0 12px 24px -10px rgb(0 0 0 / 26%),
-        0 30px 66px -22px rgb(0 0 0 / 52%);
+        0 2px 4px rgb(0 0 0 / 12%),
+        0 12px 28px -6px rgb(0 0 0 / 32%),
+        0 28px 56px -12px rgb(0 0 0 / 42%);
+}
+.recorder-preview-panel.has-canvas-shadow .custom-video-player-container {
+    border-color: rgb(255 255 255 / 18%);
+    box-shadow: none;
+}
+.recorder-preview-panel.has-canvas-rounded.has-canvas-shadow .video-card-shell {
+    box-shadow:
+        0 2px 4px rgb(0 0 0 / 12%),
+        0 14px 32px -8px rgb(0 0 0 / 34%),
+        0 32px 64px -14px rgb(0 0 0 / 45%);
 }
 .custom-video-player-container .player-controls-deck {
     bottom: 14px !important;
@@ -3316,16 +3353,27 @@ input[type="number"]:disabled {
     background-position: center;
     background-repeat: no-repeat;
     background-size: cover;
+    /* Extra bottom room so the drop-shadow can breathe on the stage */
+    padding-bottom: clamp(2rem, 5.5vw, 4.5rem);
 }
 .recorder-preview-panel.has-canvas-background::before {
     display: none;
 }
-.recorder-preview-panel.has-canvas-shadow .video-preview-wrapper {
-    box-shadow: 0 22px 44px #00000082, 0 6px 14px #00000054 !important;
+.recorder-preview-panel.has-canvas-background .result-container,
+.recorder-preview-panel.has-canvas-background .capture-window {
+    /* Match export content scale so framed preview ≈ baked MP4 */
+    width: min(100%, 84%);
+    margin-inline: auto;
 }
-.recorder-preview-panel.has-canvas-rounded .video-preview-wrapper,
-.recorder-preview-panel.has-canvas-rounded .browser-content {
-    border-radius: 12px !important;
+.recorder-preview-panel.has-canvas-shadow .video-preview-wrapper {
+    /* Bottom-weighted shadow for idle/recording framed preview */
+    box-shadow:
+        0 4px 10px rgb(0 0 0 / 18%),
+        0 18px 36px -8px rgb(0 0 0 / 38%),
+        0 36px 72px -16px rgb(0 0 0 / 42%) !important;
+}
+.recorder-preview-panel.has-canvas-rounded .video-preview-wrapper {
+    border-radius: clamp(12px, 1.2vw, 20px) !important;
 }
 .recorder-disclosure {
     border: 1px solid var(--border);
