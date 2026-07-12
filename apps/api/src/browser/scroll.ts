@@ -1,4 +1,6 @@
 import type { Page } from "playwright";
+import { performance } from "node:perf_hooks";
+import { setTimeout as sleep } from "node:timers/promises";
 import type { BezierControlPoints } from "./curves.js";
 import { detectScrollMode } from "./detectScrollMode.js";
 import { runVirtualScroll } from "./virtualScroll.js";
@@ -26,6 +28,7 @@ export async function runScroll(page: Page, options: RunScrollOptions): Promise<
   scrollStrategy: "document" | "virtual";
   maxScroll: number;
   frames?: Array<{ file: string; y?: number; progress?: number }>;
+  initialHoldFrameCount?: number;
 }> {
   const mode = await detectScrollMode(page, options.scrollMode ?? "auto");
 
@@ -41,6 +44,12 @@ export async function runScroll(page: Page, options: RunScrollOptions): Promise<
       `Virtual scroll mode: ${virtual.cycles} viewport cycles over ${Math.round(virtual.durationMs)}ms`,
     );
 
+    await settleCaptureAtTop(page);
+    const hold = await captureHeroHold(
+      page,
+      options.frameRecorder,
+      options.animationConfig?.heroHoldMs ?? 0,
+    );
     const result = await runVirtualScroll(page, {
       durationMs: virtual.durationMs,
       viewportWidth: options.viewportWidth,
@@ -49,8 +58,23 @@ export async function runScroll(page: Page, options: RunScrollOptions): Promise<
       bezier: options.bezier,
       frameRecorder: options.frameRecorder,
     });
-    return { scrollStrategy: mode, maxScroll: 0, frames: result.frames };
+    const frames = options.frameRecorder
+      ? [...hold.frames, ...result.frames]
+      : undefined;
+    return {
+      scrollStrategy: mode,
+      maxScroll: 0,
+      frames,
+      initialHoldFrameCount: frames ? hold.frames.length : undefined,
+    };
   }
+
+  await settleCaptureAtTop(page);
+  const hold = await captureHeroHold(
+    page,
+    options.frameRecorder,
+    options.animationConfig?.heroHoldMs ?? 0,
+  );
 
   const result = await runDocumentScroll(
     page,
@@ -58,7 +82,15 @@ export async function runScroll(page: Page, options: RunScrollOptions): Promise<
     options.bezier,
     options.frameRecorder,
   );
-  return { scrollStrategy: mode, maxScroll: result.maxScroll, frames: result.frames };
+  const frames = options.frameRecorder
+    ? [...hold.frames, ...(result.frames ?? [])]
+    : undefined;
+  return {
+    scrollStrategy: mode,
+    maxScroll: result.maxScroll,
+    frames,
+    initialHoldFrameCount: frames ? hold.frames.length : undefined,
+  };
 }
 
 async function runDocumentScroll(
@@ -123,24 +155,62 @@ async function runDocumentScrollFrameByFrame(
 
   const totalFrames = Math.max(1, Math.ceil(maxScroll / pixelsPerFrame));
 
-  // Settle/warm up lazy scroll listeners (e.g. GSAP, ScrollTrigger, Lenis) before capturing frames
-  if (maxScroll > 2) {
-    await page.evaluate(() => window.scrollTo({ top: 2, left: 0, behavior: "instant" }));
-    await page.waitForTimeout(150);
-    await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: "instant" }));
-    await page.waitForTimeout(50);
-  }
+  const startedAt = performance.now();
+  const frameDurationMs = 1000 / frameRecorder.getFps();
 
   for (let frame = 0; frame <= totalFrames; frame++) {
     const progress = frame / totalFrames;
     const scrollY = Math.round(maxScroll * progress);
 
     await page.evaluate((y) => window.scrollTo({ top: y, left: 0, behavior: "instant" }), scrollY);
+    const frameNumber = frameRecorder.getFrameCount();
     await frameRecorder.writeFrame(page);
 
-    const filename = `frame-${String(frame).padStart(6, "0")}.jpg`;
+    const filename = `frame-${String(frameNumber).padStart(6, "0")}.jpg`;
     frames.push({ file: filename, y: scrollY });
+    await waitForCadence(startedAt + (frame + 1) * frameDurationMs);
   }
 
   return { maxScroll, frames };
+}
+
+async function settleCaptureAtTop(page: Page) {
+  await page.evaluate(async () => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+    );
+  });
+  await page.waitForTimeout(250);
+}
+
+async function captureHeroHold(
+  page: Page,
+  frameRecorder: FrameRecorder | undefined,
+  holdMs: number,
+) {
+  const frames: Array<{ file: string; y: number }> = [];
+  if (!frameRecorder || holdMs <= 0) return { frames };
+
+  const fps = frameRecorder.getFps();
+  const frameDurationMs = 1000 / fps;
+  const frameCount = Math.max(1, Math.round((holdMs / 1000) * fps));
+  const startedAt = performance.now();
+
+  for (let frame = 0; frame < frameCount; frame += 1) {
+    const frameNumber = frameRecorder.getFrameCount();
+    await frameRecorder.writeFrame(page);
+    frames.push({
+      file: `frame-${String(frameNumber).padStart(6, "0")}.jpg`,
+      y: 0,
+    });
+    await waitForCadence(startedAt + (frame + 1) * frameDurationMs);
+  }
+
+  return { frames };
+}
+
+async function waitForCadence(deadlineMs: number) {
+  const delayMs = deadlineMs - performance.now();
+  if (delayMs > 0) await sleep(delayMs);
 }

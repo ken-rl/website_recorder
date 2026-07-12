@@ -47,6 +47,7 @@ export interface CompileVideoOptions {
   fps: number;
   bezier: BezierControlPoints;
   pauses?: Array<{ atMs: number; holdMs: number }>;
+  initialHoldFrameCount?: number;
   width?: number;
   height?: number;
   preset?: string;
@@ -62,6 +63,7 @@ export async function compileVideoFromFrames(options: CompileVideoOptions): Prom
     fps,
     bezier,
     pauses = [],
+    initialHoldFrameCount = 0,
     width,
     height,
     preset,
@@ -76,6 +78,11 @@ export async function compileVideoFromFrames(options: CompileVideoOptions): Prom
   const scrollStrategy = metadata.scrollStrategy;
 
   const totalOutputFrames = Math.max(1, Math.round((durationMs / 1000) * fps));
+  const holdOutputFrames = Math.min(
+    totalOutputFrames,
+    Math.max(0, initialHoldFrameCount),
+  );
+  const initialHoldMs = (holdOutputFrames / fps) * 1000;
   const tempDir = await fs.mkdtemp(path.join(path.dirname(framesDir), "websiterecorder-stitch-"));
 
   try {
@@ -106,14 +113,29 @@ export async function compileVideoFromFrames(options: CompileVideoOptions): Prom
         scrollTime = t - accumulatedPauseMs;
       }
 
-      const scrollDurationMs = Math.max(100, durationMs - accumulatedPauseMs);
-      const linearProgress = Math.min(1, Math.max(0, scrollTime / scrollDurationMs));
-      const easedProgress = applyBezierCurve(linearProgress, bezier);
-
-      const frameIndex = Math.min(
-        sourceFrames.length - 1,
-        Math.max(0, Math.round(easedProgress * (sourceFrames.length - 1)))
-      );
+      let frameIndex = 0;
+      if (f < holdOutputFrames && initialHoldFrameCount > 0) {
+        const holdProgress = holdOutputFrames <= 1 ? 0 : f / (holdOutputFrames - 1);
+        frameIndex = Math.min(
+          initialHoldFrameCount - 1,
+          Math.round(holdProgress * (initialHoldFrameCount - 1)),
+        );
+      } else {
+        const scrollDurationMs = Math.max(
+          100,
+          durationMs - initialHoldMs - accumulatedPauseMs,
+        );
+        const linearProgress = Math.min(
+          1,
+          Math.max(0, (scrollTime - initialHoldMs) / scrollDurationMs),
+        );
+        const easedProgress = applyBezierCurve(linearProgress, bezier);
+        const scrollFrameCount = Math.max(1, sourceFrames.length - initialHoldFrameCount);
+        frameIndex = Math.min(
+          sourceFrames.length - 1,
+          initialHoldFrameCount + Math.round(easedProgress * (scrollFrameCount - 1)),
+        );
+      }
       const selectedFrame = sourceFrames[frameIndex];
 
       outputFrameFiles.push(selectedFrame.file);

@@ -41,6 +41,8 @@ export interface AnimationConfig {
   scrollCurve?: ScrollCurve;
   /** Target scroll duration in milliseconds. Applies to both document and virtual scroll. */
   durationMs?: number;
+  /** Capture the top of the page before scrolling, allowing dynamic hero content to settle. */
+  heroHoldMs?: number;
   /**
    * How to drive scrolling. `auto` picks document scrolling or virtual wheel
    * scrolling based on page layout (fixed viewport / infinite scroll sites).

@@ -11,6 +11,8 @@ interface ScrollPhysicsFormProps {
   setCustomInputText: (t: string) => void;
   pixelsPerFrame: number;
   setPixelsPerFrame: (p: number) => void;
+  heroHoldMs: number;
+  setHeroHoldMs: (ms: number) => void;
 }
 
 export default function ScrollPhysicsForm({
@@ -22,6 +24,8 @@ export default function ScrollPhysicsForm({
   setCustomInputText,
   pixelsPerFrame,
   setPixelsPerFrame,
+  heroHoldMs,
+  setHeroHoldMs,
 }: ScrollPhysicsFormProps) {
   const handleBezierTextInputChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -64,6 +68,24 @@ export default function ScrollPhysicsForm({
           <option value="ease-in-out-cubic">In-Out Cubic (Heavy easing)</option>
           <option value="custom">Custom (Visual Handle Editor)</option>
         </select>
+      </div>
+
+      <div className="field hero-hold-control">
+        <FieldLabel htmlFor="heroHold">Hero hold</FieldLabel>
+        <div className="hero-hold-options" id="heroHold" role="radiogroup" aria-label="Hero hold duration">
+          {[0, 1000, 2000, 3000].map((duration) => (
+            <button
+              key={duration}
+              type="button"
+              role="radio"
+              aria-checked={heroHoldMs === duration}
+              className={heroHoldMs === duration ? "is-active" : ""}
+              onClick={() => setHeroHoldMs(duration)}
+            >
+              {duration === 0 ? "Off" : `${duration / 1000}s`}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="field">

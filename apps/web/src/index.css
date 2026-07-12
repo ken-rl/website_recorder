@@ -2918,6 +2918,26 @@ input[type="number"]:disabled {
 .recorder-disclosure-content .curve-visualizer-container {
     margin-top: 0.2rem;
 }
+.hero-hold-options {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.3rem;
+    display: grid;
+}
+.hero-hold-options button {
+    color: var(--muted);
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    cursor: pointer;
+    min-height: 29px;
+    font-size: 0.62rem;
+    font-weight: 600;
+}
+.hero-hold-options button.is-active {
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-color: var(--accent);
+}
 @media (max-width: 960px) {
     .recorder-page {
         grid-template-columns: 1fr;

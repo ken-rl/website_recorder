@@ -138,6 +138,7 @@ cp .env.example .env
 | `animationConfig.scrollCurve` | Easing curve for scroll speed — preset name or custom CSS `cubic-bezier` |
 | `animationConfig.fastMode` | Skip deep hydration, scroll faster, and use quick encoding (default: false) |
 | `animationConfig.preRecordingDelayMs` | Pause at the top before scrolling (default: 2000) |
+| `animationConfig.heroHoldMs` | Capture the top of the page before scrolling so dynamic hero content is included (default: 0) |
 | `animationConfig.removeOverlayElements` | Strip cookie banners, modals, and popups (default: true) |
 | `animationConfig.pauseTriggers` | Pause when a selector enters the viewport |
 | `animationConfig.scrollMode` | `auto` (default), `document`, or `virtual` — see below |

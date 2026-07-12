@@ -116,6 +116,7 @@ const server = http.createServer(async (req, res) => {
         ok: true,
         jobId: result.jobId,
         videoUrl: `/outputs/${result.jobId}/output.mp4`,
+        sourceVideoUrl: `/outputs/${result.jobId}/source.mp4`,
         mp4Path: result.mp4Path,
         durationMs: result.durationMs,
         viewport: result.viewport,

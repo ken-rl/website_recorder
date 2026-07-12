@@ -389,6 +389,7 @@ async function runRecordSession(options: {
               scrollStrategy: scrollResult.scrollStrategy,
               maxScroll: scrollResult.maxScroll,
               frames: scrollResult.frames,
+              initialHoldFrameCount: scrollResult.initialHoldFrameCount ?? 0,
               deviceScaleFactor,
               viewport,
             },
@@ -418,6 +419,7 @@ async function runRecordSession(options: {
             fps: framerate,
             bezier: scrollCurve, // Apply the selected scroll curve directly at capture time
             pauses: [],
+            initialHoldFrameCount: metadata.initialHoldFrameCount ?? 0,
             width: viewport.width * deviceScaleFactor,
             height: viewport.height * deviceScaleFactor,
             preset: encode.preset,

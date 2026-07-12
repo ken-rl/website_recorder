@@ -1,11 +1,19 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { frameVideoOnBackground } from "../editor/frameVideo.js";
-import { resolveEncodeSettings } from "../transcode/quality.js";
+import type { EncodeSettings } from "../transcode/quality.js";
 import type { StyleRequest, StyleResult } from "../types.js";
 
 export const SOURCE_FILENAME = "source.mp4";
 export const OUTPUT_FILENAME = "output.mp4";
+
+// Styling is a derived, replaceable asset. Prioritize responsive iteration while
+// retaining enough detail for a single-generation H.264 render.
+const STYLE_ENCODE: EncodeSettings = {
+  crf: 18,
+  preset: "veryfast",
+  deviceScaleFactor: 1,
+};
 
 export async function restyleRecording(
   request: StyleRequest,
@@ -59,7 +67,7 @@ export async function renderRecordingStyle(options: {
       preset: backgroundPreset,
       addShadow: addShadow ?? true,
       roundedCorners: roundedCorners ?? false,
-      encode: resolveEncodeSettings("high", 1),
+      encode: STYLE_ENCODE,
     });
   } else {
     await fs.link(sourcePath, tempOutputPath).catch(() =>

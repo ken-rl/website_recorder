@@ -36,7 +36,8 @@ export async function runVirtualScroll(
     options;
   const centerX = Math.floor(viewportWidth / 2);
   const centerY = Math.floor(viewportHeight / 2);
-  const tickMs = 1000 / WHEEL_TICK_HZ;
+  const tickHz = frameRecorder?.getFps() ?? WHEEL_TICK_HZ;
+  const tickMs = 1000 / tickHz;
   const tickCount = Math.max(1, Math.ceil(durationMs / tickMs));
 
   const frames: { file: string; progress: number }[] = [];
@@ -84,12 +85,13 @@ export async function runVirtualScroll(
           deltaY: Math.round(wheelStep),
         });
         // Let the website JS process the event and render
-        await sleep(frameRecorder ? 50 : tickMs);
+        await sleep(tickMs);
       }
 
       if (frameRecorder) {
+        const frameNumber = frameRecorder.getFrameCount();
         await frameRecorder.writeFrame(page);
-        const filename = `frame-${String(tick).padStart(6, "0")}.jpg`;
+        const filename = `frame-${String(frameNumber).padStart(6, "0")}.jpg`;
         frames.push({ file: filename, progress });
       }
     }

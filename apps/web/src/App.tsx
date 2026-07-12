@@ -141,11 +141,13 @@ export default function App() {
   const [useFixedDuration, setUseFixedDuration] = useState(false);
   const [virtualScrollDurationMs, setVirtualScrollDurationMs] = useState(30000);
   const [pixelsPerFrame, setPixelsPerFrame] = useState(32);
+  const [heroHoldMs, setHeroHoldMs] = useState(1500);
   const [backgroundPreset, setBackgroundPreset] =
     useState<BackgroundPreset>("none");
   const [addShadow, setAddShadow] = useState(true);
   const [roundedCorners, setRoundedCorners] = useState(true);
   const [isApplyingStyle, setIsApplyingStyle] = useState(false);
+  const [isStylePreview, setIsStylePreview] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusType, setStatusType] = useState<
@@ -281,20 +283,28 @@ export default function App() {
 
       const styledUrl = `${data.videoUrl}?t=${Date.now()}`;
       setResultVideo((current) =>
-        current ? { ...current, url: styledUrl, sourceUrl: data.videoUrl } : current,
+        current ? { ...current, url: styledUrl } : current,
       );
+      setIsStylePreview(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not apply style";
       setStatusType("error");
       setStatusText(message);
+      setIsStylePreview(false);
     } finally {
       setIsApplyingStyle(false);
     }
   };
 
+  const updateCanvasStyle = (update: () => void) => {
+    update();
+    if (resultVideo) setIsStylePreview(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setResultVideo(null);
+    setIsStylePreview(false);
     setStatusType("loading");
     setStatusText(`Recording (${TIER_CONFIG[renderTier].label.toLowerCase()})`);
     setIsSubmitting(true);
@@ -314,6 +324,7 @@ export default function App() {
         fastMode: tier.fastMode,
         captureMode: tier.captureMode,
         pixelsPerFrame: pixelsPerFrame,
+        heroHoldMs,
         preRecordingDelayMs: tier.preRecordingDelayMs,
         scrollCurve:
           selectedCurve === "custom"
@@ -346,7 +357,7 @@ export default function App() {
 
       setResultVideo({
         jobId: data.jobId,
-        sourceUrl: data.videoUrl,
+        sourceUrl: data.sourceVideoUrl ?? data.videoUrl,
         url: data.videoUrl,
         duration: `${(data.durationMs / 1000).toFixed(1)}s`,
         scrollStrategy: data.scrollStrategy,
@@ -402,7 +413,9 @@ export default function App() {
                   <summary>
                     <span className="recorder-disclosure-icon"><SlidersHorizontal size={16} /></span>
                     <span>Motion</span>
-                    <small>{selectedCurve.replaceAll("-", " ")}</small>
+                    <small>
+                      {selectedCurve.replaceAll("-", " ")} · hero {heroHoldMs === 0 ? "off" : `${heroHoldMs / 1000}s`}
+                    </small>
                     <ChevronDown className="recorder-disclosure-chevron" size={16} />
                   </summary>
                   <div className="recorder-disclosure-content">
@@ -415,6 +428,8 @@ export default function App() {
                       setCustomInputText={setCustomInputText}
                       pixelsPerFrame={pixelsPerFrame}
                       setPixelsPerFrame={setPixelsPerFrame}
+                      heroHoldMs={heroHoldMs}
+                      setHeroHoldMs={setHeroHoldMs}
                     />
 
                     <VirtualScrollForm
@@ -435,11 +450,17 @@ export default function App() {
               <div className="sidebar-section-card">
                 <BackgroundCanvasForm
                   backgroundPreset={backgroundPreset}
-                  setBackgroundPreset={setBackgroundPreset}
+                  setBackgroundPreset={(preset) =>
+                    updateCanvasStyle(() => setBackgroundPreset(preset))
+                  }
                   addShadow={addShadow}
-                  setAddShadow={setAddShadow}
+                  setAddShadow={(enabled) =>
+                    updateCanvasStyle(() => setAddShadow(enabled))
+                  }
                   roundedCorners={roundedCorners}
-                  setRoundedCorners={setRoundedCorners}
+                  setRoundedCorners={(enabled) =>
+                    updateCanvasStyle(() => setRoundedCorners(enabled))
+                  }
                   onApplyStyle={resultVideo ? applyStyleToRecording : undefined}
                   isApplyingStyle={isApplyingStyle}
                 />
@@ -522,9 +543,9 @@ export default function App() {
 
               {/* Bottom Video Playback Bento Card */}
               <div
-                className={`recorder-preview-panel${width < height ? " is-portrait-stage" : ""}${!resultVideo && backgroundPreset !== "none" ? " has-canvas-background" : ""}${!resultVideo && addShadow ? " has-canvas-shadow" : ""}${!resultVideo && roundedCorners ? " has-canvas-rounded" : ""}`}
+                className={`recorder-preview-panel${width < height ? " is-portrait-stage" : ""}${(!resultVideo || isStylePreview) && backgroundPreset !== "none" ? " has-canvas-background" : ""}${(!resultVideo || isStylePreview) && addShadow ? " has-canvas-shadow" : ""}${(!resultVideo || isStylePreview) && roundedCorners ? " has-canvas-rounded" : ""}`}
                 style={
-                  !resultVideo && backgroundPreset !== "none"
+                  (!resultVideo || isStylePreview) && backgroundPreset !== "none"
                     ? { backgroundImage: `url(/background_presets/${backgroundPreset}.png)` }
                     : undefined
                 }
@@ -532,7 +553,7 @@ export default function App() {
                 <section className="recorder-preview" aria-label="Preview">
                   <BrowserMockup
                     url={url}
-                    videoUrl={resultVideo?.url || null}
+                    videoUrl={(isStylePreview ? resultVideo?.sourceUrl : resultVideo?.url) || null}
                     duration={resultVideo?.duration || null}
                     scrollStrategy={resultVideo?.scrollStrategy}
                     width={width}
