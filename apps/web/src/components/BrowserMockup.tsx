@@ -428,27 +428,38 @@ export default function BrowserMockup({
               aria-live="polite"
               aria-label={`Recording ${shortUrl}`}
             >
-              <span className="rec-dot" aria-hidden />
-              <p className="rec-label">Recording</p>
-              <p className="rec-detail">
-                {recordingElapsed || "0.0s"}
-                <span className="rec-detail-sep" aria-hidden>
-                  ·
-                </span>
-                {shortUrl}
-              </p>
-              <div className="rec-progress" aria-hidden={recordingPercent <= 0}>
-                <div className="rec-progress-track">
-                  <div
-                    className="rec-progress-fill"
-                    style={{
-                      width: `${Math.max(0, Math.min(100, recordingPercent))}%`,
-                    }}
-                  />
+              <div className="rec-card">
+                <div className="rec-card-top">
+                  <span className="rec-pill">
+                    <span className="rec-dot" aria-hidden />
+                    REC
+                  </span>
+                  <span className="rec-elapsed-chip">
+                    {recordingElapsed || "0.0s"}
+                  </span>
                 </div>
-                {recordingStatus ? (
-                  <p className="rec-progress-status">{recordingStatus}</p>
-                ) : null}
+                <p className="rec-label">Capturing scroll</p>
+                <p className="rec-detail" title={displayUrl}>
+                  {shortUrl}
+                </p>
+                <div className="rec-progress">
+                  <div className="rec-progress-track">
+                    <div
+                      className="rec-progress-fill"
+                      style={{
+                        width: `${Math.max(0, Math.min(100, recordingPercent))}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="rec-progress-meta">
+                    <span className="rec-progress-status">
+                      {recordingStatus || "Preparing capture…"}
+                    </span>
+                    <span className="rec-progress-pct">
+                      {Math.max(0, Math.min(100, Math.round(recordingPercent)))}%
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (

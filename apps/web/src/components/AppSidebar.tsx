@@ -23,7 +23,6 @@ export default function AppSidebar({
   onToggleCollapsed,
 }: AppSidebarProps) {
   const isRecorder = currentPath === "/" || currentPath === "";
-  const isRoadmap = currentPath === "/upcoming";
 
   return (
     <aside
@@ -68,19 +67,6 @@ export default function AppSidebar({
               trigger={isRecorder ? "loop" : "hover"}
             />
             {!collapsed && <span>Capture</span>}
-          </button>
-          <button
-            type="button"
-            className={`app-nav-link${isRoadmap ? " is-active" : ""}`}
-            onClick={() => onNavigate("/upcoming")}
-            title="Roadmap"
-          >
-            <LordIcon
-              src={LORDICON.roadmap}
-              size={18}
-              trigger={isRoadmap ? "loop" : "hover"}
-            />
-            {!collapsed && <span>Roadmap</span>}
           </button>
         </nav>
       </div>

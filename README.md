@@ -76,7 +76,7 @@ pnpm dev:web      # Vite frontend only
 5. Start capture → preview plays inline → download MP4.
 6. After capture, restyle the canvas and **Render style** without recording again.
 
-Left nav: Capture and Roadmap (collapsible).
+Left nav: Capture (collapsible brand sidebar).
 
 ### CLI
 

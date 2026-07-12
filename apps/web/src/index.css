@@ -2083,14 +2083,22 @@ html[data-theme="light"] .curve-preview-embedded .canvas-container {
     padding: 0;
 }
 .browser-placeholder-idle {
-    background: var(--ui-fill);
-    gap: 0.5rem;
+    background:
+        radial-gradient(circle at 50% 30%, var(--accent-soft), transparent 50%),
+        var(--surface-muted);
+    gap: 0.55rem;
 }
-/* Recording: quiet centered state */
+/* Recording stage — theme-aware card */
 .browser-placeholder.browser-placeholder-recording {
-    background: #0a0a0b;
-    padding: 2rem 1.5rem;
-    gap: 0.65rem;
+    background:
+        radial-gradient(
+            ellipse 80% 60% at 50% 40%,
+            color-mix(in srgb, var(--error) 8%, transparent),
+            transparent 70%
+        ),
+        var(--surface-muted);
+    padding: 1.5rem;
+    gap: 0;
     width: 100%;
     height: 100%;
     justify-content: center;
@@ -2100,9 +2108,9 @@ html[data-theme="light"] .curve-preview-embedded .canvas-container {
 .idle-viewport-badge {
     font-family: var(--font-sans);
     letter-spacing: 0.06em;
-    color: #a1a1aa;
-    border: 1px solid var(--ui-line);
-    background: var(--ui-surface);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    background: var(--surface);
     border-radius: var(--ui-radius);
     padding: 0.16rem 0.42rem;
     font-size: 0.58rem;
@@ -2110,7 +2118,7 @@ html[data-theme="light"] .curve-preview-embedded .canvas-container {
 }
 .idle-preview-url {
     font-family: var(--font-sans);
-    color: var(--ui-muted);
+    color: var(--muted);
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 90%;
@@ -2447,81 +2455,136 @@ button[type="submit"]:disabled .loader-circle {
 .browser-footer-value {
     color: var(--text);
 }
-/* Minimal recording indicator */
+/* Recording card — light & dark */
+.rec-card {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.55rem;
+    width: min(320px, 88%);
+    padding: 1rem 1.1rem 1.05rem;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: var(--shadow-md), 0 0 0 1px color-mix(in srgb, var(--error) 8%, transparent);
+    text-align: left;
+}
+.rec-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+.rec-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.22rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--error) 35%, var(--border));
+    background: color-mix(in srgb, var(--error) 12%, var(--surface));
+    color: var(--error);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
 .rec-dot {
-    width: 10px;
-    height: 10px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
-    background: #ef4444;
-    animation: rec-dot-pulse 1.6s ease-in-out infinite;
+    background: var(--error);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--error) 45%, transparent);
+    animation: rec-dot-pulse 1.5s ease-out infinite;
 }
 @keyframes rec-dot-pulse {
-    0%,
+    0% {
+        opacity: 1;
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--error) 45%, transparent);
+    }
+    70% {
+        opacity: 0.75;
+        box-shadow: 0 0 0 6px color-mix(in srgb, var(--error) 0%, transparent);
+    }
     to {
         opacity: 1;
-    }
-    50% {
-        opacity: 0.35;
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--error) 0%, transparent);
     }
 }
-.rec-label {
-    margin: 0;
-    color: #fafafa;
-    font-size: 0.9rem;
+.rec-elapsed-chip {
+    color: var(--muted);
+    font-size: 0.68rem;
     font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.rec-label {
+    margin: 0.15rem 0 0;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-weight: 650;
     letter-spacing: -0.02em;
 }
 .rec-detail {
     margin: 0;
-    max-width: min(90%, 28rem);
-    color: #71717a;
-    font-family: var(--font-sans);
-    font-size: 0.68rem;
+    color: var(--muted);
+    font-size: 0.72rem;
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.rec-detail-sep {
-    margin: 0 0.4rem;
-    opacity: 0.55;
-}
 .rec-progress {
     display: flex;
     flex-direction: column;
-    align-items: center;
     gap: 0.4rem;
-    width: min(220px, 70%);
+    width: 100%;
     margin-top: 0.35rem;
 }
 .rec-progress-track {
     width: 100%;
-    height: 3px;
+    height: 4px;
     border-radius: 999px;
-    background: rgb(255 255 255 / 10%);
+    background: color-mix(in srgb, var(--muted) 18%, transparent);
     overflow: hidden;
 }
 .rec-progress-fill {
     height: 100%;
     border-radius: inherit;
-    background: #ef4444;
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--error) 75%, var(--accent)),
+        var(--error)
+    );
     transition: width 0.25s ease-out;
+}
+.rec-progress-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
 }
 .rec-progress-status {
     margin: 0;
-    max-width: 100%;
-    color: #52525b;
+    min-width: 0;
+    color: var(--muted);
     font-size: 0.62rem;
     font-weight: 500;
     line-height: 1.3;
-    text-align: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
+.rec-progress-pct {
+    flex-shrink: 0;
+    color: var(--text);
+    font-size: 0.62rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+}
 .video-preview-wrapper.is-recording {
-    border-color: rgb(255 255 255 / 10%) !important;
-    box-shadow: 0 12px 32px rgb(0 0 0 / 22%) !important;
+    border-color: color-mix(in srgb, var(--error) 28%, var(--border)) !important;
+    box-shadow:
+        0 12px 32px color-mix(in srgb, var(--error) 10%, transparent),
+        var(--shadow-md) !important;
 }
 .browser-actions {
     justify-content: flex-end;
@@ -4536,23 +4599,13 @@ input[type="number"]:disabled {
 }
 .browser-placeholder {
     text-align: center;
-    background: linear-gradient(135deg, #18181b 0%, #09090b 100%);
+    background: var(--surface-muted);
     flex-direction: column;
     justify-content: center;
     align-items: center;
     gap: 0.75rem;
     padding: 2rem;
     display: flex;
-}
-.browser-placeholder.browser-placeholder-recording {
-    background: #0a0a0b;
-    padding: 2rem 1.5rem;
-    gap: 0.65rem;
-    width: 100%;
-    height: 100%;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
 }
 .placeholder-icon {
     width: 36px;

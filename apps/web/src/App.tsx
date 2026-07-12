@@ -24,7 +24,7 @@ import BackgroundCanvasForm, {
 } from "./components/BackgroundCanvasForm";
 
 import BrowserMockup from "./components/BrowserMockup";
-import UpcomingFeatures from "./components/UpcomingFeatures";
+
 import EditorPage from "./pages/EditorPage";
 import {
   loadEditorSession,
@@ -34,7 +34,9 @@ import {
 
 export default function App() {
   const [currentPath, setCurrentPath] = useState(() => {
-    return window.location.pathname === "/editor" ? "/" : window.location.pathname;
+    const path = window.location.pathname;
+    if (path === "/editor" || path === "/upcoming") return "/";
+    return path;
   });
   const [editorSession, setEditorSession] = useState<EditorSession | null>(null);
 
@@ -64,7 +66,7 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       let path = window.location.pathname;
-      if (path === "/editor") {
+      if (path === "/editor" || path === "/upcoming") {
         window.history.replaceState({}, "", "/");
         path = "/";
       }
@@ -76,7 +78,7 @@ export default function App() {
 
   const navigate = (path: string) => {
     let targetPath = path;
-    if (path === "/editor") {
+    if (path === "/editor" || path === "/upcoming") {
       targetPath = "/";
     }
     window.history.pushState({}, "", targetPath);
@@ -434,9 +436,6 @@ export default function App() {
       />
 
       <div className="app-content">
-        {currentPath === "/upcoming" ? (
-          <UpcomingFeatures />
-        ) : (
           <form
             id="form"
             className={`recorder-page${hasRecording ? " has-recording" : ""}${captureLocked ? " is-capture-locked" : ""}`}
@@ -757,7 +756,6 @@ export default function App() {
               </div>
             </div>
           </form>
-        )}
       </div>
     </main>
   );
