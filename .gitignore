@@ -8,7 +8,9 @@ outputs/*
 
 apps/api/outputs/*
 
+# Ignore non-markdown docs assets by default; keep design notes in git
 docs/*
+!docs/**/*.md
 
 *.webm
 *.log
