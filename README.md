@@ -3,17 +3,17 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
 
-Record a smooth scroll-through of any webpage as an MP4 video. Website Recorder uses Playwright to load a page, hydrate lazy content off-camera, then captures a smooth scroll animation and transcodes it to H.264.
+Record a polished scroll-through of any webpage as an MP4. Website Recorder loads the page with Playwright, hydrates lazy content, captures a controlled scroll (document or virtual wheel), and encodes H.264 video. Frame the result with backgrounds, rounded corners, and drop shadows.
 
 ## Features
 
-- **Smooth scrolling** — `requestAnimationFrame`-driven scroll, not jerky native capture
-- **Lazy-load hydration** — pre-scrolls the page before recording so images and content are ready
-- **Full HD output** — records at the viewport resolution you choose (e.g. 1920×1080)
-- **Overlay cleanup** — optionally strips cookie banners, modals, and popups
-- **Pause triggers** — hold on specific elements as they enter the viewport
+- **Smooth scroll capture** — frame-by-frame document scroll or virtual wheel input for fixed-viewport / WebGL sites
+- **Motion control** — easing curves (presets + visual bezier handles), scroll speed, hero hold
+- **Pause triggers** — hold when a CSS selector first enters the viewport (document scroll)
+- **Quality tiers** — Standard and Cinematic capture profiles in the UI (draft/fast available via API)
+- **Canvas framing** — background presets, soft bottom shadow, rounded corners; re-style without re-recording
+- **Overlay cleanup** — strips cookie banners, modals, and popups by default
 - **Three interfaces** — web UI, CLI, and HTTP API
-- **Quality presets** — balance file size and sharpness with `high`, `medium`, or `low`
 
 ## Requirements
 
@@ -34,40 +34,53 @@ git clone https://github.com/ken-rl/website_recorder.git
 cd website_recorder
 pnpm install
 npx playwright install chromium
-pnpm dev:api
+pnpm dev
 ```
 
-Open [http://localhost:3847](http://localhost:3847), enter a URL, and hit **Record**.
+- **API + static UI:** [http://localhost:3847](http://localhost:3847)
+- **Vite frontend (hot reload):** URL printed by `pnpm dev:web` (proxies API to 3847)
+
+Enter a URL, choose screen size and quality, then **Start capture**.
 
 ## Usage
 
 ### Web UI
 
 ```bash
-pnpm dev:api
+pnpm dev          # API + Vite together
+# or
+pnpm dev:api      # API only (serves built/public UI on :3847)
+pnpm dev:web      # Vite frontend only
 ```
 
-Visit [http://localhost:3847](http://localhost:3847). Enter a URL, choose viewport size and quality, then record. The finished video plays inline with a download link.
+**Recorder workflow**
 
-For frontend development with Vite hot reload, run `pnpm dev` and open the Vite URL it prints (the API continues to run on port 3847).
+1. Paste a website URL and pick a viewport (desktop / laptop / tablet / mobile).
+2. Choose quality (**Standard** or **Cinematic**).
+3. Optionally open **Motion**: easing curve, speed, hero hold, scroll mode, pause triggers.
+4. Optionally pick a **Canvas** background, shadow, and rounded corners.
+5. Start capture → preview plays inline → download MP4.
+6. After capture, restyle the canvas and **Render style** without recording again.
+
+The left nav switches between Recorder and Roadmap; collapse it for more workspace.
 
 ### CLI
 
 ```bash
-pnpm record config.example.json
+pnpm --filter websiterecorder-api record apps/api/config.example.json
 ```
 
-Videos are saved to `./outputs/<job-id>/output.mp4`.
+Videos are written under `OUTPUT_DIR` (default `./outputs/<job-id>/output.mp4`).
 
 ### API
 
-**Health check**
+**Health**
 
 ```http
 GET /health
 ```
 
-**Record a page**
+**Record**
 
 ```http
 POST /record
@@ -83,17 +96,24 @@ Content-Type: application/json
     "qualityPreset": "high",
     "viewport": {
       "width": 1920,
-      "height": 1080
+      "height": 1080,
+      "deviceScaleFactor": 2
     }
   },
   "animationConfig": {
-    "pixelsPerFrame": 4,
+    "pixelsPerFrame": 16,
     "preRecordingDelayMs": 2000,
     "removeOverlayElements": true,
+    "heroHoldMs": 1500,
+    "scrollCurve": { "preset": "ease-in-out" },
+    "scrollMode": "auto",
     "pauseTriggers": [
       { "selector": "footer", "durationMs": 1500 }
     ]
-  }
+  },
+  "backgroundPreset": "none",
+  "addShadow": true,
+  "roundedCorners": true
 }
 ```
 
@@ -104,84 +124,86 @@ Content-Type: application/json
   "ok": true,
   "jobId": "example.com-2026-07-05T12-00-00-000Z",
   "videoUrl": "/outputs/example.com-2026-07-05T12-00-00-000Z/output.mp4",
+  "sourceVideoUrl": "/outputs/example.com-2026-07-05T12-00-00-000Z/source.mp4",
   "durationMs": 18500,
-  "viewport": { "width": 1920, "height": 1080, "deviceScaleFactor": 2 }
+  "viewport": { "width": 1920, "height": 1080, "deviceScaleFactor": 2 },
+  "scrollStrategy": "document"
 }
 ```
 
-Download the finished video at `GET /outputs/<jobId>/output.mp4`.
+Download: `GET /outputs/<jobId>/output.mp4`.
+
+**Restyle** an existing job (background / shadow / corners) without re-recording:
+
+```http
+POST /style
+Content-Type: application/json
+```
+
+```json
+{
+  "jobId": "example.com-2026-07-05T12-00-00-000Z",
+  "backgroundPreset": "paper_blue",
+  "addShadow": true,
+  "roundedCorners": true
+}
+```
 
 ## Configuration
 
-Copy `.env.example` to `.env` to customize settings:
+Copy the API env example if present, or set variables in the shell:
 
-```bash
-cp .env.example .env
-```
-
-### Environment variables
-
-| Variable     | Default     | Description              |
-| ------------ | ----------- | ------------------------ |
-| `PORT`       | `3847`      | HTTP server port         |
+| Variable | Default | Description |
+| -------- | ------- | ----------- |
+| `PORT` | `3847` | HTTP server port |
 | `OUTPUT_DIR` | `./outputs` | Directory for recordings |
+| `RECORD_HEADED` | auto | `1` force headed Chromium; `0` force headless |
 
 ### Record request options
 
 | Field | Description |
 | ----- | ----------- |
 | `targetUrl` | Page URL to record (required) |
-| `videoConfig.framerate` | Output FPS (default: 30) |
+| `videoConfig.framerate` | Capture / output FPS |
 | `videoConfig.qualityPreset` | `high`, `medium`, or `low` |
-| `videoConfig.viewport` | Width, height, and optional `deviceScaleFactor` |
-| `animationConfig.pixelsPerFrame` | Base scroll speed in pixels per animation frame (default: 4). Controls total duration; the curve shapes how that speed varies. |
-| `animationConfig.scrollCurve` | Easing curve for scroll speed — preset name or custom CSS `cubic-bezier` |
-| `animationConfig.fastMode` | Skip deep hydration, scroll faster, and use quick encoding (default: false) |
-| `animationConfig.preRecordingDelayMs` | Pause at the top before scrolling (default: 2000) |
-| `animationConfig.heroHoldMs` | Capture the top of the page before scrolling so dynamic hero content is included (default: 0) |
-| `animationConfig.removeOverlayElements` | Strip cookie banners, modals, and popups (default: true) |
-| `animationConfig.pauseTriggers` | Pause when a selector enters the viewport |
-| `animationConfig.scrollMode` | `auto` (default), `document`, or `virtual` — see below |
-| `animationConfig.virtualScrollCycles` | Virtual mode: viewport-heights of wheel input to replay (default: 12, or 5 in fast mode) |
-| `animationConfig.virtualScrollDurationMs` | Virtual mode: fixed capture duration in ms (overrides cycle-based timing) |
+| `videoConfig.viewport` | Width, height, optional `deviceScaleFactor` |
+| `animationConfig.pixelsPerFrame` | Scroll speed (pixels per frame); higher = faster / shorter |
+| `animationConfig.scrollCurve` | Easing preset or custom CSS cubic-bezier |
+| `animationConfig.heroHoldMs` | Hold frames at the top before scrolling |
+| `animationConfig.preRecordingDelayMs` | Delay after load before capture |
+| `animationConfig.removeOverlayElements` | Strip cookie banners / modals (default `true`) |
+| `animationConfig.pauseTriggers` | `[{ selector, durationMs }]` — document scroll only |
+| `animationConfig.scrollMode` | `auto` (default), `document`, or `virtual` |
+| `animationConfig.virtualScrollCycles` | Virtual mode: viewport-heights of wheel input |
+| `animationConfig.virtualScrollDurationMs` | Virtual mode: fixed duration override (ms) |
+| `animationConfig.fastMode` | Faster draft capture / encode |
+| `animationConfig.captureMode` | `preview` or `export` |
+| `backgroundPreset` | `none` or a built-in preset id |
+| `addShadow` | Soft drop shadow under framed video |
+| `roundedCorners` | Round the framed recording |
 
-### Virtual scroll (infinite / fixed-viewport sites)
+### Virtual scroll
 
-Some sites — especially scroll-scrubbing, WebGL, or infinitely looping experiences — lock the document to one viewport (`overflow: hidden`, no page scroll). Website Recorder auto-detects this and switches to **virtual scroll**: it replays wheel input over a timed duration instead of calling `window.scrollTo()`.
-
-Use `scrollMode: "virtual"` to force it, or leave `auto` to detect. Tune how much of the loop you capture with `virtualScrollCycles` (default 8 ≈ 10s of scroll). Virtual captures use a headed browser with real GPU for smooth WebGL video. For sites like [ui8.ai/forge](https://ui8.ai/forge/), use a **Linear** curve and 8–12 cycles.
+Some sites lock the document to one viewport (WebGL, scroll-scrubbing, infinite loops). With `scrollMode: "auto"`, Website Recorder detects this and switches to **virtual scroll** (wheel input over time). Force with `"virtual"` or `"document"`.
 
 ```json
 "animationConfig": {
   "scrollMode": "auto",
-  "virtualScrollCycles": 16,
-  "pixelsPerFrame": 4,
+  "virtualScrollCycles": 12,
+  "pixelsPerFrame": 16,
   "scrollCurve": { "preset": "linear" }
 }
 ```
 
-`pauseTriggers` apply to document scroll only.
+`pauseTriggers` apply to **document scroll only**.
 
-Virtual-scroll captures use a **headed Chromium window** when possible. WebGL sites (e.g. ui8.ai) throttle their render loop to a few fps in headless mode, which makes video look choppy even when wheel input is fast. Set `RECORD_HEADED=1` to force headed capture, or `RECORD_HEADED=0` to force headless.
-
-### Fast mode
-
-Set `"fastMode": true` in `animationConfig` to prioritize speed over completeness:
-
-- One hydration pass with shorter waits
-- Faster scroll (`pixelsPerFrame` defaults to 12)
-- Shorter pre-roll delay (500ms)
-- Quick ffmpeg encode at 1× capture scale
-
-Some below-fold lazy content may not load. Best for quick drafts or simple pages.
+Virtual captures prefer a **headed** Chromium window when possible (WebGL often throttles headless). Use `RECORD_HEADED=1` / `0` to force.
 
 ### Scroll curves
 
-Control how scroll speed changes over the recording. `pixelsPerFrame` sets the overall duration; the curve redistributes that speed across the page.
+`pixelsPerFrame` sets overall duration; the curve shapes speed over the page.
 
 **Presets:** `linear`, `ease-in`, `ease-out`, `ease-in-out`, `ease-in-cubic`, `ease-out-cubic`, `ease-in-out-cubic`
-
-**Custom CSS bezier:**
 
 ```json
 "scrollCurve": {
@@ -192,45 +214,54 @@ Control how scroll speed changes over the recording. `pixelsPerFrame` sets the o
 
 ### Quality presets
 
-| Preset | Device scale | Encoding |
-| ------ | ------------ | -------- |
-| `high` | 2× | CRF 15, slow preset, Lanczos scaling |
-| `medium` | 1× | CRF 20, medium preset |
-| `low` | 1× | CRF 26, fast preset |
+| Preset | Typical use | Notes |
+| ------ | ----------- | ----- |
+| `high` | Cinematic export | Higher scale / cleaner encode |
+| `medium` | Standard export | Balanced default |
+| `low` | Drafts | Smaller / faster |
 
 ## How it works
 
-1. **Prep phase** (not recorded) — navigates to the page, dismisses cookie banners, sanitizes the DOM, and scrolls through the page to hydrate lazy-loaded content.
-2. **Record phase** — reloads the page with saved cookies, primes lazy assets, scrolls to the top, waits briefly, then performs a smooth scroll while Playwright captures video.
-3. **Transcode** — ffmpeg converts the raw WebM to H.264 MP4 at the target viewport resolution.
+1. **Prep** — navigate, dismiss banners, sanitize overlays, hydrate lazy assets.
+2. **Capture** — scroll the page (or inject wheel events) while recording frames / video.
+3. **Encode** — stitch / transcode to H.264 MP4.
+4. **Optional style** — composite onto a background with shadow and corner radius (`POST /style`).
 
 ## Project structure
 
 ```
-src/
-  api/server.ts              HTTP server and web UI
-  cli.ts                     CLI entry point
-  pipeline/recordWebsite.ts  Recording orchestration
-  browser/                   Page prep (scroll, hydrate, cookies, sanitize)
-  transcode/                 ffmpeg encoding and quality presets
-public/
-  index.html                 Web UI
-outputs/                     Recorded videos (gitignored)
+apps/
+  api/                 Playwright capture pipeline, HTTP API, CLI
+    src/
+      api/server.ts
+      browser/         scroll, hydrate, sanitize, virtual scroll
+      capture/         frame recorder
+      editor/          framing / style composite
+      pipeline/        record + style orchestration
+      transcode/       ffmpeg
+    public/            built web assets served by the API
+  web/                 React + Vite UI
+    src/
+      App.tsx
+      components/      motion, canvas, pause triggers, preview player
+docs/                  design notes, roadmap, production readiness
+outputs/               recorded videos (gitignored)
 ```
 
 ## Scripts
 
 | Command | Description |
 | ------- | ----------- |
-| `pnpm dev:api` | Start the web server |
-| `pnpm dev` | Start the API and Vite frontend together |
-| `pnpm record <config.json>` | Record via CLI |
-| `pnpm typecheck` | Run TypeScript checks |
-| `pnpm --filter websiterecorder-api test` | Run API tests |
+| `pnpm dev` | API + Vite frontend |
+| `pnpm dev:api` | API only (port 3847) |
+| `pnpm dev:web` | Vite frontend only |
+| `pnpm --filter websiterecorder-api record <config.json>` | CLI record |
+| `pnpm typecheck` | Typecheck all packages |
+| `pnpm --filter websiterecorder-api test` | API tests |
 
 ## Security note
 
-The server loads arbitrary URLs in a headless browser. Do not expose it publicly without authentication or network restrictions. Only record sites you have permission to capture.
+The server loads arbitrary URLs in a browser. Do not expose it publicly without authentication and network restrictions. Only record sites you have permission to capture.
 
 ## License
 
