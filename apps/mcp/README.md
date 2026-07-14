@@ -25,10 +25,18 @@ Example prompt:
 > then moves through the remaining sections deliberately and finishes at the
 > bottom. Show me the applied motion plan and local MP4 path.
 
-For document pages, `create_recording.direction.beats` can target selectors,
-normalized progress, or the page end. For virtual-scroll pages, use the progress
-targets returned by the storyboard. Each beat accepts `transitionMs`, a curve,
-and an optional `holdMs`.
+For document pages, use selector targets for held sections and reserve normalized
+progress for non-held fly-through waypoints. Inspection includes safe viewport
+insets and a recommended transition duration for every semantic section. For
+virtual-scroll pages, use the progress targets returned by the storyboard.
+
+Each beat accepts `transitionMs`, a curve, and an optional `holdMs`. Scrollizard
+automatically merges redundant targets, replaces harsh curves at hold boundaries,
+and stretches transitions that exceed 1.5 viewport heights per second. The
+resolved `motionPlan.adjustments` array explains every correction.
+
+Unless the user names more sections, use at most two section holds. Do not add a
+separate page-end beat when the previous target is already near the bottom.
 
 The legacy `pace`, `curve`, `heroHoldMs`, `durationMs`, and `pauses` controls
 remain available when `direction` is omitted. Do not mix the two direction

@@ -7,6 +7,10 @@ export interface WebsiteSection {
   kind: "heading" | "landmark";
   y: number;
   progress: number;
+  height: number;
+  targetY: number;
+  distanceFromPrevious: number;
+  recommendedTransitionMs: number;
 }
 
 export interface StoryboardFrame {
@@ -21,6 +25,7 @@ export interface WebsiteInspection {
   pageHeight: number;
   viewport: { width: number; height: number };
   scrollMode: "document" | "virtual";
+  safeViewport: { topInsetPx: number; bottomInsetPx: number };
   sections: WebsiteSection[];
   storyboard: StoryboardFrame[];
   screenshots: string[];
@@ -40,20 +45,32 @@ export async function inspectWebsite(options: {
     await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
     const pageHeight = await page.evaluate(() => Math.max(document.body.scrollHeight, document.documentElement.scrollHeight));
     const scrollMode = await detectInspectionScrollMode(page, pageHeight, viewport.height);
-    const sections = (await collectSections(page)).map((section) => ({
-      ...section,
-      progress: Math.min(1, Math.max(0, section.y / Math.max(1, pageHeight - viewport.height))),
-    }));
+    const safeViewport = await detectInspectionSafeViewport(page, viewport);
+    const sections = normalizeInspectionSections(
+      await collectSections(page),
+      safeViewport,
+      viewport.height,
+      Math.max(0, pageHeight - viewport.height),
+    );
     const { screenshots, storyboard } = scrollMode === "virtual"
       ? await takeVirtualStoryboardScreenshots(page, viewport)
       : await takeDocumentStoryboardScreenshots(page, pageHeight, viewport.height);
-    return { url: page.url(), title: await page.title(), pageHeight, viewport, scrollMode, sections, storyboard, screenshots };
+    return { url: page.url(), title: await page.title(), pageHeight, viewport, scrollMode, safeViewport, sections, storyboard, screenshots };
   } finally {
     await browser.close();
   }
 }
 
-async function collectSections(page: Page): Promise<Array<Omit<WebsiteSection, "progress">>> {
+interface RawWebsiteSection {
+  label: string;
+  selector: string;
+  kind: "heading" | "landmark";
+  y: number;
+  height: number;
+  stable: number;
+}
+
+async function collectSections(page: Page): Promise<RawWebsiteSection[]> {
   // Keep this callback as source text: the MCP bundle adds a `__name` helper to
   // normal function expressions, which is unavailable inside the browser realm.
   return page.evaluate(`(() => {
@@ -77,18 +94,82 @@ async function collectSections(page: Page): Promise<Array<Omit<WebsiteSection, "
       .map((element) => {
         const rect = element.getBoundingClientRect();
         const tag = element.tagName.toLowerCase();
-        const text = (element.getAttribute("aria-label") || element.textContent || "").replace(/\s+/g, " ").trim();
+        const heading = tag.startsWith("h") ? element : element.querySelector("h1,h2,h3");
+        const text = (element.getAttribute("aria-label") || heading?.textContent || element.textContent || "").replace(/\s+/g, " ").trim();
         return {
           label: text.slice(0, 120) || tag,
           selector: pathFor(element),
           kind: tag.startsWith("h") ? "heading" : "landmark",
           y: Math.max(0, Math.round(rect.top + window.scrollY)),
+          height: Math.max(1, Math.round(rect.height)),
+          stable: element.id ? 1 : 0,
+          visible: rect.width > 0 && rect.height > 0,
         };
       })
-      .filter((section) => section.label.length > 0 && Number.isFinite(section.y));
+      .filter((section) => section.visible && section.label.length > 0 && Number.isFinite(section.y));
 
-    return found.filter((section, index) => index === 0 || section.y - found[index - 1].y > 24).slice(0, 30);
+    return found;
   })()`);
+}
+
+function normalizeInspectionSections(
+  raw: RawWebsiteSection[],
+  safeViewport: { topInsetPx: number; bottomInsetPx: number },
+  viewportHeight: number,
+  maxScroll: number,
+): WebsiteSection[] {
+  const safeTop = safeViewport.topInsetPx + 24;
+  const safeBottom = viewportHeight - safeViewport.bottomInsetPx;
+  const safeCenter = (safeTop + safeBottom) / 2;
+  const scored = raw.map((section) => ({
+    ...section,
+    score: (section.kind === "heading" ? 4 : 0) + section.stable * 2,
+    targetY: Math.max(0, Math.min(maxScroll, section.y + section.height / 2 - safeCenter)),
+  })).sort((a, b) => a.y - b.y || b.score - a.score);
+  const selected: typeof scored = [];
+  for (const section of scored) {
+    const nearby = selected.findIndex((candidate) => Math.abs(candidate.y - section.y) <= 160);
+    if (nearby < 0) selected.push(section);
+    else if (section.score > selected[nearby].score) selected[nearby] = section;
+  }
+
+  let previousTarget = 0;
+  return selected.sort((a, b) => a.y - b.y).slice(0, 30).map((section) => {
+    const distanceFromPrevious = Math.max(0, section.targetY - previousTarget);
+    previousTarget = section.targetY;
+    const recommendedTransitionMs = Math.max(
+      600,
+      Math.ceil(((distanceFromPrevious * 1.9) / Math.max(1, viewportHeight * 1.5) * 1000) / 50) * 50,
+    );
+    return {
+      label: section.label,
+      selector: section.selector,
+      kind: section.kind,
+      y: section.y,
+      height: section.height,
+      targetY: section.targetY,
+      progress: maxScroll === 0 ? 0 : section.targetY / maxScroll,
+      distanceFromPrevious,
+      recommendedTransitionMs,
+    };
+  });
+}
+
+async function detectInspectionSafeViewport(
+  page: Page,
+  viewport: { width: number; height: number },
+) {
+  const topInsetPx = await page.evaluate<number>(`(() => {
+    return Array.from(document.querySelectorAll("body *")).reduce((inset, element) => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      const pinned = style.position === "fixed" || style.position === "sticky";
+      const visible = style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || 1) > 0;
+      const topBar = rect.top <= 8 && rect.bottom > 0 && rect.width >= ${viewport.width} * 0.5 && rect.height >= 24 && rect.height <= ${viewport.height} * 0.3;
+      return pinned && visible && topBar ? Math.max(inset, Math.round(rect.bottom)) : inset;
+    }, 0);
+  })()`);
+  return { topInsetPx, bottomInsetPx: 24 };
 }
 
 async function takeDocumentStoryboardScreenshots(page: Page, pageHeight: number, viewportHeight: number) {

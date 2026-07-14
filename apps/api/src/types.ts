@@ -135,6 +135,19 @@ export interface ResolvedMotionPlan {
   startHoldMs: number;
   durationMs: number;
   beats: ResolvedMotionBeat[];
+  adjustments: MotionPlanAdjustment[];
+}
+
+export interface MotionPlanAdjustment {
+  beatIndex: number;
+  code:
+    | "promoted-progress-target"
+    | "merged-nearby-beat"
+    | "replaced-boundary-curve"
+    | "stretched-transition";
+  message: string;
+  requested?: number | string | MotionTarget;
+  resolved?: number | string | MotionTarget;
 }
 
 export type BackgroundPreset =

@@ -30,10 +30,10 @@ const directionSchema = z.object({
 });
 
 const server = new McpServer(
-  { name: "scrollizard", version: "0.2.0" },
+  { name: "scrollizard", version: "0.3.0" },
   {
     instructions:
-      "Inspect a website before directing it. For document pages, build ordered direction beats from returned selector targets. For virtual-scroll pages, use storyboard progress targets. Give every beat an intentional transition duration, curve, and optional hold. Start with draft quality unless the user explicitly requests a final render.",
+      "Inspect before directing. On document pages, use returned selector targets for every held beat; progress targets are only for non-held fly-through waypoints. Use recommendedTransitionMs as a floor, hold only sections the user emphasizes, and default to at most two section holds unless the user explicitly requests more. Use ease-in-out curves around holds, vary timing by distance, and do not add page-end when the prior target is already near the bottom. On virtual pages, use storyboard progress targets. Start with draft quality unless the user requests a final render. Report any motionPlan.adjustments returned by Scrollizard.",
   },
 );
 
@@ -49,7 +49,7 @@ server.registerTool(
   "inspect_website",
   {
     title: "Inspect website for recording direction",
-    description: "Returns detected scroll mode, a visual storyboard with target positions, and semantic selector candidates for an AI-directed motion plan.",
+    description: "Returns scroll mode, safe viewport insets, a targeted storyboard, and semantic sections with selector, composition position, distance, and recommended transition timing.",
     inputSchema: { targetUrl: z.string().url(), viewport: viewportSchema.optional() },
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
@@ -72,7 +72,7 @@ server.registerTool(
   "create_recording",
   {
     title: "Create AI-directed website recording",
-    description: "Captures a local MP4. Prefer section-level direction beats from inspect_website; legacy global pace, curve, hero hold, and pauses remain available as a fallback.",
+    description: "Captures a local MP4 and auto-corrects weak direction for composition, hold-boundary easing, maximum velocity, and redundant nearby beats. Prefer inspected selector beats on document pages.",
     inputSchema: {
       targetUrl: z.string().url(),
       quality: z.enum(["draft", "standard", "cinematic"]).optional(),

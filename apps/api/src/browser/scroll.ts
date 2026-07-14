@@ -16,6 +16,15 @@ import { resolveScrollCurve } from "./curves.js";
 import { detectScrollMode } from "./detectScrollMode.js";
 import { buildMotionTimeline, type TimelineBeat } from "./motion.js";
 import { runVirtualTimeline } from "./virtualScroll.js";
+import {
+  alignedDocumentPosition,
+  collectSemanticAnchors,
+  detectSafeViewport,
+  type SafeViewport,
+  type SemanticAnchor,
+  nearestSemanticAnchor,
+} from "./composition.js";
+import { normalizeResolvedBeats } from "./directionGuardrails.js";
 
 const DEFAULT_BEAT_CURVE: ScrollCurve = { preset: "ease-in-out-cubic" };
 
@@ -58,17 +67,28 @@ async function runDirectedDocumentScroll(
   const maxScroll = await page.evaluate(() =>
     Math.max(0, document.documentElement.scrollHeight - window.innerHeight),
   );
+  const startHoldMs = options.animationConfig?.direction?.startHoldMs
+    ?? options.animationConfig?.heroHoldMs
+    ?? 0;
+  const safeViewport = await detectSafeViewport(
+    page,
+    options.viewportWidth,
+    options.viewportHeight,
+  );
+  const anchors = options.animationConfig?.direction
+    ? await collectSemanticAnchors(page, safeViewport, options.viewportHeight, maxScroll)
+    : [];
   const resolved = options.animationConfig?.direction
     ? await resolveDirectedDocumentBeats(
         page,
         options.animationConfig.direction.beats,
         maxScroll,
         options.viewportHeight,
+        safeViewport,
+        anchors,
+        startHoldMs,
       )
-    : await resolveLegacyDocumentBeats(page, options, maxScroll);
-  const startHoldMs = options.animationConfig?.direction?.startHoldMs
-    ?? options.animationConfig?.heroHoldMs
-    ?? 0;
+    : await resolveLegacyDocumentBeats(page, options, maxScroll, safeViewport);
   const fps = options.frameRecorder?.getFps() ?? 30;
   const samples = buildMotionTimeline({
     fps,
@@ -106,6 +126,7 @@ async function runDirectedDocumentScroll(
       startHoldMs,
       durationMs,
       beats: resolved.beats,
+      adjustments: resolved.adjustments,
     },
   };
 }
@@ -127,12 +148,17 @@ async function runDirectedVirtualScroll(
     );
   }
 
-  const resolved = direction
-    ? resolveDirectedVirtualBeats(direction.beats)
-    : resolveLegacyVirtualBeats(virtual.durationMs, options.bezier);
   const startHoldMs = direction?.startHoldMs
     ?? options.animationConfig?.heroHoldMs
     ?? 0;
+  const resolved = direction
+    ? resolveDirectedVirtualBeats(
+        direction.beats,
+        startHoldMs,
+        options.viewportHeight,
+        virtual.wheelBudget,
+      )
+    : resolveLegacyVirtualBeats(virtual.durationMs, options.bezier);
   const fps = options.frameRecorder?.getFps() ?? 30;
   const samples = buildMotionTimeline({
     fps,
@@ -157,6 +183,7 @@ async function runDirectedVirtualScroll(
       startHoldMs,
       durationMs,
       beats: resolved.beats,
+      adjustments: resolved.adjustments,
     },
   };
 }
@@ -166,47 +193,79 @@ async function resolveDirectedDocumentBeats(
   beats: MotionBeat[],
   maxScroll: number,
   viewportHeight: number,
+  safeViewport: SafeViewport,
+  anchors: SemanticAnchor[],
+  startHoldMs: number,
 ) {
   if (beats.length === 0) throw new Error("direction.beats must contain at least one beat");
-  let previous = 0;
   const resolved: ResolvedMotionBeat[] = [];
-  const timeline: TimelineBeat[] = [];
+  const adjustments: import("../types.js").MotionPlanAdjustment[] = [];
 
-  for (const beat of beats) {
+  for (const [beatIndex, beat] of beats.entries()) {
     validateBeat(beat);
-    const position = await resolveDocumentTarget(
+    let target = beat.target;
+    let position = await resolveDocumentTarget(
       page,
-      beat.target,
+      target,
       maxScroll,
       viewportHeight,
+      safeViewport,
     );
-    if (position + 1 < previous) {
-      throw new Error(`Direction target ${describeTarget(beat.target)} resolves behind the previous beat`);
+    if (target.type === "progress" && (beat.holdMs ?? 0) > 0) {
+      const nearest = nearestSemanticAnchor(anchors, position, viewportHeight);
+      if (nearest) {
+        const requested = target;
+        target = { type: "selector", selector: nearest.selector, align: "center" };
+        position = nearest.position;
+        adjustments.push({
+          beatIndex,
+          code: "promoted-progress-target",
+          message: `Promoted a held progress target to the nearby “${nearest.label}” section`,
+          requested,
+          resolved: target,
+        });
+      }
     }
-    previous = position;
     const curve = beat.curve ?? DEFAULT_BEAT_CURVE;
     resolved.push({
-      target: beat.target,
+      target,
       position,
       transitionMs: beat.transitionMs,
       holdMs: beat.holdMs ?? 0,
       curve,
     });
-    timeline.push({
-      position,
-      transitionMs: beat.transitionMs,
-      holdMs: beat.holdMs ?? 0,
-      bezier: resolveScrollCurve(curve),
-    });
   }
-  return { beats: resolved, timeline };
+  const normalized = normalizeResolvedBeats({
+    beats: resolved,
+    startHoldMs,
+    viewportHeight,
+    adjustments,
+  });
+  normalized.beats.forEach((beat, index) => {
+    if (index > 0 && beat.position + 1 < normalized.beats[index - 1].position) {
+      throw new Error(`Direction target ${describeTarget(beat.target)} resolves behind the previous beat`);
+    }
+  });
+  return {
+    ...normalized,
+    timeline: normalized.beats.map((beat) => ({
+      position: beat.position,
+      transitionMs: beat.transitionMs,
+      holdMs: beat.holdMs,
+      bezier: resolveScrollCurve(beat.curve),
+    })),
+  };
 }
 
-function resolveDirectedVirtualBeats(beats: MotionBeat[]) {
+function resolveDirectedVirtualBeats(
+  beats: MotionBeat[],
+  startHoldMs: number,
+  viewportHeight: number,
+  wheelBudget: number,
+) {
   if (beats.length === 0) throw new Error("direction.beats must contain at least one beat");
   let previous = 0;
   const resolved: ResolvedMotionBeat[] = [];
-  const timeline: TimelineBeat[] = [];
   for (const beat of beats) {
     validateBeat(beat);
     if (beat.target.type === "selector") {
@@ -220,21 +279,35 @@ function resolveDirectedVirtualBeats(beats: MotionBeat[]) {
     previous = position;
     const curve = beat.curve ?? DEFAULT_BEAT_CURVE;
     resolved.push({ target: beat.target, position, transitionMs: beat.transitionMs, holdMs: beat.holdMs ?? 0, curve });
-    timeline.push({ position, transitionMs: beat.transitionMs, holdMs: beat.holdMs ?? 0, bezier: resolveScrollCurve(curve) });
   }
-  return { beats: resolved, timeline };
+  const normalized = normalizeResolvedBeats({
+    beats: resolved,
+    startHoldMs,
+    viewportHeight,
+    positionScale: wheelBudget,
+  });
+  return {
+    ...normalized,
+    timeline: normalized.beats.map((beat) => ({
+      position: beat.position,
+      transitionMs: beat.transitionMs,
+      holdMs: beat.holdMs,
+      bezier: resolveScrollCurve(beat.curve),
+    })),
+  };
 }
 
 async function resolveLegacyDocumentBeats(
   page: Page,
   options: RunScrollOptions,
   maxScroll: number,
+  safeViewport: SafeViewport,
 ) {
   const pauses = normalizePauseTriggers(options.pauseTriggers ?? []);
   const pauseTargets: Array<{ target: MotionTarget; position: number; holdMs: number }> = [];
   for (const pause of pauses) {
     const target: MotionTarget = { type: "selector", selector: pause.selector, align: "center" };
-    const position = await resolveDocumentTarget(page, target, maxScroll, options.viewportHeight);
+    const position = await resolveDocumentTarget(page, target, maxScroll, options.viewportHeight, safeViewport);
     pauseTargets.push({ target, position, holdMs: pause.durationMs });
   }
   pauseTargets.sort((a, b) => a.position - b.position);
@@ -255,7 +328,7 @@ async function resolveLegacyDocumentBeats(
     timeline.push({ position: target.position, transitionMs, holdMs: target.holdMs, bezier: options.bezier });
     previous = target.position;
   }
-  return { beats: resolved, timeline };
+  return { beats: resolved, timeline, adjustments: [] };
 }
 
 function resolveLegacyVirtualBeats(durationMs: number, bezier: BezierControlPoints) {
@@ -263,6 +336,7 @@ function resolveLegacyVirtualBeats(durationMs: number, bezier: BezierControlPoin
   return {
     beats: [{ target, position: 1, transitionMs: durationMs, holdMs: 0, curve: { preset: "linear" } } satisfies ResolvedMotionBeat],
     timeline: [{ position: 1, transitionMs: durationMs, holdMs: 0, bezier }],
+    adjustments: [],
   };
 }
 
@@ -271,6 +345,7 @@ async function resolveDocumentTarget(
   target: MotionTarget,
   maxScroll: number,
   viewportHeight: number,
+  safeViewport: SafeViewport,
 ) {
   if (target.type === "page-end") return maxScroll;
   if (target.type === "progress") {
@@ -286,13 +361,15 @@ async function resolveDocumentTarget(
     return { top: rect.top + window.scrollY, height: rect.height };
   }, target.selector);
   if (!metrics) throw new Error(`Direction selector was not found or visible: ${target.selector}`);
-  const align = target.align ?? "center";
-  const base = align === "top"
-    ? metrics.top
-    : align === "bottom"
-      ? metrics.top + metrics.height - viewportHeight
-      : metrics.top + metrics.height / 2 - viewportHeight / 2;
-  return Math.max(0, Math.min(maxScroll, base + (target.offsetPx ?? 0)));
+  return alignedDocumentPosition({
+    y: metrics.top,
+    height: metrics.height,
+    align: target.align ?? "center",
+    offsetPx: target.offsetPx ?? 0,
+    safeViewport,
+    viewportHeight,
+    maxScroll,
+  });
 }
 
 function validateBeat(beat: MotionBeat) {
