@@ -15,10 +15,6 @@ export default defineConfig({
         target: "http://localhost:3847",
         changeOrigin: true,
       },
-      "/edit": {
-        target: "http://localhost:3847",
-        changeOrigin: true,
-      },
       "/style": {
         target: "http://localhost:3847",
         changeOrigin: true,

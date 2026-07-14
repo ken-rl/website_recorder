@@ -4,10 +4,9 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { editVideo } from "../pipeline/editVideo.js";
 import { recordWebsite } from "../pipeline/recordWebsite.js";
 import { restyleRecording } from "../pipeline/styleRecording.js";
-import type { EditRequest, RecordRequest, StyleRequest } from "../types.js";
+import type { RecordRequest, StyleRequest } from "../types.js";
 
 const PORT = Number(process.env.PORT ?? 3847);
 const OUTPUT_DIR = path.resolve(process.env.OUTPUT_DIR ?? "./outputs");
@@ -45,13 +44,6 @@ const server = http.createServer(async (req, res) => {
           status: "planned",
         },
         {
-          id: "bezier-editor",
-          title: "Visual Scroll Curve Editor",
-          description:
-            "An interactive, draggable canvas editor to customize CSS-style cubic-bezier scroll transitions.",
-          status: "in-progress",
-        },
-        {
           id: "webhook-notifications",
           title: "Webhooks & Async Processing",
           description:
@@ -72,8 +64,7 @@ const server = http.createServer(async (req, res) => {
   if (
     req.method === "GET" &&
     (url.pathname === "/" ||
-      url.pathname === "/upcoming" ||
-      url.pathname === "/editor")
+      url.pathname === "/upcoming")
   ) {
     return serveFile(
       res,
@@ -121,24 +112,6 @@ const server = http.createServer(async (req, res) => {
         durationMs: result.durationMs,
         viewport: result.viewport,
         scrollStrategy: result.scrollStrategy,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      return sendJson(res, 400, { ok: false, error: message });
-    }
-  }
-
-  if (req.method === "POST" && url.pathname === "/edit") {
-    try {
-      const body = await readJsonBody<EditRequest>(req);
-      const result = await editVideo(body, OUTPUT_DIR);
-      return sendJson(res, 200, {
-        ok: true,
-        jobId: result.jobId,
-        sourceVideoUrl: result.sourceVideoUrl,
-        videoUrl: result.videoUrl,
-        mp4Path: result.mp4Path,
-        durationMs: result.durationMs,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";

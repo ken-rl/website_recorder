@@ -96,49 +96,8 @@ export interface RecordResult {
   scrollStrategy: ResolvedScrollStrategy;
 }
 
-export interface EditorPause {
-  /** Position in the source video timeline (milliseconds). */
-  atMs: number;
-  /** How long to hold the frame (milliseconds). */
-  holdMs: number;
-}
-
-export interface EditorZoom {
-  /** Position in the source video timeline (milliseconds). */
-  atMs: number;
-  /** Transition duration (milliseconds). */
-  durationMs: number;
-  /** Zoom level (e.g. 1.5). */
-  scale: number;
-  /** Target center X coordinate percentage (0 to 1). */
-  x: number;
-  /** Target center Y coordinate percentage (0 to 1). */
-  y: number;
-}
-
 export type BackgroundPreset =
   | "none"
   | "gray_noise_gradient"
   | "paper_blue"
   | "red_blocks_gradient";
-
-export interface EditRequest {
-  jobId: string;
-  trimStartMs?: number;
-  trimEndMs?: number;
-  pauses?: EditorPause[];
-  zooms?: EditorZoom[];
-  bezier?: [number, number, number, number];
-  durationMs?: number;
-  backgroundPreset?: BackgroundPreset;
-  addShadow?: boolean;
-  roundedCorners?: boolean;
-}
-
-export interface EditResult {
-  jobId: string;
-  sourceVideoUrl: string;
-  videoUrl: string;
-  mp4Path: string;
-  durationMs: number;
-}

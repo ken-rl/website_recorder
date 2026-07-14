@@ -65,7 +65,7 @@ export default function VirtualScrollForm({
         </div>
       </div>
 
-      {showVirtualOptions && scrollMode !== "document" && (
+      {showVirtualOptions && (
         <details className="motion-advanced" open={scrollMode === "virtual"}>
           <summary>
             Virtual options

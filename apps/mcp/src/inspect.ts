@@ -38,21 +38,23 @@ export async function inspectWebsite(options: {
 }
 
 async function collectSections(page: Page): Promise<WebsiteSection[]> {
-  return page.evaluate(() => {
-    const pathFor = (element: Element) => {
-      if (element.id) return `#${CSS.escape(element.id)}`;
-      const segments: string[] = [];
-      let current: Element | null = element;
+  // Keep this callback as source text: the MCP bundle adds a `__name` helper to
+  // normal function expressions, which is unavailable inside the browser realm.
+  return page.evaluate(`(() => {
+    const pathFor = (element) => {
+      if (element.id) return "#" + CSS.escape(element.id);
+      const segments = [];
+      let current = element;
       while (current && current !== document.body && segments.length < 4) {
-        const parent: Element | null = current.parentElement;
+        const parent = current.parentElement;
         const tag = current.tagName.toLowerCase();
         const index = parent
-          ? (Array.from(parent.children) as Element[]).filter((child) => child.tagName === current!.tagName).indexOf(current) + 1
+          ? Array.from(parent.children).filter((child) => child.tagName === current.tagName).indexOf(current) + 1
           : 1;
-        segments.unshift(`${tag}:nth-of-type(${index})`);
+        segments.unshift(tag + ":nth-of-type(" + index + ")");
         current = parent;
       }
-      return `body > ${segments.join(" > ")}`;
+      return "body > " + segments.join(" > ");
     };
 
     const found = Array.from(document.querySelectorAll("h1,h2,h3,main,section,article,header,footer,[role='main'],[role='region']"))
@@ -63,14 +65,14 @@ async function collectSections(page: Page): Promise<WebsiteSection[]> {
         return {
           label: text.slice(0, 120) || tag,
           selector: pathFor(element),
-          kind: tag.startsWith("h") ? ("heading" as const) : ("landmark" as const),
+          kind: tag.startsWith("h") ? "heading" : "landmark",
           y: Math.max(0, Math.round(rect.top + window.scrollY)),
         };
       })
       .filter((section) => section.label.length > 0 && Number.isFinite(section.y));
 
     return found.filter((section, index) => index === 0 || section.y - found[index - 1].y > 24).slice(0, 30);
-  });
+  })()`);
 }
 
 async function takeStoryboardScreenshots(page: Page, pageHeight: number, viewportHeight: number) {

@@ -25,20 +25,12 @@ import BackgroundCanvasForm, {
 
 import BrowserMockup from "./components/BrowserMockup";
 
-import EditorPage from "./pages/EditorPage";
-import {
-  loadEditorSession,
-  saveEditorSession,
-  type EditorSession,
-} from "./lib/editorSession";
-
 export default function App() {
   const [currentPath, setCurrentPath] = useState(() => {
     const path = window.location.pathname;
-    if (path === "/editor" || path === "/upcoming") return "/";
+    if (path === "/upcoming") return "/";
     return path;
   });
-  const [editorSession, setEditorSession] = useState<EditorSession | null>(null);
 
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     const saved = localStorage.getItem("theme");
@@ -66,7 +58,7 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       let path = window.location.pathname;
-      if (path === "/editor" || path === "/upcoming") {
+      if (path === "/upcoming") {
         window.history.replaceState({}, "", "/");
         path = "/";
       }
@@ -78,7 +70,7 @@ export default function App() {
 
   const navigate = (path: string) => {
     let targetPath = path;
-    if (path === "/editor" || path === "/upcoming") {
+    if (path === "/upcoming") {
       targetPath = "/";
     }
     window.history.pushState({}, "", targetPath);
@@ -266,22 +258,6 @@ export default function App() {
       setProgressStatus(errorMsg || "Capture failed.");
     }
   }
-
-  const openEditor = () => {
-    if (!resultVideo) return;
-
-    const session: EditorSession = {
-      jobId: resultVideo.jobId,
-      sourceUrl: resultVideo.sourceUrl,
-      targetUrl: url.trim(),
-      width: resultVideo.width,
-      height: resultVideo.height,
-      scrollStrategy: resultVideo.scrollStrategy,
-    };
-    saveEditorSession(session);
-    setEditorSession(session);
-    navigate("/editor");
-  };
 
   const applyStyleToRecording = async () => {
     if (!resultVideo) return;

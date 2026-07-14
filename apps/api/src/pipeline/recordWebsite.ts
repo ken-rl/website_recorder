@@ -450,7 +450,7 @@ async function runRecordSession(options: {
   } finally {
     await browser?.close();
     // Clean up frames directory if it was in RAM disk or if captureMode is preview.
-    // The editor is hidden, so we do not need to keep the frames on the SSD.
+    // Completed recordings retain only their MP4 artifacts.
     if (isRamDisk || (captureMode as string) === "preview") {
       await fs.rm(framesDir, { recursive: true, force: true }).catch(() => undefined);
     }

@@ -260,7 +260,6 @@ apps/
       api/server.ts
       browser/         scroll, hydrate, sanitize, virtual scroll
       capture/         frame recorder
-      editor/          framing / style composite
       pipeline/        record + style orchestration
       transcode/       ffmpeg
     public/            built web assets + scrollizard-mark.png
