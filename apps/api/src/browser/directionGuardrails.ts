@@ -34,6 +34,7 @@ export function normalizeResolvedBeats(options: {
       if (preferIncoming) {
         previous.target = beat.target;
         previous.position = beat.position;
+        previous.framing = beat.framing;
       }
       previous.holdMs = Math.max(previous.holdMs, beat.holdMs);
       adjustments.push({

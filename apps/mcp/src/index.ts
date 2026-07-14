@@ -30,10 +30,10 @@ const directionSchema = z.object({
 });
 
 const server = new McpServer(
-  { name: "scrollizard", version: "0.3.0" },
+  { name: "scrollizard", version: "0.4.0" },
   {
     instructions:
-      "Inspect before directing. On document pages, use returned selector targets for every held beat; progress targets are only for non-held fly-through waypoints. Use recommendedTransitionMs as a floor, hold only sections the user emphasizes, and default to at most two section holds unless the user explicitly requests more. Use ease-in-out curves around holds, vary timing by distance, and do not add page-end when the prior target is already near the bottom. On virtual pages, use storyboard progress targets. Start with draft quality unless the user requests a final render. Report any motionPlan.adjustments returned by Scrollizard.",
+      "Inspect before directing. Directed recordings hold the hero for 1500ms by default; only override startHoldMs when the user requests a different opening. On document pages, copy each section's recommendedTarget for every held beat so headings are safely framed; progress targets are only for non-held fly-through waypoints. Use recommendedTransitionMs as a floor, hold only sections the user emphasizes, and default to at most two section holds unless the user explicitly requests more. Use ease-in-out curves around holds, vary timing by distance, and do not add page-end when the prior target is already near the bottom. On virtual pages, use storyboard progress targets. Start with draft quality unless the user requests a final render. Report any motionPlan.adjustments and unverified beat framing returned by Scrollizard.",
   },
 );
 
@@ -49,7 +49,7 @@ server.registerTool(
   "inspect_website",
   {
     title: "Inspect website for recording direction",
-    description: "Returns scroll mode, safe viewport insets, a targeted storyboard, and semantic sections with selector, composition position, distance, and recommended transition timing.",
+    description: "Returns scroll mode, safe viewport insets, a targeted storyboard, and semantic sections with safe recommendedTarget selectors, composition position, distance, and recommended transition timing.",
     inputSchema: { targetUrl: z.string().url(), viewport: viewportSchema.optional() },
     annotations: { readOnlyHint: true, openWorldHint: true },
   },

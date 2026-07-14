@@ -8,6 +8,7 @@ import type {
   ScrollMode,
   MotionDirection,
 } from "../../api/src/types.js";
+import { DEFAULT_DIRECTED_START_HOLD_MS } from "../../api/src/types.js";
 
 export type RecordingQuality = "draft" | "standard" | "cinematic";
 export type RecordingPace = "slow" | "normal" | "fast";
@@ -100,7 +101,12 @@ export function buildRecordRequest(input: CreateRecordingInput): RecordRequest {
       scrollMode: input.scrollMode ?? "auto",
       removeOverlayElements: true,
       ...(input.direction
-        ? { direction: input.direction }
+        ? {
+            direction: {
+              ...input.direction,
+              startHoldMs: input.direction.startHoldMs ?? DEFAULT_DIRECTED_START_HOLD_MS,
+            },
+          }
         : {
             pixelsPerFrame: PIXELS_PER_FRAME[input.pace ?? "normal"],
             heroHoldMs: input.heroHoldMs,

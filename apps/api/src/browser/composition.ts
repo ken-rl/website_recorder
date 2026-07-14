@@ -12,6 +12,7 @@ export interface SemanticAnchor {
   y: number;
   height: number;
   position: number;
+  recommendedAlign: "top" | "center";
 }
 
 interface RawSemanticAnchor extends Omit<SemanticAnchor, "position"> {
@@ -63,32 +64,37 @@ export async function collectSemanticAnchors(
     };
     return Array.from(document.querySelectorAll("h1,h2,h3,main,section,article,footer,[role='main'],[role='region']"))
       .map((element) => {
-        const rect = element.getBoundingClientRect();
         const tag = element.tagName.toLowerCase();
         const heading = tag.startsWith("h") ? element : element.querySelector("h1,h2,h3");
+        const focus = heading || element;
+        const focusRect = focus.getBoundingClientRect();
         const label = (element.getAttribute("aria-label") || heading?.textContent || element.textContent || "").replace(/\\s+/g, " ").trim().slice(0, 120);
         return {
-          selector: pathFor(element),
+          selector: pathFor(focus),
           label,
-          kind: tag.startsWith("h") ? "heading" : "landmark",
-          y: Math.max(0, Math.round(rect.top + window.scrollY)),
-          height: Math.max(1, Math.round(rect.height)),
-          visible: rect.width > 0 && rect.height > 0,
-          stable: element.id ? 1 : 0,
+          kind: heading ? "heading" : "landmark",
+          y: Math.max(0, Math.round(focusRect.top + window.scrollY)),
+          height: Math.max(1, Math.round(focusRect.height)),
+          visible: focusRect.width > 0 && focusRect.height > 0,
+          stable: focus.id ? 1 : 0,
         };
       })
       .filter((candidate) => candidate.visible && candidate.label);
   })()`);
 
-  const safeCenter =
-    (safeViewport.topInsetPx + COMPOSITION_MARGIN_PX + viewportHeight - safeViewport.bottomInsetPx) / 2;
   const scored = candidates.map((candidate) => ({
     ...candidate,
     score: (candidate.kind === "heading" ? 4 : 0) + candidate.stable * 2,
-    position: Math.max(
-      0,
-      Math.min(maxScroll, candidate.y + candidate.height / 2 - safeCenter),
-    ),
+    recommendedAlign: candidate.kind === "heading" ? "center" as const : "top" as const,
+    position: alignedDocumentPosition({
+      y: candidate.y,
+      height: candidate.height,
+      align: candidate.kind === "heading" ? "center" : "top",
+      offsetPx: 0,
+      safeViewport,
+      viewportHeight,
+      maxScroll,
+    }),
   })).sort((a, b) => a.y - b.y || b.score - a.score);
 
   const anchors: typeof scored = [];
@@ -120,6 +126,40 @@ export function alignedDocumentPosition(options: {
       ? options.y + options.height - safeBottom
       : options.y + options.height / 2 - (safeTop + safeBottom) / 2;
   return Math.max(0, Math.min(options.maxScroll, base + options.offsetPx));
+}
+
+export function resolvePauseFraming(options: {
+  y: number;
+  height: number;
+  position: number;
+  align: "top" | "center" | "bottom";
+  safeViewport: SafeViewport;
+  viewportHeight: number;
+  maxScroll: number;
+}) {
+  const safeTopPx = options.safeViewport.topInsetPx + COMPOSITION_MARGIN_PX;
+  const safeBottomPx = options.viewportHeight - options.safeViewport.bottomInsetPx;
+  const safeHeight = safeBottomPx - safeTopPx;
+  let targetY = Math.max(0, Math.min(options.maxScroll, options.position));
+  let align = options.align;
+  let top = options.y - targetY;
+  let bottom = top + options.height;
+
+  if (options.height > safeHeight) {
+    align = "top";
+    targetY = alignedDocumentPosition({ ...options, align: "top", offsetPx: 0 });
+  } else if (top < safeTopPx) {
+    targetY = Math.max(0, Math.min(options.maxScroll, targetY - (safeTopPx - top)));
+  } else if (bottom > safeBottomPx) {
+    targetY = Math.max(0, Math.min(options.maxScroll, targetY + (bottom - safeBottomPx)));
+  }
+
+  top = options.y - targetY;
+  bottom = top + options.height;
+  const verified = top >= safeTopPx - 1
+    && top < safeBottomPx
+    && (options.height > safeHeight || bottom <= safeBottomPx + 1);
+  return { targetY, align, safeTopPx, safeBottomPx, verified };
 }
 
 export function nearestSemanticAnchor(

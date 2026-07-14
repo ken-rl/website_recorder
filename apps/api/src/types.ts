@@ -31,6 +31,8 @@ export interface MotionDirection {
   beats: MotionBeat[];
 }
 
+export const DEFAULT_DIRECTED_START_HOLD_MS = 1_500;
+
 export interface VideoConfig {
   framerate?: number;
   qualityPreset?: "high" | "medium" | "low";
@@ -128,6 +130,16 @@ export interface ResolvedMotionBeat {
   transitionMs: number;
   holdMs: number;
   curve: ScrollCurve;
+  framing?: ResolvedBeatFraming;
+}
+
+export interface ResolvedBeatFraming {
+  selector: string;
+  align: "top" | "center" | "bottom";
+  targetY: number;
+  safeTopPx: number;
+  safeBottomPx: number;
+  verified: boolean;
 }
 
 export interface ResolvedMotionPlan {
@@ -144,7 +156,8 @@ export interface MotionPlanAdjustment {
     | "promoted-progress-target"
     | "merged-nearby-beat"
     | "replaced-boundary-curve"
-    | "stretched-transition";
+    | "stretched-transition"
+    | "corrected-pause-framing";
   message: string;
   requested?: number | string | MotionTarget;
   resolved?: number | string | MotionTarget;

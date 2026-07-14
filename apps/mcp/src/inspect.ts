@@ -11,6 +11,11 @@ export interface WebsiteSection {
   targetY: number;
   distanceFromPrevious: number;
   recommendedTransitionMs: number;
+  recommendedTarget: {
+    type: "selector";
+    selector: string;
+    align: "top" | "center";
+  };
 }
 
 export interface StoryboardFrame {
@@ -61,7 +66,7 @@ export async function inspectWebsite(options: {
   }
 }
 
-interface RawWebsiteSection {
+export interface RawWebsiteSection {
   label: string;
   selector: string;
   kind: "heading" | "landmark";
@@ -92,18 +97,19 @@ async function collectSections(page: Page): Promise<RawWebsiteSection[]> {
 
     const found = Array.from(document.querySelectorAll("h1,h2,h3,main,section,article,header,footer,[role='main'],[role='region']"))
       .map((element) => {
-        const rect = element.getBoundingClientRect();
         const tag = element.tagName.toLowerCase();
         const heading = tag.startsWith("h") ? element : element.querySelector("h1,h2,h3");
+        const focus = heading || element;
+        const focusRect = focus.getBoundingClientRect();
         const text = (element.getAttribute("aria-label") || heading?.textContent || element.textContent || "").replace(/\s+/g, " ").trim();
         return {
           label: text.slice(0, 120) || tag,
-          selector: pathFor(element),
-          kind: tag.startsWith("h") ? "heading" : "landmark",
-          y: Math.max(0, Math.round(rect.top + window.scrollY)),
-          height: Math.max(1, Math.round(rect.height)),
-          stable: element.id ? 1 : 0,
-          visible: rect.width > 0 && rect.height > 0,
+          selector: pathFor(focus),
+          kind: heading ? "heading" : "landmark",
+          y: Math.max(0, Math.round(focusRect.top + window.scrollY)),
+          height: Math.max(1, Math.round(focusRect.height)),
+          stable: focus.id ? 1 : 0,
+          visible: focusRect.width > 0 && focusRect.height > 0,
         };
       })
       .filter((section) => section.visible && section.label.length > 0 && Number.isFinite(section.y));
@@ -112,7 +118,7 @@ async function collectSections(page: Page): Promise<RawWebsiteSection[]> {
   })()`);
 }
 
-function normalizeInspectionSections(
+export function normalizeInspectionSections(
   raw: RawWebsiteSection[],
   safeViewport: { topInsetPx: number; bottomInsetPx: number },
   viewportHeight: number,
@@ -120,11 +126,16 @@ function normalizeInspectionSections(
 ): WebsiteSection[] {
   const safeTop = safeViewport.topInsetPx + 24;
   const safeBottom = viewportHeight - safeViewport.bottomInsetPx;
-  const safeCenter = (safeTop + safeBottom) / 2;
   const scored = raw.map((section) => ({
     ...section,
     score: (section.kind === "heading" ? 4 : 0) + section.stable * 2,
-    targetY: Math.max(0, Math.min(maxScroll, section.y + section.height / 2 - safeCenter)),
+    recommendedAlign: section.kind === "heading" ? "center" as const : "top" as const,
+    targetY: Math.max(0, Math.min(
+      maxScroll,
+      section.kind === "heading"
+        ? section.y + section.height / 2 - (safeTop + safeBottom) / 2
+        : section.y - safeTop,
+    )),
   })).sort((a, b) => a.y - b.y || b.score - a.score);
   const selected: typeof scored = [];
   for (const section of scored) {
@@ -151,6 +162,11 @@ function normalizeInspectionSections(
       progress: maxScroll === 0 ? 0 : section.targetY / maxScroll,
       distanceFromPrevious,
       recommendedTransitionMs,
+      recommendedTarget: {
+        type: "selector",
+        selector: section.selector,
+        align: section.recommendedAlign,
+      },
     };
   });
 }

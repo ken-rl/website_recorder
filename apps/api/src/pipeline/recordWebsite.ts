@@ -33,6 +33,7 @@ import type {
   ResolvedScrollStrategy,
   ResolvedMotionPlan,
 } from "../types.js";
+import { DEFAULT_DIRECTED_START_HOLD_MS } from "../types.js";
 
 const DEFAULT_FRAMERATE = 30;
 
@@ -210,7 +211,7 @@ function validateDirectionMode(animation?: AnimationConfig) {
     throw new Error("animationConfig.direction must contain between 1 and 12 beats");
   }
   const totalDurationMs =
-    (animation.direction.startHoldMs ?? 0) +
+    (animation.direction.startHoldMs ?? DEFAULT_DIRECTED_START_HOLD_MS) +
     animation.direction.beats.reduce(
       (total, beat) => total + beat.transitionMs + (beat.holdMs ?? 0),
       0,

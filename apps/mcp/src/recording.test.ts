@@ -50,6 +50,25 @@ test("maps section-level direction into the recorder request", () => {
   assert.equal(request.animationConfig?.captureMode, "export");
 });
 
+test("defaults directed recordings to a 1500ms hero hold", () => {
+  const request = buildRecordRequest({
+    targetUrl: "https://example.com",
+    direction: { beats: [{ target: { type: "page-end" }, transitionMs: 2000 }] },
+  });
+  assert.equal(request.animationConfig?.direction?.startHoldMs, 1500);
+});
+
+test("respects an explicit zero hero hold for directed recordings", () => {
+  const request = buildRecordRequest({
+    targetUrl: "https://example.com",
+    direction: {
+      startHoldMs: 0,
+      beats: [{ target: { type: "page-end" }, transitionMs: 2000 }],
+    },
+  });
+  assert.equal(request.animationConfig?.direction?.startHoldMs, 0);
+});
+
 test("does not mix direction beats with legacy global controls", () => {
   assert.throws(
     () => buildRecordRequest({

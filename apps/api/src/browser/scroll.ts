@@ -11,6 +11,7 @@ import type {
   ScrollCurve,
   ScrollMode,
 } from "../types.js";
+import { DEFAULT_DIRECTED_START_HOLD_MS } from "../types.js";
 import type { BezierControlPoints } from "./curves.js";
 import { resolveScrollCurve } from "./curves.js";
 import { detectScrollMode } from "./detectScrollMode.js";
@@ -23,6 +24,7 @@ import {
   type SafeViewport,
   type SemanticAnchor,
   nearestSemanticAnchor,
+  resolvePauseFraming,
 } from "./composition.js";
 import { normalizeResolvedBeats } from "./directionGuardrails.js";
 
@@ -67,21 +69,22 @@ async function runDirectedDocumentScroll(
   const maxScroll = await page.evaluate(() =>
     Math.max(0, document.documentElement.scrollHeight - window.innerHeight),
   );
-  const startHoldMs = options.animationConfig?.direction?.startHoldMs
-    ?? options.animationConfig?.heroHoldMs
-    ?? 0;
+  const direction = options.animationConfig?.direction;
+  const startHoldMs = direction
+    ? direction.startHoldMs ?? DEFAULT_DIRECTED_START_HOLD_MS
+    : options.animationConfig?.heroHoldMs ?? 0;
   const safeViewport = await detectSafeViewport(
     page,
     options.viewportWidth,
     options.viewportHeight,
   );
-  const anchors = options.animationConfig?.direction
+  const anchors = direction
     ? await collectSemanticAnchors(page, safeViewport, options.viewportHeight, maxScroll)
     : [];
-  const resolved = options.animationConfig?.direction
+  const resolved = direction
     ? await resolveDirectedDocumentBeats(
         page,
-        options.animationConfig.direction.beats,
+        direction.beats,
         maxScroll,
         options.viewportHeight,
         safeViewport,
@@ -149,8 +152,7 @@ async function runDirectedVirtualScroll(
   }
 
   const startHoldMs = direction?.startHoldMs
-    ?? options.animationConfig?.heroHoldMs
-    ?? 0;
+    ?? (direction ? DEFAULT_DIRECTED_START_HOLD_MS : options.animationConfig?.heroHoldMs ?? 0);
   const resolved = direction
     ? resolveDirectedVirtualBeats(
         direction.beats,
@@ -215,7 +217,7 @@ async function resolveDirectedDocumentBeats(
       const nearest = nearestSemanticAnchor(anchors, position, viewportHeight);
       if (nearest) {
         const requested = target;
-        target = { type: "selector", selector: nearest.selector, align: "center" };
+        target = { type: "selector", selector: nearest.selector, align: nearest.recommendedAlign };
         position = nearest.position;
         adjustments.push({
           beatIndex,
@@ -235,6 +237,14 @@ async function resolveDirectedDocumentBeats(
       curve,
     });
   }
+  await applyHeldBeatFraming(
+    page,
+    resolved,
+    adjustments,
+    safeViewport,
+    viewportHeight,
+    maxScroll,
+  );
   const normalized = normalizeResolvedBeats({
     beats: resolved,
     startHoldMs,
@@ -255,6 +265,61 @@ async function resolveDirectedDocumentBeats(
       bezier: resolveScrollCurve(beat.curve),
     })),
   };
+}
+
+async function applyHeldBeatFraming(
+  page: Page,
+  beats: ResolvedMotionBeat[],
+  adjustments: import("../types.js").MotionPlanAdjustment[],
+  safeViewport: SafeViewport,
+  viewportHeight: number,
+  maxScroll: number,
+) {
+  for (const [beatIndex, beat] of beats.entries()) {
+    if (beat.holdMs <= 0 || beat.target.type !== "selector") continue;
+    const metrics = await page.evaluate((selector) => {
+      let element: Element | null = null;
+      try { element = document.querySelector(selector); } catch { return null; }
+      if (!element) return null;
+      const rect = element.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return null;
+      return {
+        y: rect.top + window.scrollY,
+        height: rect.height,
+      };
+    }, beat.target.selector);
+    if (!metrics) continue;
+
+    const align = beat.target.align ?? "center";
+    const framing = resolvePauseFraming({
+      y: metrics.y,
+      height: metrics.height,
+      position: beat.position,
+      align,
+      safeViewport,
+      viewportHeight,
+      maxScroll,
+    });
+    const requestedPosition = beat.position;
+    beat.position = framing.targetY;
+    beat.framing = {
+      selector: beat.target.selector,
+      align: framing.align,
+      targetY: framing.targetY,
+      safeTopPx: framing.safeTopPx,
+      safeBottomPx: framing.safeBottomPx,
+      verified: framing.verified,
+    };
+    if (Math.abs(requestedPosition - beat.position) > 1) {
+      adjustments.push({
+        beatIndex,
+        code: "corrected-pause-framing",
+        message: "Adjusted a held target to keep its focal element inside the safe viewport",
+        requested: requestedPosition,
+        resolved: beat.position,
+      });
+    }
+  }
 }
 
 function resolveDirectedVirtualBeats(
