@@ -3398,8 +3398,10 @@ input[type="number"]:disabled {
     min-height: 0;
     padding: clamp(1.5rem, 4vw, 4rem);
     position: relative;
-    /* Visible so card drop-shadows aren't clipped by the stage */
-    overflow: visible;
+    /* Keep tall portrait previews inside the stage instead of spilling over
+       the surrounding capture controls. The existing stage padding leaves
+       room for the preview's soft drop shadow. */
+    overflow: auto;
 }
 .recorder-preview-panel::before {
     content: "";
@@ -3415,6 +3417,17 @@ input[type="number"]:disabled {
 .recorder-preview {
     position: relative;
     z-index: 1;
+}
+.recorder-preview-panel .recorder-preview .capture-window,
+.recorder-preview-panel .recorder-preview .result-container {
+    /* Reserve the toolbar and stage padding when fitting a portrait device.
+       Without this cap, a 390×844 or 768×1024 preview was sized from nearly
+       the full viewport height and could overlap the rest of the workspace. */
+    width: min(
+        100%,
+        var(--monitor-max-width),
+        max(12rem, calc((100dvh - 18rem) * var(--preview-w) / var(--preview-h)))
+    );
 }
 .recorder-preview .video-preview-wrapper {
     border-radius: 14px !important;
