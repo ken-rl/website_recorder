@@ -208,10 +208,8 @@ async function runPrepSession(options: {
 
     const prepContext = await browser.newContext(contextOptions);
     const prepPage = await prepContext.newPage();
-    await prepPage.addInitScript("window.__name = (target) => target");
 
     await gotoReachablePage(prepPage, request.targetUrl);
-    await prepPage.evaluate("window.__name = (target) => target");
     await dismissCookieBanners(prepPage);
     await sanitizeDom(prepPage, removeOverlays);
 
@@ -353,13 +351,11 @@ async function runRecordSession(options: {
       storageState,
     });
     const page = await recordContext.newPage();
-    await page.addInitScript("window.__name = (target) => target");
     await installMediaClock(page);
 
     try {
       await gotoReachablePage(page, request.targetUrl);
       await ensureOnTargetUrl(page, request.targetUrl);
-      await page.evaluate("window.__name = (target) => target");
       await dismissCookieBanners(page);
       await sanitizeDom(page, removeOverlays);
       await primeLazyAssets(page);
@@ -521,12 +517,10 @@ async function recordWithPlaywrightVideo(options: {
       },
     });
     const page = await recordContext.newPage();
-    await page.addInitScript("window.__name = (target) => target");
 
     try {
       await gotoReachablePage(page, request.targetUrl);
       await ensureOnTargetUrl(page, request.targetUrl);
-      await page.evaluate("window.__name = (target) => target");
       await dismissCookieBanners(page);
       await sanitizeDom(page, removeOverlays);
       await primeLazyAssets(page);
