@@ -9,31 +9,62 @@ import { createRecording, getRecording, listRecordings } from "./recording.js";
 
 const viewportSchema = z.object({ width: z.number().int().min(320).max(3840), height: z.number().int().min(240).max(2160) });
 const pauseSchema = z.object({ selector: z.string().min(1), durationMs: z.number().int().min(0).max(15_000) });
+const curvePresetSchema = z.enum(["linear", "ease-in", "ease-out", "ease-in-out", "ease-in-cubic", "ease-out-cubic", "ease-in-out-cubic", "custom"]);
+const scrollCurveSchema = z.object({
+  preset: curvePresetSchema.optional(),
+  bezier: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
+});
+const motionTargetSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("selector"), selector: z.string().min(1), align: z.enum(["top", "center", "bottom"]).optional(), offsetPx: z.number().int().min(-4000).max(4000).optional() }),
+  z.object({ type: z.literal("progress"), value: z.number().min(0).max(1) }),
+  z.object({ type: z.literal("page-end") }),
+]);
+const directionSchema = z.object({
+  startHoldMs: z.number().int().min(0).max(15_000).optional(),
+  beats: z.array(z.object({
+    target: motionTargetSchema,
+    transitionMs: z.number().int().min(250).max(60_000),
+    curve: scrollCurveSchema.optional(),
+    holdMs: z.number().int().min(0).max(15_000).optional(),
+  })).min(1).max(12),
+});
 
 const server = new McpServer(
-  { name: "scrollizard", version: "0.1.0" },
+  { name: "scrollizard", version: "0.2.0" },
   {
     instructions:
-      "For a directed recording, inspect the website before final capture. Use storyboard screenshots for visual pacing, and use the returned selector candidates for pause triggers. Start with a draft unless the user explicitly asks for a final render.",
+      "Inspect a website before directing it. For document pages, build ordered direction beats from returned selector targets. For virtual-scroll pages, use storyboard progress targets. Give every beat an intentional transition duration, curve, and optional hold. Start with draft quality unless the user explicitly requests a final render.",
   },
 );
+
+function toolError(error: unknown) {
+  const message = error instanceof Error ? error.message : "Unknown Scrollizard error";
+  return {
+    isError: true as const,
+    content: [{ type: "text" as const, text: JSON.stringify({ ok: false, error: message }, null, 2) }],
+  };
+}
 
 server.registerTool(
   "inspect_website",
   {
     title: "Inspect website for recording direction",
-    description: "Returns a visual storyboard and a semantic section map that an AI can use to plan scroll speed, curves, and pauses. Supports public URLs and local development URLs.",
+    description: "Returns detected scroll mode, a visual storyboard with target positions, and semantic selector candidates for an AI-directed motion plan.",
     inputSchema: { targetUrl: z.string().url(), viewport: viewportSchema.optional() },
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
   async ({ targetUrl, viewport }) => {
-    const inspection = await inspectWebsite({ targetUrl, viewport });
-    return {
-      content: [
-        { type: "text", text: JSON.stringify({ ...inspection, screenshots: undefined }, null, 2) },
-        ...inspection.screenshots.map((data) => ({ type: "image" as const, data, mimeType: "image/jpeg" })),
-      ],
-    };
+    try {
+      const inspection = await inspectWebsite({ targetUrl, viewport });
+      return {
+        content: [
+          { type: "text" as const, text: JSON.stringify({ ...inspection, screenshots: undefined }, null, 2) },
+          ...inspection.screenshots.map((data) => ({ type: "image" as const, data, mimeType: "image/jpeg" as const })),
+        ],
+      };
+    } catch (error) {
+      return toolError(error);
+    }
   },
 );
 
@@ -41,13 +72,13 @@ server.registerTool(
   "create_recording",
   {
     title: "Create AI-directed website recording",
-    description: "Captures a local MP4. Choose pace, curve, hero hold, and selector-based pauses based on the inspected page and the user's creative direction.",
+    description: "Captures a local MP4. Prefer section-level direction beats from inspect_website; legacy global pace, curve, hero hold, and pauses remain available as a fallback.",
     inputSchema: {
       targetUrl: z.string().url(),
       quality: z.enum(["draft", "standard", "cinematic"]).optional(),
       pace: z.enum(["slow", "normal", "fast"]).optional(),
       viewport: viewportSchema.optional(),
-      curve: z.enum(["linear", "ease-in", "ease-out", "ease-in-out", "ease-in-cubic", "ease-out-cubic", "ease-in-out-cubic", "custom"]).optional(),
+      curve: curvePresetSchema.optional(),
       customBezier: z.tuple([z.number(), z.number(), z.number(), z.number()]).optional(),
       heroHoldMs: z.number().int().min(0).max(15_000).optional(),
       durationMs: z.number().int().min(1_000).max(300_000).optional(),
@@ -56,19 +87,24 @@ server.registerTool(
       backgroundPreset: z.enum(["none", "gray_noise_gradient", "paper_blue", "red_blocks_gradient"]).optional(),
       addShadow: z.boolean().optional(),
       roundedCorners: z.boolean().optional(),
+      direction: directionSchema.optional(),
     },
     annotations: { readOnlyHint: false, openWorldHint: true, idempotentHint: false },
   },
   async (input) => {
-    console.error(`Starting recording for ${input.targetUrl}`);
-    const result = await createRecording(input);
-    const artifact = pathToFileURL(result.mp4Path).href;
-    return {
-      content: [
-        { type: "text", text: JSON.stringify({ ...result, artifact }, null, 2) },
-        { type: "resource_link", uri: artifact, name: `${result.jobId}.mp4`, mimeType: "video/mp4" },
-      ],
-    };
+    try {
+      console.error(`Starting recording for ${input.targetUrl}`);
+      const result = await createRecording(input);
+      const artifact = pathToFileURL(result.mp4Path).href;
+      return {
+        content: [
+          { type: "text" as const, text: JSON.stringify({ ok: true, ...result, artifact }, null, 2) },
+          { type: "resource_link" as const, uri: artifact, name: `${result.jobId}.mp4`, mimeType: "video/mp4" },
+        ],
+      };
+    } catch (error) {
+      return toolError(error);
+    }
   },
 );
 
@@ -81,14 +117,18 @@ server.registerTool(
     annotations: { readOnlyHint: true },
   },
   async ({ jobId }) => {
-    const recording = await getRecording(jobId);
-    const artifact = pathToFileURL(recording.mp4Path).href;
-    return {
-      content: [
-        { type: "text", text: JSON.stringify({ ...recording, artifact }, null, 2) },
-        { type: "resource_link", uri: artifact, name: `${recording.jobId}.mp4`, mimeType: "video/mp4" },
-      ],
-    };
+    try {
+      const recording = await getRecording(jobId);
+      const artifact = pathToFileURL(recording.mp4Path).href;
+      return {
+        content: [
+          { type: "text" as const, text: JSON.stringify({ ok: true, ...recording, artifact }, null, 2) },
+          { type: "resource_link" as const, uri: artifact, name: `${recording.jobId}.mp4`, mimeType: "video/mp4" },
+        ],
+      };
+    } catch (error) {
+      return toolError(error);
+    }
   },
 );
 

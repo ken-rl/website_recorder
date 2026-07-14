@@ -83,7 +83,6 @@ export async function detectScrollMode(
   const lowNativeScroll = signals.docMaxScroll <= DOCUMENT_SCROLL_THRESHOLD_PX;
 
   const virtualSignals = [
-    lowNativeScroll && signals.viewportLocked,
     lowNativeScroll && (signals.bodyScrollLocked || signals.htmlScrollLocked),
     lowNativeScroll && signals.fixedViewportShell,
     signals.canvasHeavy && lowNativeScroll,

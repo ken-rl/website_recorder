@@ -1,103 +1,75 @@
-import { performance } from "node:perf_hooks";
-import { setTimeout as sleep } from "node:timers/promises";
 import type { Page } from "playwright";
-import type { BezierControlPoints } from "./curves.js";
-import { applyScrollCurve } from "./scrollEasing.js";
 import type { FrameRecorder } from "../capture/frameRecorder.js";
+import type { MotionSample } from "./motion.js";
 
-/**
- * Sites like ui8.ai listen to wheel events and accumulate deltaY into a smoothed
- * scroll progress. Steady 60Hz ticks with small deltas work far better than
- * synthesizeScrollGesture or sparse high-delta bursts.
- */
-const WHEEL_TICK_HZ = 60;
-
-export interface VirtualScrollOptions {
-  durationMs: number;
+export interface VirtualTimelineOptions {
   viewportWidth: number;
   viewportHeight: number;
   wheelBudget: number;
-  bezier: BezierControlPoints;
+  samples: MotionSample[];
   frameRecorder?: FrameRecorder;
 }
 
-async function waitUntil(deadlineMs: number) {
-  const delayMs = deadlineMs - performance.now();
-  if (delayMs > 0) {
-    await sleep(delayMs);
-  }
-}
-
-export async function runVirtualScroll(
+/** Drives virtual-scroll pages by cumulative progress, preserving fractional wheel deltas. */
+export async function runVirtualTimeline(
   page: Page,
-  options: VirtualScrollOptions,
-): Promise<{ frames: { file: string; progress: number }[] }> {
-  const { durationMs, viewportWidth, viewportHeight, wheelBudget, frameRecorder } =
-    options;
-  const centerX = Math.floor(viewportWidth / 2);
-  const centerY = Math.floor(viewportHeight / 2);
-  const tickHz = frameRecorder?.getFps() ?? WHEEL_TICK_HZ;
-  const tickMs = 1000 / tickHz;
-  const tickCount = Math.max(1, Math.ceil(durationMs / tickMs));
+  options: VirtualTimelineOptions,
+): Promise<Array<{ file: string; progress: number }>> {
+  const centerX = Math.floor(options.viewportWidth / 2);
+  const centerY = Math.floor(options.viewportHeight / 2);
+  const frames: Array<{ file: string; progress: number }> = [];
+  const cdp = await page.context().newCDPSession(page);
 
-  const frames: { file: string; progress: number }[] = [];
+  await page.mouse.move(centerX, centerY);
+  await page.mouse.click(centerX, centerY);
+  await cdp.send("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x: centerX,
+    y: centerY,
+  });
 
-  try {
-    await page.mouse.move(centerX, centerY);
-    await page.mouse.click(centerX, centerY);
-
-    const cdp = await page.context().newCDPSession(page);
-    await cdp.send("Input.dispatchMouseEvent", {
-      type: "mouseMoved",
-      x: centerX,
-      y: centerY,
-    });
-
-    // Settle/warm up custom wheel listeners
-    await cdp.send("Input.dispatchMouseEvent", {
-      type: "mouseWheel",
-      x: centerX,
-      y: centerY,
-      deltaX: 0,
-      deltaY: 5,
-    });
-    await sleep(150);
-    await cdp.send("Input.dispatchMouseEvent", {
-      type: "mouseWheel",
-      x: centerX,
-      y: centerY,
-      deltaX: 0,
-      deltaY: -5,
-    });
-    await sleep(50);
-
-    const wheelStep = wheelBudget / tickCount;
-
-    for (let tick = 0; tick <= tickCount; tick += 1) {
-      const progress = tick / tickCount;
-
-      if (tick > 0) {
-        await cdp.send("Input.dispatchMouseEvent", {
-          type: "mouseWheel",
-          x: centerX,
-          y: centerY,
-          deltaX: 0,
-          deltaY: Math.round(wheelStep),
-        });
-        // Let the website JS process the event and render
-        await sleep(tickMs);
-      }
-
-      if (frameRecorder) {
-        const frameNumber = frameRecorder.getFrameCount();
-        await frameRecorder.writeFrame(page);
-        const filename = `frame-${String(frameNumber).padStart(6, "0")}.jpg`;
-        frames.push({ file: filename, progress });
-      }
+  for (const [index, sample] of options.samples.entries()) {
+    const deltaY = virtualWheelDelta(options.samples, index, options.wheelBudget);
+    if (Math.abs(deltaY) > 1e-6) {
+      await cdp.send("Input.dispatchMouseEvent", {
+        type: "mouseWheel",
+        x: centerX,
+        y: centerY,
+        deltaX: 0,
+        deltaY,
+      });
     }
 
-    return { frames };
-  } finally {
-    // No interval to clean up since it's synchronous frame-by-frame
+    await settleVirtualPaint(page);
+    if (options.frameRecorder) {
+      const frameNumber = options.frameRecorder.getFrameCount();
+      await options.frameRecorder.writeFrame(page);
+      frames.push({
+        file: `frame-${String(frameNumber).padStart(6, "0")}.jpg`,
+        progress: sample.position,
+      });
+    } else {
+      await page.waitForTimeout(1000 / 30);
+    }
   }
+
+  await cdp.detach().catch(() => undefined);
+  return frames;
+}
+
+export function virtualWheelDelta(
+  samples: MotionSample[],
+  index: number,
+  wheelBudget: number,
+) {
+  const previous = index === 0 ? 0 : samples[index - 1].position * wheelBudget;
+  return samples[index].position * wheelBudget - previous;
+}
+
+async function settleVirtualPaint(page: Page) {
+  await page.evaluate(() =>
+    new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+    ),
+  );
 }

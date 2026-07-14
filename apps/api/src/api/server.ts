@@ -110,8 +110,10 @@ const server = http.createServer(async (req, res) => {
         sourceVideoUrl: `/outputs/${result.jobId}/source.mp4`,
         mp4Path: result.mp4Path,
         durationMs: result.durationMs,
+        renderTimeMs: result.renderTimeMs,
         viewport: result.viewport,
         scrollStrategy: result.scrollStrategy,
+        motionPlan: result.motionPlan,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";

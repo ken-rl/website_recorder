@@ -1,6 +1,7 @@
 # Scrollizard MCP
 
-Use Scrollizard locally from Codex to inspect a website, direct its scroll, and create an MP4.
+Use Scrollizard locally from Codex to inspect a website, direct section-level
+motion, and create an MP4.
 
 ## Install in Codex CLI
 
@@ -10,13 +11,25 @@ From this repository root:
 codex mcp add scrollizard -- pnpm --dir "$(pwd)" --filter websiterecorder-mcp start
 ```
 
-Restart Codex after adding the server. The server uses the local `OUTPUT_DIR` (or
-`./outputs`) and supports both public websites and localhost development URLs.
+Restart Codex after adding the server. The server uses `OUTPUT_DIR` (or
+`./outputs`) and supports public websites and localhost development URLs.
 
-Ask Codex to inspect the page before capture, for example: “Inspect
-http://localhost:5173 and create a cinematic recording that lingers on the hero and
-Features section.”
+Always ask the AI to inspect before recording. Inspection reports whether the
+page uses document or virtual scrolling, pairs each storyboard image with a
+usable target, and returns semantic selectors for normal pages.
 
-`inspect_website` returns screenshots and selector candidates. `create_recording`
-accepts the AI's selected pace, curve, hero hold, and pause selectors, and returns a
-local MP4 file link.
+Example prompt:
+
+> Inspect https://linear.app. Create a draft that holds the hero for 1.2 seconds,
+> eases into the first major section over 2.5 seconds, holds it for 1 second,
+> then moves through the remaining sections deliberately and finishes at the
+> bottom. Show me the applied motion plan and local MP4 path.
+
+For document pages, `create_recording.direction.beats` can target selectors,
+normalized progress, or the page end. For virtual-scroll pages, use the progress
+targets returned by the storyboard. Each beat accepts `transitionMs`, a curve,
+and an optional `holdMs`.
+
+The legacy `pace`, `curve`, `heroHoldMs`, `durationMs`, and `pauses` controls
+remain available when `direction` is omitted. Do not mix the two direction
+models in one request.

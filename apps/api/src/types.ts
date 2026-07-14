@@ -9,6 +9,28 @@ export interface PauseTrigger {
   durationMs: number;
 }
 
+export type MotionTarget =
+  | {
+      type: "selector";
+      selector: string;
+      align?: "top" | "center" | "bottom";
+      offsetPx?: number;
+    }
+  | { type: "progress"; value: number }
+  | { type: "page-end" };
+
+export interface MotionBeat {
+  target: MotionTarget;
+  transitionMs: number;
+  curve?: ScrollCurve;
+  holdMs?: number;
+}
+
+export interface MotionDirection {
+  startHoldMs?: number;
+  beats: MotionBeat[];
+}
+
 export interface VideoConfig {
   framerate?: number;
   qualityPreset?: "high" | "medium" | "low";
@@ -56,6 +78,8 @@ export interface AnimationConfig {
   fastMode?: boolean;
   /** Capture mode: 'preview' (fast, video) or 'export' (high-quality, screenshots) */
   captureMode?: "preview" | "export";
+  /** Ordered, section-level direction. Takes precedence over legacy global motion settings. */
+  direction?: MotionDirection;
 }
 
 export interface RecordRequest {
@@ -92,8 +116,25 @@ export interface RecordResult {
   rawVideoPath: string;
   mp4Path: string;
   durationMs: number;
+  renderTimeMs: number;
   viewport: ViewportConfig;
   scrollStrategy: ResolvedScrollStrategy;
+  motionPlan?: ResolvedMotionPlan;
+}
+
+export interface ResolvedMotionBeat {
+  target: MotionTarget;
+  position: number;
+  transitionMs: number;
+  holdMs: number;
+  curve: ScrollCurve;
+}
+
+export interface ResolvedMotionPlan {
+  mode: ResolvedScrollStrategy;
+  startHoldMs: number;
+  durationMs: number;
+  beats: ResolvedMotionBeat[];
 }
 
 export type BackgroundPreset =

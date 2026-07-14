@@ -6,6 +6,7 @@ import type {
   RecordRequest,
   ScrollCurvePreset,
   ScrollMode,
+  MotionDirection,
 } from "../../api/src/types.js";
 
 export type RecordingQuality = "draft" | "standard" | "cinematic";
@@ -25,13 +26,14 @@ export interface CreateRecordingInput {
   backgroundPreset?: BackgroundPreset;
   addShadow?: boolean;
   roundedCorners?: boolean;
+  direction?: MotionDirection;
 }
 
 const QUALITY_DEFAULTS: Record<
   RecordingQuality,
   { framerate: number; scale: number; captureMode: "preview" | "export"; fastMode: boolean; delayMs: number }
 > = {
-  draft: { framerate: 30, scale: 1, captureMode: "preview", fastMode: true, delayMs: 500 },
+  draft: { framerate: 30, scale: 1, captureMode: "export", fastMode: true, delayMs: 500 },
   standard: { framerate: 60, scale: 1, captureMode: "export", fastMode: false, delayMs: 1_500 },
   cinematic: { framerate: 60, scale: 2, captureMode: "export", fastMode: false, delayMs: 2_500 },
 };
@@ -63,6 +65,21 @@ export function buildRecordRequest(input: CreateRecordingInput): RecordRequest {
   if (curve === "custom" && !input.customBezier) {
     throw new Error("customBezier is required when curve is custom");
   }
+  if (input.direction) {
+    const legacyDirectionFields = [
+      input.pace,
+      input.curve,
+      input.customBezier,
+      input.heroHoldMs,
+      input.durationMs,
+      input.pauses,
+    ];
+    if (legacyDirectionFields.some((value) => value !== undefined)) {
+      throw new Error(
+        "direction cannot be combined with pace, curve, customBezier, heroHoldMs, durationMs, or pauses",
+      );
+    }
+  }
 
   const viewport = input.viewport ?? { width: 1920, height: 1080 };
   if (viewport.width < 320 || viewport.height < 240) {
@@ -79,17 +96,21 @@ export function buildRecordRequest(input: CreateRecordingInput): RecordRequest {
     animationConfig: {
       captureMode: defaults.captureMode,
       fastMode: defaults.fastMode,
-      pixelsPerFrame: PIXELS_PER_FRAME[input.pace ?? "normal"],
       preRecordingDelayMs: defaults.delayMs,
-      heroHoldMs: input.heroHoldMs,
-      durationMs: input.durationMs,
       scrollMode: input.scrollMode ?? "auto",
-      pauseTriggers: input.pauses,
-      scrollCurve:
-        curve === "custom"
-          ? { preset: "custom", bezier: input.customBezier }
-          : { preset: curve },
       removeOverlayElements: true,
+      ...(input.direction
+        ? { direction: input.direction }
+        : {
+            pixelsPerFrame: PIXELS_PER_FRAME[input.pace ?? "normal"],
+            heroHoldMs: input.heroHoldMs,
+            durationMs: input.durationMs,
+            pauseTriggers: input.pauses,
+            scrollCurve:
+              curve === "custom"
+                ? { preset: "custom" as const, bezier: input.customBezier }
+                : { preset: curve },
+          }),
     },
     backgroundPreset: input.backgroundPreset,
     addShadow: input.addShadow,
@@ -126,5 +147,7 @@ export async function listRecordings() {
       }
     }),
   );
-  return recordings.filter((recording): recording is NonNullable<typeof recording> => Boolean(recording));
+  return recordings
+    .filter((recording): recording is NonNullable<typeof recording> => Boolean(recording))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }

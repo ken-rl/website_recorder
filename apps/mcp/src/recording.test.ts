@@ -31,3 +31,32 @@ test("requires a Bézier curve for a custom curve", () => {
     /customBezier/,
   );
 });
+
+test("maps section-level direction into the recorder request", () => {
+  const direction = {
+    startHoldMs: 1200,
+    beats: [
+      {
+        target: { type: "selector" as const, selector: "#features", align: "center" as const },
+        transitionMs: 2400,
+        curve: { preset: "ease-in-out-cubic" as const },
+        holdMs: 900,
+      },
+      { target: { type: "page-end" as const }, transitionMs: 3000 },
+    ],
+  };
+  const request = buildRecordRequest({ targetUrl: "https://example.com", direction });
+  assert.deepEqual(request.animationConfig?.direction, direction);
+  assert.equal(request.animationConfig?.captureMode, "export");
+});
+
+test("does not mix direction beats with legacy global controls", () => {
+  assert.throws(
+    () => buildRecordRequest({
+      targetUrl: "https://example.com",
+      pace: "slow",
+      direction: { beats: [{ target: { type: "page-end" }, transitionMs: 2000 }] },
+    }),
+    /cannot be combined/,
+  );
+});

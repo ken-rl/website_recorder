@@ -25,13 +25,13 @@ import { removeFileIfExists, transcodeToMp4 } from "../transcode/ffmpeg.js";
 import { FrameRecorder } from "../capture/frameRecorder.js";
 import { createMediaClockSync, installMediaClock } from "../browser/mediaClock.js";
 import { stitchFramesToVideo } from "../capture/stitchFrames.js";
-import { compileVideoFromFrames } from "../editor/compileVideo.js";
 import { renderRecordingStyle, SOURCE_FILENAME } from "./styleRecording.js";
 import type {
   AnimationConfig,
   RecordRequest,
   RecordResult,
   ResolvedScrollStrategy,
+  ResolvedMotionPlan,
 } from "../types.js";
 
 const DEFAULT_FRAMERATE = 30;
@@ -40,6 +40,8 @@ interface CaptureSessionResult {
   rawVideoPath: string;
   scrollStrategy: ResolvedScrollStrategy;
   isMp4?: boolean;
+  mediaDurationMs: number;
+  motionPlan: ResolvedMotionPlan;
 }
 
 export async function recordWebsite(
@@ -47,6 +49,7 @@ export async function recordWebsite(
   outputRoot: string,
   jobId?: string,
 ): Promise<RecordResult> {
+  validateDirectionMode(request.animationConfig);
   const resolvedJobId = jobId ?? createJobId(request.targetUrl);
   const outputDir = path.resolve(outputRoot, resolvedJobId);
   await fs.mkdir(outputDir, { recursive: true });
@@ -176,16 +179,45 @@ export async function recordWebsite(
   return {
     jobId: resolvedJobId,
     outputDir,
-    rawVideoPath: capture.rawVideoPath,
+    rawVideoPath: sourcePath,
     mp4Path,
-    durationMs: Date.now() - startedAt,
+    durationMs: capture.mediaDurationMs,
+    renderTimeMs: Date.now() - startedAt,
     viewport: {
       width: viewport.width,
       height: viewport.height,
       deviceScaleFactor,
     },
     scrollStrategy: capture.scrollStrategy,
+    motionPlan: capture.motionPlan,
   };
+}
+
+function validateDirectionMode(animation?: AnimationConfig) {
+  if (!animation?.direction) return;
+  const legacyFields = [
+    animation.durationMs,
+    animation.heroHoldMs,
+    animation.pauseTriggers,
+    animation.scrollCurve,
+  ];
+  if (legacyFields.some((value) => value !== undefined)) {
+    throw new Error(
+      "animationConfig.direction cannot be combined with durationMs, heroHoldMs, pauseTriggers, or scrollCurve",
+    );
+  }
+  if (animation.direction.beats.length < 1 || animation.direction.beats.length > 12) {
+    throw new Error("animationConfig.direction must contain between 1 and 12 beats");
+  }
+  const totalDurationMs =
+    (animation.direction.startHoldMs ?? 0) +
+    animation.direction.beats.reduce(
+      (total, beat) => total + beat.transitionMs + (beat.holdMs ?? 0),
+      0,
+    );
+  if (totalDurationMs > 300_000) {
+    throw new Error("The directed recording timeline cannot exceed 300000ms");
+  }
 }
 
 async function runPrepSession(options: {
@@ -289,12 +321,14 @@ async function runRecordSession(options: {
   let browser: Browser | null = null;
   let rawVideoPath = "";
   let scrollStrategy: ResolvedScrollStrategy = "document";
+  let motionPlan: ResolvedMotionPlan | null = null;
+  let mediaDurationMs = 0;
 
   // For standard and cinematic tiers, we return to the offline screenshot capture mode.
   // We optimize it by writing all frames to a RAM disk (/dev/shm) when available.
   const usePlaywrightVideo = false;
 
-  if (captureMode === "preview" || usePlaywrightVideo) {
+  if (usePlaywrightVideo) {
     // Fast mode: Use Playwright's recordVideo
     return recordWithPlaywrightVideo({
       request,
@@ -366,6 +400,7 @@ async function runRecordSession(options: {
         window.scrollTo({ top: 0, left: 0, behavior: "instant" }),
       );
       await ensureOnTargetUrl(page, request.targetUrl);
+      await page.waitForTimeout(preRecordingDelayMs);
 
       const scrollResult = await runScroll(page, {
         pixelsPerFrame,
@@ -379,6 +414,8 @@ async function runRecordSession(options: {
         frameRecorder,
       });
       scrollStrategy = scrollResult.scrollStrategy;
+      motionPlan = scrollResult.motionPlan;
+      mediaDurationMs = scrollResult.motionPlan.durationMs;
       console.log(`Scroll strategy: ${scrollStrategy}`);
 
       if (scrollResult.frames) {
@@ -390,9 +427,9 @@ async function runRecordSession(options: {
               scrollStrategy: scrollResult.scrollStrategy,
               maxScroll: scrollResult.maxScroll,
               frames: scrollResult.frames,
-              initialHoldFrameCount: scrollResult.initialHoldFrameCount ?? 0,
               deviceScaleFactor,
               viewport,
+              motionPlan: scrollResult.motionPlan,
             },
             null,
             2,
@@ -404,48 +441,14 @@ async function runRecordSession(options: {
       await page.close().catch(() => undefined);
       await recordContext.close().catch(() => undefined);
 
-      if (captureMode === "export") {
-        const tempRawVideoPath = path.join(outputDir, "raw_frames.mp4");
-        const metadataPath = path.join(outputDir, "frames-metadata.json");
-
-        const metadataContent = await fs.readFile(metadataPath, "utf-8").catch(() => null);
-        if (metadataContent) {
-          const metadata = JSON.parse(metadataContent);
-          const targetDurationMs = animation?.durationMs ?? ((metadata.frames.length / framerate) * 1000);
-          await compileVideoFromFrames({
-            framesDir,
-            metadataPath,
-            outputPath: tempRawVideoPath,
-            durationMs: targetDurationMs,
-            fps: framerate,
-            bezier: scrollCurve, // Apply the selected scroll curve directly at capture time
-            pauses: [],
-            initialHoldFrameCount: metadata.initialHoldFrameCount ?? 0,
-            width: viewport.width * deviceScaleFactor,
-            height: viewport.height * deviceScaleFactor,
-            preset: encode.preset,
-            crf: encode.crf,
-          });
-          rawVideoPath = tempRawVideoPath;
-        } else {
-          await stitchFramesToVideo(framesDir, tempRawVideoPath, captureFps, {
-            width: viewport.width * deviceScaleFactor,
-            height: viewport.height * deviceScaleFactor,
-            preset: encode.preset,
-            crf: encode.crf,
-          });
-          rawVideoPath = tempRawVideoPath;
-        }
-      } else {
-        const tempRawVideoPath = path.join(outputDir, "raw_frames.mp4");
-        await stitchFramesToVideo(framesDir, tempRawVideoPath, captureFps, {
-          width: viewport.width * deviceScaleFactor,
-          height: viewport.height * deviceScaleFactor,
-          preset: encode.preset,
-          crf: encode.crf,
-        });
-        rawVideoPath = tempRawVideoPath;
-      }
+      const tempRawVideoPath = path.join(outputDir, "raw_frames.mp4");
+      await stitchFramesToVideo(framesDir, tempRawVideoPath, captureFps, {
+        width: viewport.width * deviceScaleFactor,
+        height: viewport.height * deviceScaleFactor,
+        preset: encode.preset,
+        crf: encode.crf,
+      });
+      rawVideoPath = tempRawVideoPath;
     }
   } finally {
     await browser?.close();
@@ -456,7 +459,8 @@ async function runRecordSession(options: {
     }
   }
 
-  return { rawVideoPath, scrollStrategy, isMp4: true };
+  if (!motionPlan) throw new Error("Recording did not produce a motion plan");
+  return { rawVideoPath, scrollStrategy, isMp4: true, mediaDurationMs, motionPlan };
 }
 
 async function recordWithPlaywrightVideo(options: {
@@ -495,6 +499,7 @@ async function recordWithPlaywrightVideo(options: {
   let browser: Browser | null = null;
   let rawVideoPath = "";
   let scrollStrategy: ResolvedScrollStrategy = "document";
+  let motionPlan: ResolvedMotionPlan | null = null;
 
   const recordLaunchArgs = [
     ...launchArgs.filter((arg) => !arg.startsWith("--force-device-scale-factor")),
@@ -541,6 +546,7 @@ async function recordWithPlaywrightVideo(options: {
         fastMode: animation.fastMode ?? false,
       });
       scrollStrategy = scrollResult.scrollStrategy;
+      motionPlan = scrollResult.motionPlan;
       console.log(`Scroll strategy: ${scrollStrategy}`);
       await page.waitForTimeout(500);
     } finally {
@@ -553,7 +559,13 @@ async function recordWithPlaywrightVideo(options: {
     await browser?.close();
   }
 
-  return { rawVideoPath, scrollStrategy };
+  if (!motionPlan) throw new Error("Recording did not produce a motion plan");
+  return {
+    rawVideoPath,
+    scrollStrategy,
+    mediaDurationMs: motionPlan.durationMs,
+    motionPlan,
+  };
 }
 
 function buildContextOptions(
