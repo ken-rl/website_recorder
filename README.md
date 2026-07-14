@@ -58,6 +58,18 @@ Enter a URL, choose screen size and quality, then **Start capture**. Scrollizard
 
 ## Usage
 
+### Codex MCP director
+
+Use the recorder as a local MCP server so Codex can inspect a page, choose scroll
+pace and curves, add section pauses, and create an MP4:
+
+```bash
+codex mcp add scrollizard -- pnpm --dir "$(pwd)" --filter websiterecorder-mcp start
+```
+
+Restart Codex after adding the server. See [the MCP package guide](apps/mcp/README.md)
+for an example prompt and behavior details.
+
 ### Web UI
 
 ```bash
