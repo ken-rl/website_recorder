@@ -54,12 +54,6 @@ importers:
 
   apps/web:
     dependencies:
-      '@lordicon/react':
-        specifier: ^1.11.0
-        version: 1.11.0(lottie-web@5.13.0)(react@19.2.7)
-      lottie-web:
-        specifier: ^5.13.0
-        version: 5.13.0
       lucide-react:
         specifier: ^1.23.0
         version: 1.23.0(react@19.2.7)
@@ -264,24 +258,6 @@ packages:
     engines: {node: '>=18.14.1'}
     peerDependencies:
       hono: ^4
-
-  '@lordicon/helpers@1.11.0':
-    resolution: {integrity: sha512-ambh76d15jAdGaKYXBCjR9AlTJUB6aGx4H8vlradyfT37GbLlwiG+HfC8MTq9RTM08pBHRKFPWnWOxa34NUIAw==}
-
-  '@lordicon/react@1.11.0':
-    resolution: {integrity: sha512-DAxjxr0aSHfdTWxCzeQMf5rnr/rpN0qjnLC9fAePgF0GXOXZpvsVDddi1wfgTYWTWM6iRFc5dDOC7twP24nf3g==}
-    peerDependencies:
-      lottie-react-native: '*'
-      lottie-web: '*'
-      react: '*'
-      react-native: '*'
-    peerDependenciesMeta:
-      lottie-react-native:
-        optional: true
-      lottie-web:
-        optional: true
-      react-native:
-        optional: true
 
   '@modelcontextprotocol/sdk@1.29.0':
     resolution: {integrity: sha512-zo37mZA9hJWpULgkRpowewez1y6ML5GsXJPY8FI0tBBCd77HEvza4jDqRKOXgHNn867PVGCyTdzqpz0izu5ZjQ==}
@@ -983,9 +959,6 @@ packages:
     resolution: {integrity: sha512-NXYBzinNrblfraPGyrbPoD19C1h9lfI/1mzgWYvXUTe414Gz/X1FD2XBZSZM7rRTrMA8JL3OtAaGifrIKhQ5yQ==}
     engines: {node: '>= 12.0.0'}
 
-  lottie-web@5.13.0:
-    resolution: {integrity: sha512-+gfBXl6sxXMPe8tKQm7qzLnUy5DUPJPKIyRHwtpCpyUEYjHYRJC/5gjUvdkuO2c3JllrPtHXH5UJJK8LRYl5yQ==}
-
   lucide-react@1.23.0:
     resolution: {integrity: sha512-38BpJcD0JhFosxHApP/BYsBetLpQFRoTRzEzstM/XCc3jsAG7wqaY1lgVwxiUe3xqYE+lNxo2PkCmYwXWrwwIw==}
     peerDependencies:
@@ -1384,15 +1357,6 @@ snapshots:
   '@hono/node-server@1.19.14(hono@4.12.30)':
     dependencies:
       hono: 4.12.30
-
-  '@lordicon/helpers@1.11.0': {}
-
-  '@lordicon/react@1.11.0(lottie-web@5.13.0)(react@19.2.7)':
-    dependencies:
-      '@lordicon/helpers': 1.11.0
-      react: 19.2.7
-    optionalDependencies:
-      lottie-web: 5.13.0
 
   '@modelcontextprotocol/sdk@1.29.0(zod@4.4.3)':
     dependencies:
@@ -1928,8 +1892,6 @@ snapshots:
       lightningcss-linux-x64-musl: 1.32.0
       lightningcss-win32-arm64-msvc: 1.32.0
       lightningcss-win32-x64-msvc: 1.32.0
-
-  lottie-web@5.13.0: {}
 
   lucide-react@1.23.0(react@19.2.7):
     dependencies:

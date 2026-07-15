@@ -40,10 +40,10 @@ html[data-theme="light"] {
     --border-hover: #cbd5e1;
     --border-active: #94a3b8;
 
-    --accent: #2563eb;
+    --accent: #d4472f;
     --accent-text: #ffffff;
-    --accent-soft: rgba(37, 99, 235, 0.08);
-    --accent-hover: #1d4ed8;
+    --accent-soft: rgba(212, 71, 47, 0.09);
+    --accent-hover: #b93622;
 
     --error: #ef4444;
     --success: #10b981;
@@ -60,8 +60,8 @@ html[data-theme="light"] {
     --tl-pause-fill: rgba(217, 119, 6, 0.12);
     --tl-pause-line: rgba(217, 119, 6, 0.5);
 
-    --glow: rgba(37, 99, 235, 0.03);
-    --glow-strong: rgba(37, 99, 235, 0.08);
+    --glow: rgba(212, 71, 47, 0.035);
+    --glow-strong: rgba(212, 71, 47, 0.1);
 
     --shadow-soft:
         0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
@@ -84,10 +84,10 @@ html[data-theme="dark"],
     --border-hover: #ffffff22;
     --border-active: #ffffff33;
 
-    --accent: #3b82f6;
+    --accent: #ff6b4a;
     --accent-text: #ffffff;
-    --accent-soft: rgba(59, 130, 246, 0.15);
-    --accent-hover: #60a5fa;
+    --accent-soft: rgba(255, 107, 74, 0.14);
+    --accent-hover: #ff866b;
 
     --error: #f87171;
     --success: #4ade80;
@@ -319,6 +319,27 @@ body > * {
     color: var(--text);
     background: var(--accent-soft);
     border-color: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.capture-nav-icon {
+    position: relative;
+    width: 18px;
+    height: 18px;
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+}
+.capture-nav-icon i {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    border: 1.5px solid var(--surface);
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 34%, transparent);
+}
+.capture-nav-icon.is-recording i { animation: capture-nav-pulse 1.35s ease-in-out infinite; }
+@keyframes capture-nav-pulse {
+    50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 0%, transparent); }
 }
 .app-nav-collapse {
     margin-top: 0.25rem;
@@ -4758,7 +4779,7 @@ input[type="number"]:disabled {
     background: #fbbf24;
 }
 .status-dot-inprogress {
-    background: #38bdf8;
+    background: var(--accent);
 }
 .status-dot-completed {
     background: #34d399;
@@ -4862,7 +4883,7 @@ input[type="number"]:disabled {
 .zoom-box-overlay {
     position: absolute;
     border: 2px solid var(--accent);
-    background: rgba(37, 99, 235, 0.08);
+    background: color-mix(in srgb, var(--accent) 9%, transparent);
     box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
     cursor: move;
     z-index: 50;

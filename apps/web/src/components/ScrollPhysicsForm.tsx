@@ -12,6 +12,7 @@ interface ScrollPhysicsFormProps {
   heroHoldMs: number;
   setHeroHoldMs: (ms: number) => void;
   showSpeed?: boolean;
+  showHeroHold?: boolean;
 }
 
 const HERO_PRESETS = [
@@ -31,6 +32,7 @@ export default function ScrollPhysicsForm({
   heroHoldMs,
   setHeroHoldMs,
   showSpeed = true,
+  showHeroHold = true,
 }: ScrollPhysicsFormProps) {
   return (
     <div className="scroll-physics-form motion-stack">
@@ -96,7 +98,7 @@ export default function ScrollPhysicsForm({
           </div>
         </div>}
 
-        <div className="motion-field">
+        {showHeroHold && <div className="motion-field">
           <FieldLabel
             htmlFor="heroHold"
             hint="Hold on the top of the page before scrolling so hero content can settle."
@@ -122,7 +124,7 @@ export default function ScrollPhysicsForm({
               </button>
             ))}
           </div>
-        </div>
+        </div>}
       </section>
     </div>
   );

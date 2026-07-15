@@ -285,7 +285,7 @@ export default function BrowserMockup({
                   style={{
                     height: "100%",
                     width: `${progressPercent}%`,
-                    background: "var(--accent, #38bdf8)",
+                    background: "var(--accent, #ff6b4a)",
                     borderRadius: "2px",
                     position: "absolute",
                     top: 0,

@@ -1,7 +1,5 @@
 import React from "react";
-import { Archive, ChevronLeft, ChevronRight, Moon, Sun } from "lucide-react";
-import LordIcon from "./LordIcon";
-import { LORDICON } from "../lib/icons";
+import { Archive, ChevronLeft, ChevronRight, Moon, ScanLine, Sun } from "lucide-react";
 
 interface AppSidebarProps {
   currentPath: string;
@@ -62,11 +60,10 @@ export default function AppSidebar({
             onClick={() => onNavigate("/")}
             title="Capture"
           >
-            <LordIcon
-              src={LORDICON.recorder}
-              size={18}
-              trigger={isRecorder ? "loop" : "hover"}
-            />
+            <span className={`capture-nav-icon${isRecording ? " is-recording" : ""}`} aria-hidden="true">
+              <ScanLine size={18} strokeWidth={1.8} />
+              <i />
+            </span>
             {!collapsed && <span>Capture</span>}
           </button>
           <button

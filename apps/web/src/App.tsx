@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  ChevronDown,
   Clapperboard,
   Compass,
   Play,
@@ -329,7 +330,7 @@ export default function App() {
                 {!inspection ? (
                   <button type="button" className="analyze-button" disabled={!url.trim() || isBusy || isInspecting} onClick={() => void analyze()}>{isInspecting ? <span className="loader-circle" /> : <Compass size={16} />} {isInspecting ? "Analyzing…" : "Analyze page"}</button>
                 ) : (
-                  <button type="button" className="analyze-button" disabled={isBusy || beats.length === 0} onClick={() => void startCapture(false)}><Play size={15} fill="currentColor" /> Start {TIER_CONFIG[renderTier].label.toLowerCase()}</button>
+                  <button type="button" className="analyze-button" disabled={isBusy || beats.length === 0} onClick={() => void startCapture(false)}><Play size={15} fill="currentColor" /> Capture {beats.length} {beats.length === 1 ? "scene" : "scenes"}</button>
                 )}
               </div>
             </section>
@@ -340,7 +341,7 @@ export default function App() {
             <div className={`studio-layout${inspection ? " has-director" : ""}`}>
               <aside className="studio-controls">
                 <section className="control-deck">
-                  <div className="control-deck-title"><span>Render tier</span><small>{renderTier === "draft" ? "Fast iteration" : renderTier === "standard" ? "Balanced export" : "2× high-detail export"}</small></div>
+                  <div className="control-deck-title"><span>Output quality</span><small>{renderTier === "draft" ? "Fast iteration" : renderTier === "standard" ? "Balanced export" : "2× high-detail export"}</small></div>
                   <div className="quality-stack">
                     {(Object.keys(TIER_CONFIG) as RenderTier[]).map((tier) => {
                       const Icon = tier === "draft" ? Zap : tier === "standard" ? Clapperboard : Sparkles;
@@ -349,7 +350,7 @@ export default function App() {
                   </div>
                 </section>
 
-                <section className="control-deck motion-control-deck">
+                {!inspection ? <section className="control-deck motion-control-deck">
                   <div className="control-deck-title"><span>Motion</span><small>{inspection ? "Applies to all scenes" : "Capture behavior"}</small></div>
                   <ScrollPhysicsForm
                     selectedCurve={selectedCurve}
@@ -360,20 +361,40 @@ export default function App() {
                     setPixelsPerFrame={(value) => { setPixelsPerFrame(value); setDuplicatedRequest(null); }}
                     heroHoldMs={heroHoldMs}
                     setHeroHoldMs={(value) => { setHeroHoldMs(value); setDuplicatedRequest(null); }}
-                    showSpeed={!inspection}
+                    showSpeed
                   />
-                  {!inspection ? <div className="quick-motion-options">
+                  <div className="quick-motion-options">
                     <label className="quick-option-row"><span>Scroll mode</span><select value={scrollMode} onChange={(event) => { setScrollMode(event.target.value as typeof scrollMode); setDuplicatedRequest(null); }}><option value="auto">Auto detect</option><option value="document">Document</option><option value="virtual">Virtual</option></select></label>
                     {scrollMode !== "document" && <label className="quick-option-row"><span>Virtual cycles</span><input type="number" min={1} max={40} value={virtualCycles} onChange={(event) => { setVirtualCycles(Number(event.target.value)); setDuplicatedRequest(null); }} /></label>}
                     <label className="fixed-duration-toggle"><input type="checkbox" checked={useFixedDuration} onChange={(event) => { setUseFixedDuration(event.target.checked); setDuplicatedRequest(null); }} /><span>Exact duration</span><small>{useFixedDuration ? `${virtualDurationMs / 1000}s` : "Automatic"}</small></label>
                     {useFixedDuration && <label className="duration-slider"><input type="range" min={3} max={120} step={1} value={virtualDurationMs / 1000} onChange={(event) => { setVirtualDurationMs(Number(event.target.value) * 1000); setDuplicatedRequest(null); }} /><span><b>3s</b><b>120s</b></span></label>}
                     {scrollMode === "document" && <PauseTriggersForm triggers={pauseTriggers} setTriggers={(value) => { setPauseTriggers(value); setDuplicatedRequest(null); }} disabled={isBusy} />}
-                  </div> : <p className="motion-director-note">Curve changes update every storyboard move. Fine-tune individual scenes in the timeline.</p>}
-                </section>
+                  </div>
+                </section> : <details className="control-deck analyzed-disclosure">
+                  <summary><span><strong>Motion curve</strong><small>{curveName(selectedCurve)} · all scenes</small></span><ChevronDown size={15} /></summary>
+                  <div className="analyzed-disclosure-body motion-control-deck">
+                    <ScrollPhysicsForm
+                      selectedCurve={selectedCurve}
+                      setSelectedCurve={changeCurve}
+                      customBezier={customBezier}
+                      setCustomBezier={(value) => { setCustomBezier(value); setDuplicatedRequest(null); }}
+                      pixelsPerFrame={pixelsPerFrame}
+                      setPixelsPerFrame={(value) => { setPixelsPerFrame(value); setDuplicatedRequest(null); }}
+                      heroHoldMs={heroHoldMs}
+                      setHeroHoldMs={(value) => { setHeroHoldMs(value); setDuplicatedRequest(null); }}
+                      showSpeed={false}
+                      showHeroHold={false}
+                    />
+                    <p className="motion-director-note">Changing this curve updates every scene. You can override one scene from the route builder.</p>
+                  </div>
+                </details>}
 
-                <section className="control-deck">
+                {inspection ? <details className="control-deck analyzed-disclosure">
+                  <summary><span><strong>Canvas style</strong><small>{backgroundPreset === "none" ? "Full bleed" : "Framed"}</small></span><ChevronDown size={15} /></summary>
+                  <div className="analyzed-disclosure-body"><BackgroundCanvasForm backgroundPreset={backgroundPreset} setBackgroundPreset={(value) => { setBackgroundPreset(value); setDuplicatedRequest(null); }} addShadow={addShadow} setAddShadow={(value) => { setAddShadow(value); setDuplicatedRequest(null); }} roundedCorners={roundedCorners} setRoundedCorners={(value) => { setRoundedCorners(value); setDuplicatedRequest(null); }} onApplyStyle={result?.canRestyle ? applyStyle : undefined} isApplyingStyle={isApplyingStyle} /></div>
+                </details> : <section className="control-deck">
                   <BackgroundCanvasForm backgroundPreset={backgroundPreset} setBackgroundPreset={(value) => { setBackgroundPreset(value); setDuplicatedRequest(null); }} addShadow={addShadow} setAddShadow={(value) => { setAddShadow(value); setDuplicatedRequest(null); }} roundedCorners={roundedCorners} setRoundedCorners={(value) => { setRoundedCorners(value); setDuplicatedRequest(null); }} onApplyStyle={result?.canRestyle ? applyStyle : undefined} isApplyingStyle={isApplyingStyle} />
-                </section>
+                </section>}
               </aside>
 
               <div className="studio-stage">
@@ -393,6 +414,19 @@ export default function App() {
       </div>
     </main>
   );
+}
+
+function curveName(curve: string) {
+  return ({
+    linear: "Linear",
+    "ease-in": "Ease in",
+    "ease-out": "Ease out",
+    "ease-in-out": "Smooth",
+    "ease-in-cubic": "In cubic",
+    "ease-out-cubic": "Out cubic",
+    "ease-in-out-cubic": "Smooth cubic",
+    custom: "Custom",
+  } as Record<string, string>)[curve] ?? curve;
 }
 
 function defaultBeats(inspection: WebsiteInspection, curve: string): DirectorBeat[] {

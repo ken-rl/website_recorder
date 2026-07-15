@@ -167,7 +167,7 @@ function readCurveCanvasPalette(): CurveCanvasPalette {
     style.getPropertyValue("--surface-muted").trim() ||
     style.getPropertyValue("--surface-elevated").trim() ||
     (isLight ? "#f8fafc" : "#1e1e24");
-  const accent = style.getPropertyValue("--accent").trim() || (isLight ? "#2563eb" : "#3b82f6");
+  const accent = style.getPropertyValue("--accent").trim() || (isLight ? "#d4472f" : "#ff6b4a");
   const bg = style.getPropertyValue("--bg").trim() || (isLight ? "#f8fafc" : "#09090b");
 
   const inkRgb = cssColorToRgbChannels(text);
@@ -285,8 +285,8 @@ export default function BezierVisualizer({
           isLight: false,
           ink: "#fafafa",
           inkRgb: "250, 250, 250",
-          accent: "#3b82f6",
-          accentRgb: "59, 130, 246",
+          accent: "#ff6b4a",
+          accentRgb: "255, 107, 74",
           border: "rgba(255,255,255,0.12)",
           surface: "#121214",
           surfaceMuted: "#1e1e24",

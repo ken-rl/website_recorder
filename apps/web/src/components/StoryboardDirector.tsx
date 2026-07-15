@@ -1,5 +1,14 @@
-import React from "react";
-import { Clock3, Image, Plus, Trash2 } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  Clock3,
+  MousePointerClick,
+  Plus,
+  SlidersHorizontal,
+  Trash2,
+} from "lucide-react";
 import type { DirectorBeat, WebsiteInspection } from "../lib/productTypes";
 
 interface StoryboardDirectorProps {
@@ -11,6 +20,16 @@ interface StoryboardDirectorProps {
   defaultCurve: string;
 }
 
+const OPENING_ID = "opening-frame";
+
+const CURVE_OPTIONS = [
+  { value: "ease-in-out", label: "Smooth" },
+  { value: "linear", label: "Linear" },
+  { value: "ease-out-cubic", label: "Gentle arrival" },
+  { value: "ease-in-cubic", label: "Gentle departure" },
+  { value: "custom", label: "Custom curve" },
+];
+
 export default function StoryboardDirector({
   inspection,
   beats,
@@ -19,15 +38,38 @@ export default function StoryboardDirector({
   setStartHoldMs,
   defaultCurve,
 }: StoryboardDirectorProps) {
+  const [selectedSceneId, setSelectedSceneId] = useState(beats[0]?.id ?? OPENING_ID);
   const totalMs = startHoldMs + beats.reduce((sum, beat) => sum + beat.transitionMs + beat.holdMs, 0);
   const minimumMs = startHoldMs + beats.reduce((sum, beat) => sum + beat.holdMs + 250, 0);
-  const maximumMs = Math.min(300_000, startHoldMs + beats.reduce((sum, beat) => sum + beat.holdMs + 60_000, 0));
+  const minimumSeconds = Math.max(1, Math.ceil(minimumMs / 1000));
+  const maximumSeconds = Math.min(
+    300,
+    Math.max(30, minimumSeconds + 10, Math.ceil((totalMs / 1000) * 2)),
+  );
+  const selectedBeat = beats.find((beat) => beat.id === selectedSceneId) ?? null;
   const selectedSelectors = new Set(
     beats.flatMap((beat) => beat.target.type === "selector" ? [beat.target.selector] : []),
   );
 
+  useEffect(() => {
+    if (selectedSceneId === OPENING_ID || beats.some((beat) => beat.id === selectedSceneId)) return;
+    setSelectedSceneId(beats[0]?.id ?? OPENING_ID);
+  }, [beats, selectedSceneId]);
+
+  const openingImage = inspection.screenshots[inspection.storyboard[0]?.imageIndex ?? 0];
+  const sceneImages = useMemo(() => new Map(
+    beats.map((beat) => [beat.id, findSceneImage(inspection, beat)]),
+  ), [beats, inspection]);
+
   const updateBeat = (id: string, patch: Partial<DirectorBeat>) => {
     setBeats(beats.map((beat) => beat.id === id ? { ...beat, ...patch } : beat));
+  };
+
+  const removeBeat = (id: string) => {
+    const index = beats.findIndex((beat) => beat.id === id);
+    const next = beats.filter((beat) => beat.id !== id);
+    setBeats(next);
+    setSelectedSceneId(next[Math.min(index, next.length - 1)]?.id ?? OPENING_ID);
   };
 
   const addSection = (section: WebsiteInspection["sections"][number]) => {
@@ -47,6 +89,7 @@ export default function StoryboardDirector({
       ? beats.map((beat, index) => index === replacementIndex ? next : beat)
       : [...beats, next];
     setBeats(updated.sort((a, b) => a.progress - b.progress));
+    setSelectedSceneId(next.id);
   };
 
   const setTargetDuration = (seconds: number) => {
@@ -66,93 +109,123 @@ export default function StoryboardDirector({
   };
 
   return (
-    <section className="director" aria-label="Storyboard director">
-      <div className="director-heading">
-        <div>
-          <span className="eyebrow">Motion director</span>
+    <section className="director route-director" aria-label="Capture route builder">
+      <div className="route-director-heading">
+        <div className="analysis-ready-mark"><CheckCircle2 size={17} /><span>Analysis ready</span></div>
+        <div className="route-page-title">
           <h2>{inspection.title || new URL(inspection.url).hostname}</h2>
-          <p>{inspection.scrollMode === "virtual" ? "Virtual storyboard" : `${inspection.sections.length} sections detected`} · {Math.round(inspection.pageHeight).toLocaleString()}px page</p>
+          <p>{beats.length} scenes selected · {Math.round(inspection.pageHeight).toLocaleString()}px page · {inspection.scrollMode} scroll</p>
         </div>
-        <label className="duration-control">
+        <label className="route-total-time">
           <Clock3 size={15} />
-          <span>Total</span>
-          <input
-            type="number"
-            min={1}
-            max={300}
-            step={0.5}
-            value={(totalMs / 1000).toFixed(1)}
-            onChange={(event) => setTargetDuration(Number(event.target.value))}
-          />
+          <span>Total time</span>
+          <input type="number" min={minimumSeconds} max={300} step={0.5} value={(totalMs / 1000).toFixed(1)} onChange={(event) => setTargetDuration(Number(event.target.value))} />
           <small>sec</small>
         </label>
       </div>
 
-      {inspection.warnings.length > 0 && (
-        <div className="inspection-warnings">
-          {inspection.warnings.map((warning) => <span key={warning}>{warning}</span>)}
+      <div className="route-overview">
+        <div className="route-section-heading">
+          <div><span>Capture route</span><p>Click a scene to adjust it. The recording moves from left to right.</p></div>
+          <span className="route-help"><MousePointerClick size={13} /> Select a scene</span>
         </div>
-      )}
 
-      <label className="director-duration-slider">
-        <span>{Math.max(1, Math.ceil(minimumMs / 1000))}s</span>
-        <input
-          type="range"
-          min={Math.max(1, Math.ceil(minimumMs / 1000))}
-          max={Math.max(1, Math.floor(maximumMs / 1000))}
-          step={0.5}
-          value={Math.max(minimumMs / 1000, Math.min(maximumMs / 1000, totalMs / 1000))}
-          onChange={(event) => setTargetDuration(Number(event.target.value))}
-          aria-label="Total storyboard duration"
-        />
-        <span>{Math.max(1, Math.floor(maximumMs / 1000))}s</span>
-      </label>
+        <label className="route-duration-control">
+          <span>{minimumSeconds}s</span>
+          <input type="range" min={minimumSeconds} max={maximumSeconds} step={0.5} value={Math.max(minimumSeconds, Math.min(maximumSeconds, totalMs / 1000))} onChange={(event) => setTargetDuration(Number(event.target.value))} aria-label="Total capture duration" />
+          <span>{maximumSeconds}s</span>
+        </label>
 
-      <div className="storyboard-strip">
-        {inspection.storyboard.map((frame, index) => (
-          <figure key={`${frame.target.value}-${index}`}>
-            <img src={`data:image/jpeg;base64,${inspection.screenshots[frame.imageIndex]}`} alt={`Page at ${Math.round(frame.target.value * 100)}%`} />
-            <figcaption>{Math.round(frame.target.value * 100)}%</figcaption>
-          </figure>
-        ))}
+        <div className="capture-route" role="list" aria-label="Selected capture scenes">
+          <SceneCard
+            image={openingImage}
+            label="Opening frame"
+            meta={`${formatSeconds(startHoldMs)} hold`}
+            index="Start"
+            selected={selectedSceneId === OPENING_ID}
+            onSelect={() => setSelectedSceneId(OPENING_ID)}
+          />
+          {beats.map((beat, index) => (
+            <React.Fragment key={beat.id}>
+              <span className="route-connector" aria-hidden><ArrowRight size={15} /></span>
+              <SceneCard
+                image={sceneImages.get(beat.id)}
+                label={beat.label}
+                meta={`${formatSeconds(beat.transitionMs)} move · ${formatSeconds(beat.holdMs)} hold`}
+                index={`Scene ${index + 1}`}
+                selected={selectedSceneId === beat.id}
+                onSelect={() => setSelectedSceneId(beat.id)}
+              />
+            </React.Fragment>
+          ))}
+          {beats.length === 0 && <div className="route-empty">Add a detected section below to create the route.</div>}
+        </div>
       </div>
 
-      <div className="director-grid">
-        <div className="beat-column">
-          <div className="beat-row beat-row--hero">
-            <span className="beat-index">00</span>
-            <div className="beat-name"><strong>Opening frame</strong><small>Hero hold</small></div>
-            <label><span>Hold</span><input type="number" min={0} max={15} step={0.5} value={startHoldMs / 1000} onChange={(event) => setStartHoldMs(Math.round(Number(event.target.value) * 1000))} /><small>s</small></label>
-          </div>
-          {beats.map((beat, index) => (
-            <div className="beat-row" key={beat.id}>
-              <span className="beat-index">{String(index + 1).padStart(2, "0")}</span>
-              <div className="beat-name"><strong title={beat.label}>{beat.label}</strong><small>{Math.round(beat.progress * 100)}% down page</small></div>
-              <label><span>Move</span><input type="number" min={0.25} max={60} step={0.25} value={beat.transitionMs / 1000} onChange={(event) => updateBeat(beat.id, { transitionMs: Math.round(Number(event.target.value) * 1000) })} /><small>s</small></label>
-              <label><span>Hold</span><input type="number" min={0} max={15} step={0.5} value={beat.holdMs / 1000} onChange={(event) => updateBeat(beat.id, { holdMs: Math.round(Number(event.target.value) * 1000) })} /><small>s</small></label>
-              <select value={beat.curve} onChange={(event) => updateBeat(beat.id, { curve: event.target.value })} aria-label={`Easing for ${beat.label}`}>
-                <option value="ease-in-out">Smooth</option>
-                <option value="linear">Linear</option>
-                <option value="ease-out-cubic">Ease out</option>
-                <option value="ease-in-cubic">Ease in</option>
-                <option value="custom">Custom</option>
-              </select>
-              <button type="button" className="icon-button" onClick={() => setBeats(beats.filter((item) => item.id !== beat.id))} aria-label={`Remove ${beat.label}`}><Trash2 size={14} /></button>
+      <div className="route-workbench">
+        <section className="scene-inspector" aria-label="Selected scene settings">
+          <div className="scene-inspector-heading">
+            <div>
+              <span className="scene-kicker">{selectedBeat ? `Scene ${beats.indexOf(selectedBeat) + 1}` : "Start"}</span>
+              <h3>{selectedBeat?.label ?? "Opening frame"}</h3>
+              <p>{selectedBeat ? `${Math.round(selectedBeat.progress * 100)}% down the page` : "The first thing viewers see"}</p>
             </div>
-          ))}
-          {beats.length === 0 && <div className="empty-beats"><Image size={18} /> Add at least one destination to direct the capture.</div>}
-        </div>
+            {selectedBeat && <button type="button" className="remove-scene" onClick={() => removeBeat(selectedBeat.id)}><Trash2 size={14} /> Remove</button>}
+          </div>
+
+          {!selectedBeat ? (
+            <SceneTimeControl
+              label="Opening hold"
+              description="Give the hero a moment before scrolling starts."
+              valueMs={startHoldMs}
+              min={0}
+              max={5_000}
+              step={250}
+              onChange={setStartHoldMs}
+            />
+          ) : (
+            <div className="scene-control-grid">
+              <SceneTimeControl
+                label="Travel time"
+                description="How long it takes to reach this scene."
+                valueMs={selectedBeat.transitionMs}
+                min={250}
+                max={20_000}
+                step={250}
+                onChange={(value) => updateBeat(selectedBeat.id, { transitionMs: value })}
+              />
+              <SceneTimeControl
+                label="Pause here"
+                description="How long the camera rests on this scene."
+                valueMs={selectedBeat.holdMs}
+                min={0}
+                max={8_000}
+                step={250}
+                onChange={(value) => updateBeat(selectedBeat.id, { holdMs: value })}
+              />
+              <label className="scene-curve-control">
+                <span><strong>Motion feel</strong><small>Easing used while moving here.</small></span>
+                <select value={selectedBeat.curve} onChange={(event) => updateBeat(selectedBeat.id, { curve: event.target.value })}>
+                  {CURVE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+            </div>
+          )}
+        </section>
 
         {inspection.scrollMode === "document" && inspection.sections.length > 0 && (
-          <aside className="section-bank">
-            <div className="section-bank-head"><span>Detected scenes</span><small>Choose highlights</small></div>
-            <div className="section-bank-list">
+          <aside className="scene-picker">
+            <div className="scene-picker-heading">
+              <div><span>Add scenes</span><p>Highlights found during analysis</p></div>
+              <SlidersHorizontal size={15} />
+            </div>
+            <div className="scene-picker-list">
               {inspection.sections.map((section) => {
                 const selected = selectedSelectors.has(section.selector);
                 return (
-                  <button type="button" key={section.selector} disabled={selected || beats.length >= 12} onClick={() => addSection(section)}>
-                    <span><strong>{section.label}</strong><small>{Math.round(section.progress * 100)}% · {section.kind}</small></span>
-                    <Plus size={14} />
+                  <button type="button" key={section.selector} className={selected ? "is-selected" : ""} disabled={selected || beats.length >= 12} onClick={() => addSection(section)}>
+                    <span><strong>{section.label}</strong><small>{Math.round(section.progress * 100)}% down page</small></span>
+                    {selected ? <Check size={14} /> : <Plus size={14} />}
                   </button>
                 );
               })}
@@ -160,6 +233,65 @@ export default function StoryboardDirector({
           </aside>
         )}
       </div>
+
+      {inspection.warnings.length > 0 && (
+        <div className="inspection-warnings route-warnings">
+          {inspection.warnings.map((warning) => <span key={warning}>{warning}</span>)}
+        </div>
+      )}
     </section>
   );
+}
+
+function SceneCard({ image, label, meta, index, selected, onSelect }: {
+  image?: string;
+  label: string;
+  meta: string;
+  index: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button type="button" role="listitem" className={`route-scene-card${selected ? " is-selected" : ""}`} onClick={onSelect} aria-pressed={selected}>
+      <span className="route-scene-image">
+        {image ? <img src={`data:image/jpeg;base64,${image}`} alt="" /> : <span className="route-scene-fallback" />}
+        <small>{index}</small>
+        {selected && <i><Check size={12} /></i>}
+      </span>
+      <span className="route-scene-copy"><strong title={label}>{label}</strong><small>{meta}</small></span>
+    </button>
+  );
+}
+
+function SceneTimeControl({ label, description, valueMs, min, max, step, onChange }: {
+  label: string;
+  description: string;
+  valueMs: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="scene-time-control">
+      <span><strong>{label}</strong><small>{description}</small></span>
+      <div>
+        <input type="range" min={min} max={max} step={step} value={Math.max(min, Math.min(max, valueMs))} onChange={(event) => onChange(Number(event.target.value))} />
+        <output>{formatSeconds(valueMs)}</output>
+      </div>
+    </label>
+  );
+}
+
+function findSceneImage(inspection: WebsiteInspection, beat: DirectorBeat) {
+  if (beat.imageIndex !== undefined) return inspection.screenshots[beat.imageIndex];
+  const closest = inspection.storyboard.reduce<typeof inspection.storyboard[number] | undefined>((best, frame) => {
+    if (!best) return frame;
+    return Math.abs(frame.target.value - beat.progress) < Math.abs(best.target.value - beat.progress) ? frame : best;
+  }, undefined);
+  return closest ? inspection.screenshots[closest.imageIndex] : undefined;
+}
+
+function formatSeconds(ms: number) {
+  return `${(ms / 1000).toFixed(ms % 1000 === 0 ? 0 : 1)}s`;
 }
