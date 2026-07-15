@@ -339,7 +339,7 @@ export default function App() {
             {duplicatedRequest && <p className="duplicate-notice">Exact settings loaded from the library. Queue the duplicate or analyze the page again.</p>}
 
             <div className={`studio-layout${inspection ? " has-director" : ""}`}>
-              <aside className="studio-controls">
+              <aside className="studio-controls" aria-label="Capture settings" tabIndex={0}>
                 <section className="control-deck">
                   <div className="control-deck-title"><span>Output quality</span><small>{renderTier === "draft" ? "Fast iteration" : renderTier === "standard" ? "Balanced export" : "2× high-detail export"}</small></div>
                   <div className="quality-stack">
