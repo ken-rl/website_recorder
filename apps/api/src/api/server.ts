@@ -4,16 +4,20 @@ import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { recordWebsite } from "../pipeline/recordWebsite.js";
 import { restyleRecording } from "../pipeline/styleRecording.js";
+import { inspectWebsite } from "../inspection/inspectWebsite.js";
+import { RecordingJobManager } from "../jobs/manager.js";
 import type { RecordRequest, StyleRequest } from "../types.js";
 
 const PORT = Number(process.env.PORT ?? 3847);
+const HOST = process.env.HOST ?? "127.0.0.1";
 const OUTPUT_DIR = path.resolve(process.env.OUTPUT_DIR ?? "./outputs");
 const PUBLIC_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../public",
 );
+const jobs = new RecordingJobManager(OUTPUT_DIR);
+await jobs.initialize();
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(
@@ -23,6 +27,99 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === "GET" && url.pathname === "/health") {
     return sendJson(res, 200, { ok: true });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/inspect") {
+    try {
+      const body = await readJsonBody<{
+        targetUrl: string;
+        viewport?: { width: number; height: number };
+      }>(req);
+      const inspection = await inspectWebsite(body);
+      return sendJson(res, 200, { ok: true, inspection });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Inspection failed";
+      return sendJson(res, 400, { ok: false, error: message });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/jobs") {
+    try {
+      const body = await readJsonBody<RecordRequest>(req);
+      validateRecordRequest(body);
+      const job = await jobs.create(body);
+      return sendJson(res, 202, jobLinks(job.jobId));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not create job";
+      return sendJson(res, 400, { ok: false, error: message });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/jobs") {
+    return sendJson(res, 200, { ok: true, jobs: await jobs.list() });
+  }
+
+  const jobRoute = url.pathname.match(/^\/api\/jobs\/([^/]+)$/);
+  if (req.method === "GET" && jobRoute) {
+    try {
+      return sendJson(res, 200, { ok: true, job: await jobs.get(jobRoute[1]) });
+    } catch (error) {
+      return sendJson(res, 404, { ok: false, error: errorMessage(error) });
+    }
+  }
+
+  const eventsRoute = url.pathname.match(/^\/api\/jobs\/([^/]+)\/events$/);
+  if (req.method === "GET" && eventsRoute) {
+    try {
+      const jobId = eventsRoute[1];
+      const current = await jobs.get(jobId);
+      res.writeHead(200, {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache",
+        connection: "keep-alive",
+      });
+      const write = (job: typeof current) => {
+        res.write(`event: job\ndata: ${JSON.stringify(job)}\n\n`);
+      };
+      write(current);
+      const unsubscribe = jobs.subscribe(jobId, write);
+      const heartbeat = setInterval(() => res.write(": keepalive\n\n"), 15_000);
+      req.on("close", () => {
+        clearInterval(heartbeat);
+        unsubscribe();
+      });
+      return;
+    } catch (error) {
+      return sendJson(res, 404, { ok: false, error: errorMessage(error) });
+    }
+  }
+
+  const cancelRoute = url.pathname.match(/^\/api\/jobs\/([^/]+)\/cancel$/);
+  if (req.method === "POST" && cancelRoute) {
+    try {
+      return sendJson(res, 200, { ok: true, job: await jobs.cancel(cancelRoute[1]) });
+    } catch (error) {
+      return sendJson(res, 409, { ok: false, error: errorMessage(error) });
+    }
+  }
+
+  const retryRoute = url.pathname.match(/^\/api\/jobs\/([^/]+)\/retry$/);
+  if (req.method === "POST" && retryRoute) {
+    try {
+      const job = await jobs.retry(retryRoute[1]);
+      return sendJson(res, 202, jobLinks(job.jobId));
+    } catch (error) {
+      return sendJson(res, 409, { ok: false, error: errorMessage(error) });
+    }
+  }
+
+  if (req.method === "DELETE" && jobRoute) {
+    try {
+      await jobs.remove(jobRoute[1]);
+      return sendJson(res, 200, { ok: true });
+    } catch (error) {
+      return sendJson(res, 409, { ok: false, error: errorMessage(error) });
+    }
   }
 
   if (req.method === "GET" && url.pathname === "/api/upcoming") {
@@ -44,13 +141,6 @@ const server = http.createServer(async (req, res) => {
           status: "planned",
         },
         {
-          id: "webhook-notifications",
-          title: "Webhooks & Async Processing",
-          description:
-            "Allow long-running captures to run in the background and notify clients via Webhooks or SSE when ready.",
-          status: "planned",
-        },
-        {
           id: "audio-overlay",
           title: "Audio & Speech Hydration",
           description:
@@ -64,7 +154,8 @@ const server = http.createServer(async (req, res) => {
   if (
     req.method === "GET" &&
     (url.pathname === "/" ||
-      url.pathname === "/upcoming")
+      url.pathname === "/upcoming" ||
+      url.pathname === "/library")
   ) {
     return serveFile(
       res,
@@ -102,13 +193,18 @@ const server = http.createServer(async (req, res) => {
     try {
       const body = await readJsonBody<RecordRequest>(req);
       validateRecordRequest(body);
-      const result = await recordWebsite(body, OUTPUT_DIR);
+      const queued = await jobs.create(body);
+      const job = await jobs.waitForCompletion(queued.jobId);
+      if (job.status !== "completed" || !job.result) {
+        throw new Error(job.error?.message ?? `Recording ${job.status}`);
+      }
+      const result = job.result;
       return sendJson(res, 200, {
         ok: true,
-        jobId: result.jobId,
-        videoUrl: `/outputs/${result.jobId}/output.mp4`,
-        sourceVideoUrl: `/outputs/${result.jobId}/source.mp4`,
-        mp4Path: result.mp4Path,
+        jobId: job.jobId,
+        videoUrl: result.videoUrl,
+        sourceVideoUrl: result.sourceVideoUrl,
+        mp4Path: path.join(OUTPUT_DIR, job.jobId, "output.mp4"),
         durationMs: result.durationMs,
         renderTimeMs: result.renderTimeMs,
         viewport: result.viewport,
@@ -125,6 +221,13 @@ const server = http.createServer(async (req, res) => {
     try {
       const body = await readJsonBody<StyleRequest>(req);
       const result = await restyleRecording(body, OUTPUT_DIR);
+      const existing = await jobs.get(body.jobId).catch(() => null);
+      if (existing) {
+        const request = existing.request
+          ? { ...existing.request, backgroundPreset: body.backgroundPreset, addShadow: body.addShadow, roundedCorners: body.roundedCorners }
+          : undefined;
+        await jobs.refreshResult(body.jobId, request);
+      }
       return sendJson(res, 200, { ok: true, ...result });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -135,8 +238,8 @@ const server = http.createServer(async (req, res) => {
   sendJson(res, 404, { ok: false, error: "Not found" });
 });
 
-server.listen(PORT, () => {
-  console.log(`websiterecorder listening on http://localhost:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`websiterecorder listening on http://${HOST}:${PORT}`);
   console.log(`output directory: ${OUTPUT_DIR}`);
 });
 
@@ -191,7 +294,8 @@ function readJsonBody<T>(req: http.IncomingMessage): Promise<T> {
 function validateRecordRequest(body: RecordRequest) {
   if (!body?.targetUrl) throw new Error("targetUrl is required");
   try {
-    new URL(body.targetUrl);
+    const target = new URL(body.targetUrl);
+    if (target.protocol !== "http:" && target.protocol !== "https:") throw new Error();
   } catch {
     throw new Error("targetUrl must be a valid URL");
   }
@@ -203,4 +307,17 @@ function validateRecordRequest(body: RecordRequest) {
       "videoConfig.viewport.width and videoConfig.viewport.height are required",
     );
   }
+}
+
+function jobLinks(jobId: string) {
+  return {
+    ok: true,
+    jobId,
+    statusUrl: `/api/jobs/${jobId}`,
+    eventsUrl: `/api/jobs/${jobId}/events`,
+  };
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown error";
 }

@@ -8,6 +8,8 @@ export interface VirtualTimelineOptions {
   wheelBudget: number;
   samples: MotionSample[];
   frameRecorder?: FrameRecorder;
+  signal?: AbortSignal;
+  onProgress?: (completedFrames: number, totalFrames: number) => void | Promise<void>;
 }
 
 /** Drives virtual-scroll pages by cumulative progress, preserving fractional wheel deltas. */
@@ -29,6 +31,7 @@ export async function runVirtualTimeline(
   });
 
   for (const [index, sample] of options.samples.entries()) {
+    options.signal?.throwIfAborted();
     const deltaY = virtualWheelDelta(options.samples, index, options.wheelBudget);
     if (Math.abs(deltaY) > 1e-6) {
       await cdp.send("Input.dispatchMouseEvent", {
@@ -51,6 +54,7 @@ export async function runVirtualTimeline(
     } else {
       await page.waitForTimeout(1000 / 30);
     }
+    await options.onProgress?.(index + 1, options.samples.length);
   }
 
   await cdp.detach().catch(() => undefined);

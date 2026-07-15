@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronLeft, ChevronRight, Moon, Sun } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, Moon, Sun } from "lucide-react";
 import LordIcon from "./LordIcon";
 import { LORDICON } from "../lib/icons";
 
@@ -23,6 +23,7 @@ export default function AppSidebar({
   onToggleCollapsed,
 }: AppSidebarProps) {
   const isRecorder = currentPath === "/" || currentPath === "";
+  const isLibrary = currentPath === "/library";
 
   return (
     <aside
@@ -67,6 +68,15 @@ export default function AppSidebar({
               trigger={isRecorder ? "loop" : "hover"}
             />
             {!collapsed && <span>Capture</span>}
+          </button>
+          <button
+            type="button"
+            className={`app-nav-link${isLibrary ? " is-active" : ""}`}
+            onClick={() => onNavigate("/library")}
+            title="Library"
+          >
+            <Archive size={18} strokeWidth={1.8} />
+            {!collapsed && <span>Library</span>}
           </button>
         </nav>
       </div>

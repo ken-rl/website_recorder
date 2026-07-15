@@ -1,738 +1,410 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  ChevronDown,
+  AlertTriangle,
   Clapperboard,
+  Compass,
   Play,
-  Settings2,
-  SlidersHorizontal,
+  RefreshCcw,
   Sparkles,
+  Square,
+  Zap,
 } from "lucide-react";
 import AppSidebar from "./components/AppSidebar";
-import { LORDICON } from "./lib/icons";
-import LordIcon from "./components/LordIcon";
-import { CaptureTargetFields, deviceLabel } from "./components/TargetPageForm";
-import ScrollPhysicsForm from "./components/ScrollPhysicsForm";
-import VirtualScrollForm, {
-  type ScrollModeOption,
-} from "./components/VirtualScrollForm";
-import PauseTriggersForm, {
-  toPauseTriggersPayload,
-  type PauseTriggerDraft,
-} from "./components/PauseTriggersForm";
-import BackgroundCanvasForm, {
-  type BackgroundPreset,
-} from "./components/BackgroundCanvasForm";
-
+import BackgroundCanvasForm, { type BackgroundPreset } from "./components/BackgroundCanvasForm";
 import BrowserMockup from "./components/BrowserMockup";
+import RecordingLibrary from "./components/RecordingLibrary";
+import StoryboardDirector from "./components/StoryboardDirector";
+import { CaptureTargetFields } from "./components/TargetPageForm";
+import type {
+  DirectorBeat,
+  RecordingJob,
+  RecordingRequest,
+  WebsiteInspection,
+} from "./lib/productTypes";
+
+type RenderTier = "draft" | "standard" | "cinematic";
+
+const TIER_CONFIG = {
+  draft: { label: "Draft", framerate: 30, qualityPreset: "medium", deviceScaleFactor: 1, fastMode: true, captureMode: "preview", preRecordingDelayMs: 500, pixelsPerFrame: 12 },
+  standard: { label: "Standard", framerate: 60, qualityPreset: "medium", deviceScaleFactor: 1, fastMode: false, captureMode: "export", preRecordingDelayMs: 2_000, pixelsPerFrame: 16 },
+  cinematic: { label: "Cinematic", framerate: 60, qualityPreset: "high", deviceScaleFactor: 2, fastMode: false, captureMode: "export", preRecordingDelayMs: 3_000, pixelsPerFrame: 10 },
+} as const;
 
 export default function App() {
-  const [currentPath, setCurrentPath] = useState(() => {
-    const path = window.location.pathname;
-    if (path === "/upcoming") return "/";
-    return path;
-  });
-
+  const [currentPath, setCurrentPath] = useState(window.location.pathname === "/library" ? "/library" : "/");
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     const saved = localStorage.getItem("theme");
-    if (saved === "light" || saved === "dark") return saved;
-    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    return saved === "light" || saved === "dark" ? saved : "dark";
   });
-  const [navCollapsed, setNavCollapsed] = useState(() => {
-    return localStorage.getItem("nav-collapsed") === "1";
-  });
-
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("theme", theme);
-  }, [theme]);
-
-  useEffect(() => {
-    localStorage.setItem("nav-collapsed", navCollapsed ? "1" : "0");
-    document.documentElement.dataset.nav = navCollapsed ? "collapsed" : "expanded";
-  }, [navCollapsed]);
-
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === "light" ? "dark" : "light"));
-  };
-
-  useEffect(() => {
-    const handlePopState = () => {
-      let path = window.location.pathname;
-      if (path === "/upcoming") {
-        window.history.replaceState({}, "", "/");
-        path = "/";
-      }
-      setCurrentPath(path);
-    };
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
-
-  const navigate = (path: string) => {
-    let targetPath = path;
-    if (path === "/upcoming") {
-      targetPath = "/";
-    }
-    window.history.pushState({}, "", targetPath);
-    setCurrentPath(targetPath);
-  };
-
+  const [navCollapsed, setNavCollapsed] = useState(localStorage.getItem("nav-collapsed") === "1");
   const [url, setUrl] = useState("");
   const [devicePreset, setDevicePreset] = useState("1920x1080");
   const [width, setWidth] = useState(1920);
   const [height, setHeight] = useState(1080);
-
-  // Single render-quality tier: replaces fastMode + captureMode + quality
-  type RenderTier = "draft" | "standard" | "cinematic";
-  const [renderTier, setRenderTier] = useState<RenderTier>("standard");
-
-  const TIER_CONFIG: Record<RenderTier, {
-    captureMode: "preview" | "export";
-    fastMode: boolean;
-    qualityPreset: string;
-    framerate: number;
-    deviceScaleFactor: number;
-    pixelsPerFrame: number;
-    preRecordingDelayMs: number;
-    defaultCycles: number;
-    expectedDurationMs: number;
-    label: string;
-    hint: string;
-  }> = {
-    draft: {
-      captureMode: "preview",
-      fastMode: true,
-      qualityPreset: "medium",
-      framerate: 30,
-      deviceScaleFactor: 1,
-      pixelsPerFrame: 12,
-      preRecordingDelayMs: 500,
-      defaultCycles: 6,
-      expectedDurationMs: 5000,
-      label: "Draft",
-      hint: "~5s · Fast Playwright recording for checking scroll feel",
-    },
-    standard: {
-      captureMode: "export",
-      fastMode: false,
-      qualityPreset: "medium",
-      framerate: 60,
-      deviceScaleFactor: 1,
-      pixelsPerFrame: 16,
-      preRecordingDelayMs: 2000,
-      defaultCycles: 8,
-      expectedDurationMs: 25000,
-      label: "Standard",
-      hint: "Balanced quality (~25s)",
-    },
-    cinematic: {
-      captureMode: "export",
-      fastMode: false,
-      qualityPreset: "high",
-      framerate: 60,
-      deviceScaleFactor: 2,
-      pixelsPerFrame: 10,
-      preRecordingDelayMs: 3000,
-      defaultCycles: 10,
-      expectedDurationMs: 55000,
-      label: "Cinematic",
-      hint: "High quality (~55s)",
-    },
-  };
-
-  const [selectedCurve, setSelectedCurve] = useState("linear");
-  const [customBezier, setCustomBezier] = useState<
-    [number, number, number, number]
-  >([0.42, 0, 0.58, 1]);
-
-  const [scrollMode, setScrollMode] = useState<ScrollModeOption>("auto");
-  const [virtualScrollCycles, setVirtualScrollCycles] = useState(8);
+  const [renderTier, setRenderTier] = useState<RenderTier>("draft");
+  const [scrollMode, setScrollMode] = useState<"auto" | "document" | "virtual">("auto");
+  const [virtualCycles, setVirtualCycles] = useState(8);
   const [useFixedDuration, setUseFixedDuration] = useState(false);
-  const [virtualScrollDurationMs, setVirtualScrollDurationMs] = useState(30000);
-  const [pixelsPerFrame, setPixelsPerFrame] = useState(16);
-  const [heroHoldMs, setHeroHoldMs] = useState(1500);
-  const [pauseTriggers, setPauseTriggers] = useState<PauseTriggerDraft[]>([]);
-  const [backgroundPreset, setBackgroundPreset] =
-    useState<BackgroundPreset>("none");
+  const [virtualDurationMs, setVirtualDurationMs] = useState(30_000);
+  const [heroHoldMs, setHeroHoldMs] = useState(1_500);
+  const [inspection, setInspection] = useState<WebsiteInspection | null>(null);
+  const [beats, setBeats] = useState<DirectorBeat[]>([]);
+  const [isInspecting, setIsInspecting] = useState(false);
+  const [activeJob, setActiveJob] = useState<RecordingJob | null>(null);
+  const [elapsed, setElapsed] = useState("0.0s");
+  const [error, setError] = useState("");
+  const [backgroundPreset, setBackgroundPreset] = useState<BackgroundPreset>("none");
   const [addShadow, setAddShadow] = useState(true);
   const [roundedCorners, setRoundedCorners] = useState(true);
   const [isApplyingStyle, setIsApplyingStyle] = useState(false);
-  const [isStylePreview, setIsStylePreview] = useState(false);
+  const [duplicatedRequest, setDuplicatedRequest] = useState<RecordingRequest | null>(null);
+  const activeJobId = activeJob?.jobId;
+  const activeJobStatus = activeJob?.status;
+  const activeJobCreatedAt = activeJob?.createdAt;
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [statusType, setStatusType] = useState<
-    "idle" | "loading" | "success" | "error"
-  >("idle");
-  const [statusText, setStatusText] = useState("");
-
-  const [progressPercent, setProgressPercent] = useState(0);
-  const [progressStatus, setProgressStatus] = useState(
-    "Initializing browser context",
-  );
-  const [elapsedTime, setElapsedTime] = useState("0.0s");
-  const [resultVideo, setResultVideo] = useState<{
-    jobId: string;
-    sourceUrl: string;
-    url: string;
-    duration: string;
-    width: number;
-    height: number;
-    qualityLabel: string;
-    scrollStrategy?: "document" | "virtual";
-    isEdited?: boolean;
-  } | null>(null);
-  /** After a capture, setup controls stay locked until the user chooses to edit for a re-record. */
-  const [settingsUnlocked, setSettingsUnlocked] = useState(true);
-
-  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
-    null,
-  );
-  const progressStartTimeRef = useRef(0);
-
-  const handleDevicePresetChange = (preset: string) => {
-    setDevicePreset(preset);
-    const [w, h] = preset.split("x").map(Number);
-    setWidth(w);
-    setHeight(h);
+  const navigate = (path: string) => {
+    window.history.pushState({}, "", path);
+    setCurrentPath(path);
   };
 
-  function startProgressSimulator(tier: RenderTier) {
-    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
-    setProgressPercent(0);
-    progressStartTimeRef.current = Date.now();
-    const { expectedDurationMs } = TIER_CONFIG[tier];
+  useEffect(() => {
+    document.documentElement.dataset.nav = navCollapsed ? "collapsed" : "expanded";
+    localStorage.setItem("nav-collapsed", navCollapsed ? "1" : "0");
+  }, [navCollapsed]);
 
-    progressIntervalRef.current = setInterval(() => {
-      const elapsed = Date.now() - progressStartTimeRef.current;
-      setElapsedTime(`${(elapsed / 1000).toFixed(1)}s`);
+  useEffect(() => {
+    const pop = () => setCurrentPath(window.location.pathname === "/library" ? "/library" : "/");
+    window.addEventListener("popstate", pop);
+    return () => window.removeEventListener("popstate", pop);
+  }, []);
 
-      const pct = 95 * (1 - Math.exp(-elapsed / (expectedDurationMs * 0.45)));
-      setProgressPercent(Math.round(pct));
+  useEffect(() => {
+    const jobId = localStorage.getItem("active-job-id");
+    if (!jobId) return;
+    void fetch(`/api/jobs/${jobId}`)
+      .then((response) => response.json())
+      .then((data) => {
+        if (!data.ok) return;
+        setActiveJob(data.job);
+        if (!["queued", "running"].includes(data.job.status)) localStorage.removeItem("active-job-id");
+      })
+      .catch(() => localStorage.removeItem("active-job-id"));
+  }, []);
 
-      if (tier === "draft") {
-        if (elapsed < 1200) {
-          setProgressStatus("Launching headless browser context...");
-        } else if (elapsed < 3500) {
-          setProgressStatus("Scrolling website & capturing viewport...");
-        } else {
-          setProgressStatus("Finalizing MP4 video stream...");
-        }
-      } else if (tier === "standard") {
-        if (elapsed < 2000) {
-          setProgressStatus("Spawning Chromium browser instance...");
-        } else if (elapsed < 5000) {
-          setProgressStatus("Hydrating lazy-loaded assets & selectors...");
-        } else if (elapsed < 14000) {
-          setProgressStatus("Capturing frames & encoding video...");
-        } else {
-          setProgressStatus("Stitching MP4 with FFmpeg...");
-        }
-      } else {
-        if (elapsed < 3000) {
-          setProgressStatus("Spawning Chromium & priming assets...");
-        } else if (elapsed < 8000) {
-          setProgressStatus("Hydrating lazy-loaded content...");
-        } else if (elapsed < 30000) {
-          setProgressStatus("Capturing high-res frames at 2px/frame...");
-        } else {
-          setProgressStatus("Stitching cinematic MP4 with FFmpeg...");
-        }
+  useEffect(() => {
+    if (!activeJobId || !activeJobStatus || !["queued", "running"].includes(activeJobStatus)) return;
+    localStorage.setItem("active-job-id", activeJobId);
+    const events = new EventSource(`/api/jobs/${activeJobId}/events`);
+    events.addEventListener("job", (event) => {
+      const job = JSON.parse((event as MessageEvent).data) as RecordingJob;
+      setActiveJob(job);
+      if (!["queued", "running"].includes(job.status)) {
+        localStorage.removeItem("active-job-id");
+        events.close();
       }
-    }, 100);
-  }
+    });
+    return () => events.close();
+  }, [activeJobId, activeJobStatus]);
 
-  function stopProgressSimulator(success: boolean, errorMsg = "") {
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-      progressIntervalRef.current = null;
+  useEffect(() => {
+    if (!activeJobId || !activeJobStatus || !activeJobCreatedAt || !["queued", "running"].includes(activeJobStatus)) return;
+    const started = new Date(activeJobCreatedAt).getTime();
+    const timer = window.setInterval(() => setElapsed(`${((Date.now() - started) / 1000).toFixed(1)}s`), 100);
+    return () => window.clearInterval(timer);
+  }, [activeJobId, activeJobStatus, activeJobCreatedAt]);
+
+  const isBusy = Boolean(activeJob && ["queued", "running"].includes(activeJob.status));
+  const result = activeJob?.result;
+  const previewWidth = result?.viewport.width || width;
+  const previewHeight = result?.viewport.height || height;
+
+  const updateUrl = (next: string) => {
+    setUrl(next);
+    setDuplicatedRequest(null);
+    if (activeJob?.result && next.trim() !== activeJob.targetUrl) setActiveJob(null);
+    if (inspection && next.trim() !== inspection.url) {
+      setInspection(null);
+      setBeats([]);
     }
+  };
 
-    if (success) {
-      setProgressPercent(100);
-      setProgressStatus("Capture completed!");
-      setTimeout(() => {
-        setProgressPercent(0);
-      }, 1000);
-    } else {
-      setProgressStatus(errorMsg || "Capture failed.");
-    }
-  }
+  const changeDevice = (preset: string) => {
+    setDuplicatedRequest(null);
+    setDevicePreset(preset);
+    const [nextWidth, nextHeight] = preset.split("x").map(Number);
+    setWidth(nextWidth);
+    setHeight(nextHeight);
+    setInspection(null);
+    setBeats([]);
+  };
 
-  const applyStyleToRecording = async () => {
-    if (!resultVideo) return;
-
-    setIsApplyingStyle(true);
-    setStatusType("idle");
+  const analyze = async () => {
+    setDuplicatedRequest(null);
+    setIsInspecting(true);
+    setError("");
     try {
-      const res = await fetch("/style", {
+      const response = await fetch("/api/inspect", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jobId: resultVideo.jobId,
-          backgroundPreset,
-          addShadow,
-          roundedCorners,
-        }),
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ targetUrl: url.trim(), viewport: { width, height } }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Could not apply style");
-      }
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || "Could not analyze page");
+      const next = data.inspection as WebsiteInspection;
+      setActiveJob(null);
+      setInspection(next);
+      setScrollMode(next.scrollMode);
+      setBeats(defaultBeats(next));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not analyze page");
+    } finally {
+      setIsInspecting(false);
+    }
+  };
 
-      const styledUrl = `${data.videoUrl}?t=${Date.now()}`;
-      setResultVideo((current) =>
-        current ? { ...current, url: styledUrl } : current,
-      );
-      setIsStylePreview(false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not apply style";
-      setStatusType("error");
-      setStatusText(message);
-      setIsStylePreview(false);
+  const request = useMemo(() => buildRequest({
+    url,
+    width,
+    height,
+    renderTier,
+    inspection,
+    beats,
+    scrollMode,
+    virtualCycles,
+    useFixedDuration,
+    virtualDurationMs,
+    heroHoldMs,
+    backgroundPreset,
+    addShadow,
+    roundedCorners,
+  }), [url, width, height, renderTier, inspection, beats, scrollMode, virtualCycles, useFixedDuration, virtualDurationMs, heroHoldMs, backgroundPreset, addShadow, roundedCorners]);
+
+  const startCapture = async (quick = false) => {
+    if (!url.trim()) return;
+    setError("");
+    try {
+      const body = quick ? duplicatedRequest ?? buildRequest({ url, width, height, renderTier, inspection: null, beats: [], scrollMode, virtualCycles, useFixedDuration, virtualDurationMs, heroHoldMs, backgroundPreset, addShadow, roundedCorners }) : request;
+      const response = await fetch("/api/jobs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || "Could not queue capture");
+      localStorage.setItem("active-job-id", data.jobId);
+      const jobResponse = await fetch(data.statusUrl);
+      const jobData = await jobResponse.json();
+      setActiveJob(jobData.job);
+      setDuplicatedRequest(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not queue capture");
+    }
+  };
+
+  const cancel = async () => {
+    if (!activeJob) return;
+    const response = await fetch(`/api/jobs/${activeJob.jobId}/cancel`, { method: "POST" });
+    const data = await response.json();
+    if (!response.ok) setError(data.error || "Could not cancel capture");
+  };
+
+  const applyStyle = async () => {
+    if (!activeJob?.result) return;
+    setIsApplyingStyle(true);
+    setError("");
+    try {
+      const response = await fetch("/style", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jobId: activeJob.jobId, backgroundPreset, addShadow, roundedCorners }) });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || "Could not apply style");
+      const fresh = await fetch(`/api/jobs/${activeJob.jobId}`).then((result) => result.json());
+      setActiveJob({ ...fresh.job, result: { ...fresh.job.result, videoUrl: `${fresh.job.result.videoUrl}?t=${Date.now()}` } });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not apply style");
     } finally {
       setIsApplyingStyle(false);
     }
   };
 
-  const updateCanvasStyle = (update: () => void) => {
-    update();
-    if (resultVideo) setIsStylePreview(true);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const captureWidth = width;
-    const captureHeight = height;
-    const captureQuality = TIER_CONFIG[renderTier].label;
-
-    setResultVideo(null);
-    setIsStylePreview(false);
-    setSettingsUnlocked(true);
-    setStatusType("loading");
-    setStatusText(`Recording (${captureQuality.toLowerCase()})`);
-    setIsSubmitting(true);
-
-    startProgressSimulator(renderTier);
-
-    const tier = TIER_CONFIG[renderTier];
-    const body = {
-      targetUrl: url.trim(),
-      exportFormat: "mp4",
-      videoConfig: {
-        framerate: tier.framerate,
-        qualityPreset: tier.qualityPreset,
-        viewport: {
-          width: captureWidth,
-          height: captureHeight,
-          deviceScaleFactor: tier.deviceScaleFactor,
-        },
-      },
-      animationConfig: {
-        fastMode: tier.fastMode,
-        captureMode: tier.captureMode,
-        pixelsPerFrame: pixelsPerFrame,
-        heroHoldMs,
-        preRecordingDelayMs: tier.preRecordingDelayMs,
-        scrollCurve:
-          selectedCurve === "custom"
-            ? { preset: "custom", bezier: customBezier }
-            : { preset: selectedCurve },
-        removeOverlayElements: true,
-        scrollMode,
-        pauseTriggers: toPauseTriggersPayload(pauseTriggers),
-        ...(scrollMode !== "document"
-          ? {
-              virtualScrollCycles,
-            }
-          : {}),
-      },
-      backgroundPreset,
-      addShadow,
-      roundedCorners,
-    };
-
-    try {
-      const res = await fetch("/record", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Recording failed");
-      }
-
-      setResultVideo({
-        jobId: data.jobId,
-        sourceUrl: data.sourceVideoUrl ?? data.videoUrl,
-        url: data.videoUrl,
-        duration: `${(data.durationMs / 1000).toFixed(1)}s`,
-        width: captureWidth,
-        height: captureHeight,
-        qualityLabel: captureQuality,
-        scrollStrategy: data.scrollStrategy,
-        isEdited: false,
-      });
-      setSettingsUnlocked(false);
-      setStatusType("success");
-      setStatusText("Recording finished successfully.");
-      stopProgressSimulator(true);
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Something went wrong";
-      setStatusType("error");
-      setStatusText(message);
-      stopProgressSimulator(false, message);
-    } finally {
-      setIsSubmitting(false);
+  const openJob = (job: RecordingJob) => {
+    setActiveJob(job);
+    setInspection(null);
+    setBeats([]);
+    setDuplicatedRequest(null);
+    setUrl(job.targetUrl);
+    if (job.result) {
+      setWidth(job.result.viewport.width);
+      setHeight(job.result.viewport.height);
+      const preset = `${job.result.viewport.width}x${job.result.viewport.height}`;
+      setDevicePreset(["1920x1080", "1440x900", "768x1024", "390x844"].includes(preset) ? preset : "1920x1080");
     }
+    navigate("/");
   };
 
-  const hasRecording = Boolean(resultVideo);
-  const captureLocked = hasRecording && !settingsUnlocked && !isSubmitting;
-  /** Keep the finished video's aspect ratio stable even if setup is unlocked for a re-record. */
-  const previewWidth = resultVideo?.width ?? width;
-  const previewHeight = resultVideo?.height ?? height;
-  const activePauseTriggers = toPauseTriggersPayload(pauseTriggers);
-
-
+  const duplicateJob = (job: RecordingJob) => {
+    if (!job.request) return;
+    const viewport = job.request.videoConfig.viewport;
+    setUrl(job.request.targetUrl);
+    setWidth(viewport.width);
+    setHeight(viewport.height);
+    const preset = `${viewport.width}x${viewport.height}`;
+    setDevicePreset(["1920x1080", "1440x900", "768x1024", "390x844"].includes(preset) ? preset : "1920x1080");
+    setActiveJob(null);
+    setInspection(null);
+    setBeats([]);
+    setDuplicatedRequest(job.request);
+    const animation = job.request.animationConfig;
+    setRenderTier(animation.fastMode === true ? "draft" : viewport.deviceScaleFactor === 2 ? "cinematic" : "standard");
+    if (["none", "gray_noise_gradient", "paper_blue", "red_blocks_gradient"].includes(job.request.backgroundPreset || "none")) {
+      setBackgroundPreset((job.request.backgroundPreset || "none") as BackgroundPreset);
+    }
+    setAddShadow(job.request.addShadow ?? true);
+    setRoundedCorners(job.request.roundedCorners ?? true);
+    navigate("/");
+  };
 
   return (
-    <main className={`app-shell${navCollapsed ? " is-nav-collapsed" : ""}`}>
-      <AppSidebar
-        currentPath={currentPath}
-        onNavigate={navigate}
-        isRecording={isSubmitting}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        collapsed={navCollapsed}
-        onToggleCollapsed={() => setNavCollapsed((c) => !c)}
-      />
+    <main className={`app-shell workflow-shell${navCollapsed ? " is-nav-collapsed" : ""}`}>
+      <AppSidebar currentPath={currentPath} onNavigate={navigate} isRecording={isBusy} theme={theme} onToggleTheme={() => setTheme(theme === "light" ? "dark" : "light")} collapsed={navCollapsed} onToggleCollapsed={() => setNavCollapsed(!navCollapsed)} />
+      <div className="app-content workflow-content">
+        {currentPath === "/library" ? (
+          <RecordingLibrary onOpen={openJob} onDuplicate={duplicateJob} />
+        ) : (
+          <div className="studio-page">
+            <header className="studio-masthead">
+              <div><span className="eyebrow">Website cinematography</span><h1>Direct the scroll.</h1><p>Analyze the page, choose the moments, then render one deliberate take.</p></div>
+              {inspection && <button type="button" className="quiet-button" onClick={() => { setInspection(null); setBeats([]); setActiveJob(null); }}><RefreshCcw size={14} /> New analysis</button>}
+            </header>
 
-      <div className="app-content">
-          <form
-            id="form"
-            className={`recorder-page${hasRecording ? " has-recording" : ""}${captureLocked ? " is-capture-locked" : ""}`}
-            onSubmit={handleSubmit}
-          >
-            <div className="recorder-sidebar-panel">
-              {hasRecording && (
-                <div className="sidebar-section-card recorder-style-card">
-                  <BackgroundCanvasForm
-                    backgroundPreset={backgroundPreset}
-                    setBackgroundPreset={(preset) =>
-                      updateCanvasStyle(() => setBackgroundPreset(preset))
-                    }
-                    addShadow={addShadow}
-                    setAddShadow={(enabled) =>
-                      updateCanvasStyle(() => setAddShadow(enabled))
-                    }
-                    roundedCorners={roundedCorners}
-                    setRoundedCorners={(enabled) =>
-                      updateCanvasStyle(() => setRoundedCorners(enabled))
-                    }
-                    onApplyStyle={applyStyleToRecording}
-                    isApplyingStyle={isApplyingStyle}
-                  />
-                </div>
-              )}
-
-              {captureLocked ? (
-                <div className="sidebar-section-card is-locked-section">
-                  <div className="sidebar-section-heading">
-                    <h3 className="sidebar-section-title">This capture</h3>
-                    <button
-                      type="button"
-                      className="recorder-unlock-settings"
-                      onClick={() => setSettingsUnlocked(true)}
-                    >
-                      <Settings2 size={13} strokeWidth={2} aria-hidden />
-                      Edit motion
-                    </button>
-                  </div>
-                  <div className="recorder-capture-summary" role="status">
-                    <div className="recorder-capture-summary-row">
-                      <span className="recorder-capture-summary-label">Motion</span>
-                      <span className="recorder-capture-summary-value">
-                        {selectedCurve.replaceAll("-", " ")}
-                        {heroHoldMs === 0 ? "" : ` · hero ${heroHoldMs / 1000}s`}
-                      </span>
-                    </div>
-                    <div className="recorder-capture-summary-row">
-                      <span className="recorder-capture-summary-label">Quality</span>
-                      <span className="recorder-capture-summary-value">
-                        {resultVideo?.qualityLabel ?? TIER_CONFIG[renderTier].label}
-                        {resultVideo?.duration ? ` · ${resultVideo.duration}` : ""}
-                      </span>
-                    </div>
-                    <div className="recorder-capture-summary-row">
-                      <span className="recorder-capture-summary-label">Viewport</span>
-                      <span className="recorder-capture-summary-value">
-                        {deviceLabel(devicePreset)} · {previewWidth}×{previewHeight}
-                      </span>
-                    </div>
-                    <div className="recorder-capture-summary-row">
-                      <span className="recorder-capture-summary-label">Pauses</span>
-                      <span className="recorder-capture-summary-value">
-                        {activePauseTriggers.length === 0
-                          ? "None"
-                          : `${activePauseTriggers.length} trigger${activePauseTriggers.length === 1 ? "" : "s"}`}
-                      </span>
-                    </div>
-                    <p className="recorder-capture-summary-note">
-                      Motion and screen size are locked to this video. Change the URL
-                      anytime; re-record to apply new capture settings.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="sidebar-section-card">
-                  {hasRecording && (
-                    <div className="sidebar-section-heading">
-                      <h3 className="sidebar-section-title">Next capture</h3>
-                      <button
-                        type="button"
-                        className="recorder-unlock-settings is-active"
-                        onClick={() => setSettingsUnlocked(false)}
-                      >
-                        Done
-                      </button>
-                    </div>
-                  )}
-                  <details className="recorder-disclosure" open={!hasRecording ? undefined : true}>
-                    <summary>
-                      <span className="recorder-disclosure-icon">
-                        <SlidersHorizontal size={16} />
-                      </span>
-                      <span>Motion</span>
-                      <small>
-                        {selectedCurve.replaceAll("-", " ")}
-                        {activePauseTriggers.length > 0
-                          ? ` · ${activePauseTriggers.length} pause${activePauseTriggers.length === 1 ? "" : "s"}`
-                          : ""}
-                      </small>
-                      <ChevronDown className="recorder-disclosure-chevron" size={16} />
-                    </summary>
-                    <div className="recorder-disclosure-content">
-                      <ScrollPhysicsForm
-                        selectedCurve={selectedCurve}
-                        setSelectedCurve={setSelectedCurve}
-                        customBezier={customBezier}
-                        setCustomBezier={setCustomBezier}
-                        pixelsPerFrame={pixelsPerFrame}
-                        setPixelsPerFrame={setPixelsPerFrame}
-                        heroHoldMs={heroHoldMs}
-                        setHeroHoldMs={setHeroHoldMs}
-                      />
-
-                      <VirtualScrollForm
-                        scrollMode={scrollMode}
-                        setScrollMode={setScrollMode}
-                        virtualScrollCycles={virtualScrollCycles}
-                        setVirtualScrollCycles={setVirtualScrollCycles}
-                        useFixedDuration={useFixedDuration}
-                        setUseFixedDuration={setUseFixedDuration}
-                        virtualScrollDurationMs={virtualScrollDurationMs}
-                        setVirtualScrollDurationMs={setVirtualScrollDurationMs}
-                        fastMode={renderTier === "draft"}
-                      />
-
-                      <PauseTriggersForm
-                        triggers={pauseTriggers}
-                        setTriggers={setPauseTriggers}
-                        disabled={isSubmitting}
-                      />
-                    </div>
-                  </details>
-                </div>
-              )}
-
-              {!hasRecording && (
-                <div className="sidebar-section-card">
-                  <BackgroundCanvasForm
-                    backgroundPreset={backgroundPreset}
-                    setBackgroundPreset={(preset) =>
-                      updateCanvasStyle(() => setBackgroundPreset(preset))
-                    }
-                    addShadow={addShadow}
-                    setAddShadow={(enabled) =>
-                      updateCanvasStyle(() => setAddShadow(enabled))
-                    }
-                    roundedCorners={roundedCorners}
-                    setRoundedCorners={(enabled) =>
-                      updateCanvasStyle(() => setRoundedCorners(enabled))
-                    }
-                    onApplyStyle={undefined}
-                    isApplyingStyle={isApplyingStyle}
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="recorder-main-panel">
-              <div className="recorder-controls-card">
-                <div className="recorder-capture-bar">
-                  <CaptureTargetFields
-                    url={url}
-                    setUrl={setUrl}
-                    devicePreset={devicePreset}
-                    setDevicePreset={handleDevicePresetChange}
-                    sizeLocked={captureLocked}
-                    disabled={isSubmitting}
-                  />
-
-                  <div className="recorder-capture-bar-row">
-                    {captureLocked ? (
-                      <div className="recorder-capture-ready" role="status">
-                        <span className="recorder-capture-ready-dot" aria-hidden />
-                        <div className="recorder-capture-ready-text">
-                          <strong>Recording ready</strong>
-                          <span>
-                            {resultVideo?.qualityLabel}
-                            {resultVideo?.duration ? ` · ${resultVideo.duration}` : ""}
-                            {" · "}
-                            {deviceLabel(devicePreset)}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="recorder-capture-quality">
-                        <span
-                          className="recorder-capture-label"
-                          id="render-quality-label"
-                        >
-                          Quality
-                        </span>
-                        <div
-                          className="render-tier-group"
-                          role="radiogroup"
-                          aria-labelledby="render-quality-label"
-                        >
-                          {(
-                            Object.entries(TIER_CONFIG) as [
-                              RenderTier,
-                              (typeof TIER_CONFIG)[RenderTier],
-                            ][]
-                          )
-                            .filter(([tier]) => tier !== "draft")
-                            .map(([tier, cfg]) => {
-                              const TierIcon =
-                                tier === "cinematic" ? Sparkles : Clapperboard;
-                              return (
-                                <button
-                                  key={tier}
-                                  type="button"
-                                  id={`renderTier-${tier}`}
-                                  role="radio"
-                                  aria-checked={renderTier === tier}
-                                  className={`render-tier-btn render-tier-btn--${tier}${renderTier === tier ? " is-active" : ""}`}
-                                  title={cfg.hint}
-                                  disabled={isSubmitting}
-                                  onClick={() => {
-                                    setRenderTier(tier);
-                                    setVirtualScrollCycles(cfg.defaultCycles);
-                                    setPixelsPerFrame(cfg.pixelsPerFrame);
-                                  }}
-                                >
-                                  <span
-                                    className="render-tier-icon"
-                                    aria-hidden="true"
-                                  >
-                                    <TierIcon size={14} strokeWidth={2} />
-                                  </span>
-                                  <span className="render-tier-name">
-                                    {cfg.label}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="recorder-capture-actions">
-                      {captureLocked && (
-                        <button
-                          type="button"
-                          className="recorder-capture-secondary"
-                          onClick={() => setSettingsUnlocked(true)}
-                        >
-                          <Settings2 size={14} strokeWidth={2} aria-hidden />
-                          Edit settings
-                        </button>
-                      )}
-                      <button
-                        type="submit"
-                        id="submit"
-                        className="recorder-capture-btn product-btn-primary"
-                        disabled={isSubmitting || !url.trim()}
-                      >
-                        {isSubmitting && <span className="loader-circle" />}
-                        {!isSubmitting && (
-                          <Play size={15} fill="currentColor" aria-hidden="true" />
-                        )}
-                        <span id="buttonText">
-                          {isSubmitting
-                            ? "Recording…"
-                            : hasRecording
-                              ? "Record again"
-                              : "Start capture"}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                {hasRecording && settingsUnlocked && !isSubmitting && (
-                  <p className="recorder-rerecord-hint">
-                    Settings unlocked for the next capture. The current video stays until
-                    you record again.
-                  </p>
+            <section className="capture-command-bar">
+              <CaptureTargetFields url={url} setUrl={updateUrl} devicePreset={devicePreset} setDevicePreset={changeDevice} sizeLocked={isBusy} disabled={isBusy || isInspecting} />
+              <div className="command-actions">
+                {!inspection && <button type="button" className="quick-capture" disabled={!url.trim() || isBusy || isInspecting} onClick={() => void startCapture(true)}><Zap size={14} /> {duplicatedRequest ? "Queue duplicate" : "Quick capture"}</button>}
+                {!inspection ? (
+                  <button type="button" className="analyze-button" disabled={!url.trim() || isBusy || isInspecting} onClick={() => void analyze()}>{isInspecting ? <span className="loader-circle" /> : <Compass size={16} />} {isInspecting ? "Analyzing…" : "Analyze page"}</button>
+                ) : (
+                  <button type="button" className="analyze-button" disabled={isBusy || beats.length === 0} onClick={() => void startCapture(false)}><Play size={15} fill="currentColor" /> Start {TIER_CONFIG[renderTier].label.toLowerCase()}</button>
                 )}
               </div>
+            </section>
 
-              {statusType === "error" && (
-                <div className="sidebar-section-card status-indicator-card">
-                  <p className="status error" id="status" aria-live="polite">
-                    {statusText}
-                  </p>
-                </div>
-              )}
+            {error && <p className="workflow-error"><AlertTriangle size={15} /> {error}</p>}
+            {duplicatedRequest && <p className="duplicate-notice">Exact settings loaded from the library. Queue the duplicate or analyze the page again.</p>}
 
-              <div
-                className={`recorder-preview-panel${previewWidth < previewHeight ? " is-portrait-stage" : ""}${(!resultVideo || isStylePreview) && backgroundPreset !== "none" ? " has-canvas-background" : ""}${(!resultVideo || isStylePreview) && addShadow ? " has-canvas-shadow" : ""}${(!resultVideo || isStylePreview) && roundedCorners ? " has-canvas-rounded" : ""}`}
-                style={
-                  (!resultVideo || isStylePreview) && backgroundPreset !== "none"
-                    ? {
-                        backgroundImage: `url(/background_presets/${backgroundPreset}.png)`,
-                      }
-                    : undefined
-                }
-              >
-                <section className="recorder-preview" aria-label="Preview">
-                  <BrowserMockup
-                    url={url}
-                    videoUrl={
-                      (isStylePreview ? resultVideo?.sourceUrl : resultVideo?.url) ||
-                      null
-                    }
-                    downloadUrl={isStylePreview ? null : resultVideo?.url || null}
-                    isRenderingStyle={isApplyingStyle}
-                    duration={resultVideo?.duration || null}
-                    scrollStrategy={resultVideo?.scrollStrategy}
-                    width={previewWidth}
-                    height={previewHeight}
-                    isSubmitting={isSubmitting}
-                    recordingElapsed={isSubmitting ? elapsedTime : undefined}
-                    recordingPercent={isSubmitting ? progressPercent : 0}
-                    recordingStatus={isSubmitting ? progressStatus : undefined}
-                  />
+            <div className={`studio-layout${inspection ? " has-director" : ""}`}>
+              <aside className="studio-controls">
+                <section className="control-deck">
+                  <div className="control-deck-title"><span>Render tier</span><small>{renderTier === "draft" ? "Fast iteration" : renderTier === "standard" ? "Balanced export" : "2× high-detail export"}</small></div>
+                  <div className="quality-stack">
+                    {(Object.keys(TIER_CONFIG) as RenderTier[]).map((tier) => {
+                      const Icon = tier === "draft" ? Zap : tier === "standard" ? Clapperboard : Sparkles;
+                      return <button type="button" key={tier} className={renderTier === tier ? "is-active" : ""} onClick={() => { setRenderTier(tier); setDuplicatedRequest(null); }} disabled={isBusy}><Icon size={15} /><span><strong>{TIER_CONFIG[tier].label}</strong><small>{tier === "draft" ? "30 fps · quick" : tier === "standard" ? "60 fps · 1×" : "60 fps · 2×"}</small></span></button>;
+                    })}
+                  </div>
                 </section>
+
+                {!inspection && <section className="control-deck quick-settings">
+                  <div className="control-deck-title"><span>Quick motion</span><small>Used without analysis</small></div>
+                  <label><span>Scroll mode</span><select value={scrollMode} onChange={(event) => { setScrollMode(event.target.value as typeof scrollMode); setDuplicatedRequest(null); }}><option value="auto">Auto detect</option><option value="document">Document</option><option value="virtual">Virtual</option></select></label>
+                  <label><span>Hero hold</span><input type="number" min={0} max={15} step={0.5} value={heroHoldMs / 1000} onChange={(event) => { setHeroHoldMs(Number(event.target.value) * 1000); setDuplicatedRequest(null); }} /><small>seconds</small></label>
+                  {scrollMode !== "document" && <><label><span>Virtual cycles</span><input type="number" min={1} max={40} value={virtualCycles} onChange={(event) => { setVirtualCycles(Number(event.target.value)); setDuplicatedRequest(null); }} /></label><label className="toggle-line"><input type="checkbox" checked={useFixedDuration} onChange={(event) => { setUseFixedDuration(event.target.checked); setDuplicatedRequest(null); }} /><span>Use fixed duration</span></label>{useFixedDuration && <label><span>Duration</span><input type="number" min={3} max={120} value={virtualDurationMs / 1000} onChange={(event) => { setVirtualDurationMs(Number(event.target.value) * 1000); setDuplicatedRequest(null); }} /><small>seconds</small></label>}</>}
+                </section>}
+
+                <section className="control-deck">
+                  <BackgroundCanvasForm backgroundPreset={backgroundPreset} setBackgroundPreset={(value) => { setBackgroundPreset(value); setDuplicatedRequest(null); }} addShadow={addShadow} setAddShadow={(value) => { setAddShadow(value); setDuplicatedRequest(null); }} roundedCorners={roundedCorners} setRoundedCorners={(value) => { setRoundedCorners(value); setDuplicatedRequest(null); }} onApplyStyle={result?.canRestyle ? applyStyle : undefined} isApplyingStyle={isApplyingStyle} />
+                </section>
+              </aside>
+
+              <div className="studio-stage">
+                {inspection && !activeJob ? (
+                  <StoryboardDirector inspection={inspection} beats={beats} setBeats={setBeats} startHoldMs={heroHoldMs} setStartHoldMs={setHeroHoldMs} />
+                ) : (
+                  <div className={`recording-stage${backgroundPreset !== "none" && !result ? " has-canvas-background" : ""}`} style={backgroundPreset !== "none" && !result ? { backgroundImage: `url(/background_presets/${backgroundPreset}.png)` } : undefined}>
+                    <BrowserMockup url={url} videoUrl={result?.videoUrl || null} downloadUrl={result?.videoUrl || null} duration={result ? `${(result.durationMs / 1000).toFixed(1)}s` : null} scrollStrategy={result?.scrollStrategy} width={previewWidth} height={previewHeight} isSubmitting={isBusy} isRenderingStyle={isApplyingStyle} recordingElapsed={elapsed} recordingPercent={activeJob?.progress.percent || 0} recordingStatus={activeJob?.progress.message} />
+                    {isBusy && <button type="button" className="cancel-capture" onClick={() => void cancel()}><Square size={12} fill="currentColor" /> Cancel capture</button>}
+                    {activeJob && ["failed", "cancelled", "interrupted"].includes(activeJob.status) && <div className="failed-capture"><AlertTriangle size={18} /><div><strong>{activeJob.status}</strong><span>{activeJob.error?.message || activeJob.progress.message}</span></div></div>}
+                  </div>
+                )}
               </div>
             </div>
-          </form>
+          </div>
+        )}
       </div>
     </main>
   );
+}
+
+function defaultBeats(inspection: WebsiteInspection): DirectorBeat[] {
+  const directed = inspection.storyboard
+    .filter((frame) => frame.target.value > 0.001)
+    .map((frame, index) => ({
+      id: crypto.randomUUID(),
+      label: frame.target.value >= 0.98 ? "Page end" : `Waypoint ${index + 1}`,
+      target: frame.target.value >= 0.98 ? ({ type: "page-end" } as const) : frame.target,
+      progress: frame.target.value,
+      transitionMs: 2_000,
+      holdMs: 0,
+      curve: "ease-in-out",
+      imageIndex: frame.imageIndex,
+    }));
+  return directed.length > 0 ? directed : [{
+    id: crypto.randomUUID(),
+    label: "Closing frame",
+    target: { type: "page-end" },
+    progress: 1,
+    transitionMs: 1_000,
+    holdMs: 0,
+    curve: "ease-in-out",
+    imageIndex: inspection.storyboard[0]?.imageIndex,
+  }];
+}
+
+function buildRequest(options: {
+  url: string;
+  width: number;
+  height: number;
+  renderTier: RenderTier;
+  inspection: WebsiteInspection | null;
+  beats: DirectorBeat[];
+  scrollMode: "auto" | "document" | "virtual";
+  virtualCycles: number;
+  useFixedDuration: boolean;
+  virtualDurationMs: number;
+  heroHoldMs: number;
+  backgroundPreset: BackgroundPreset;
+  addShadow: boolean;
+  roundedCorners: boolean;
+}): RecordingRequest {
+  const tier = TIER_CONFIG[options.renderTier];
+  const animationConfig = options.inspection ? {
+    fastMode: tier.fastMode,
+    captureMode: tier.captureMode,
+    preRecordingDelayMs: tier.preRecordingDelayMs,
+    removeOverlayElements: true,
+    scrollMode: options.inspection.scrollMode,
+    direction: {
+      startHoldMs: options.heroHoldMs,
+      beats: options.beats.map((beat) => ({ target: beat.target, transitionMs: beat.transitionMs, holdMs: beat.holdMs, curve: { preset: beat.curve } })),
+    },
+  } : {
+    fastMode: tier.fastMode,
+    captureMode: tier.captureMode,
+    pixelsPerFrame: tier.pixelsPerFrame,
+    heroHoldMs: options.heroHoldMs,
+    preRecordingDelayMs: tier.preRecordingDelayMs,
+    scrollCurve: { preset: "ease-in-out" },
+    removeOverlayElements: true,
+    scrollMode: options.scrollMode,
+    ...(options.scrollMode !== "document" ? { virtualScrollCycles: options.virtualCycles } : {}),
+    ...(options.scrollMode !== "document" && options.useFixedDuration ? { virtualScrollDurationMs: options.virtualDurationMs } : {}),
+  };
+  return {
+    targetUrl: options.url.trim(),
+    exportFormat: "mp4",
+    videoConfig: { framerate: tier.framerate, qualityPreset: tier.qualityPreset, viewport: { width: options.width, height: options.height, deviceScaleFactor: tier.deviceScaleFactor } },
+    animationConfig,
+    backgroundPreset: options.backgroundPreset,
+    addShadow: options.addShadow,
+    roundedCorners: options.roundedCorners,
+  };
 }

@@ -24,9 +24,11 @@ Scrollizard loads a page with Playwright, hydrates lazy content, runs a controll
 - **Document + virtual capture** — normal pages and fixed-viewport / WebGL scroll sites
 - **Motion control** — curve presets + visual bezier handles, speed slider, hero hold
 - **Pause triggers** — hold when a CSS selector first enters the viewport (document scroll)
-- **Quality tiers** — Standard and Cinematic in the UI (draft/fast via API)
+- **Quality tiers** — Draft, Standard, and Cinematic for iteration through final export
 - **Canvas framing** — backgrounds, drop shadow, rounded corners; re-style without re-recording
 - **Overlay cleanup** — strips cookie banners, modals, and popups by default
+- **Analyze + direct** — inspect a page, review storyboard frames, and time section-level motion before rendering
+- **Durable capture jobs** — real pipeline progress, cancellation, retry, refresh recovery, and a local recording library
 - **Web UI, CLI, and HTTP API**
 
 ## Requirements
@@ -81,12 +83,13 @@ pnpm dev:web      # Vite frontend only
 
 **Capture workflow**
 
-1. Paste a website URL and pick a viewport (desktop / laptop / tablet / mobile).
-2. Choose quality (**Standard** or **Cinematic**).
-3. Optionally open **Motion**: easing curve, speed, hero hold, scroll mode, pause triggers.
-4. Optionally pick a **Canvas** background, shadow, and rounded corners.
-5. Start capture → preview plays inline → download MP4.
-6. After capture, restyle the canvas and **Render style** without recording again.
+1. Paste a website URL, pick a viewport, and choose **Analyze page**.
+2. Review the storyboard and detected sections, then adjust movement and hold timing.
+3. Choose **Draft**, **Standard**, or **Cinematic** and start the capture.
+4. Follow real capture/encode progress; cancel safely or leave and return later.
+5. Preview, download, or restyle the result. Reopen it later from **Library**.
+
+Use **Quick capture** to skip analysis and use the global motion controls.
 
 Left nav: Capture (collapsible brand sidebar).
 
@@ -159,6 +162,33 @@ Content-Type: application/json
 
 Download: `GET /outputs/<jobId>/output.mp4`.
 
+### Asynchronous jobs
+
+The web UI uses durable asynchronous jobs. `POST /api/jobs` accepts the same
+body as `POST /record` and immediately returns a job id, status URL, and SSE URL.
+
+```http
+POST /api/jobs
+GET /api/jobs
+GET /api/jobs/<jobId>
+GET /api/jobs/<jobId>/events
+POST /api/jobs/<jobId>/cancel
+POST /api/jobs/<jobId>/retry
+DELETE /api/jobs/<jobId>
+```
+
+Inspect a page before building directed motion with `POST /api/inspect`:
+
+```json
+{
+  "targetUrl": "https://example.com",
+  "viewport": { "width": 1440, "height": 900 }
+}
+```
+
+Job state is stored in `outputs/<jobId>/job.json`. Existing MP4 output folders
+are imported automatically into the local library.
+
 **Restyle** an existing job (background / shadow / corners) without re-recording:
 
 ```http
@@ -180,6 +210,7 @@ Content-Type: application/json
 | Variable | Default | Description |
 | -------- | ------- | ----------- |
 | `PORT` | `3847` | HTTP server port |
+| `HOST` | `127.0.0.1` | Bind address; set `0.0.0.0` only on a trusted network |
 | `OUTPUT_DIR` | `./outputs` | Directory for recordings |
 | `RECORD_HEADED` | auto | `1` force headed Chromium; `0` force headless |
 

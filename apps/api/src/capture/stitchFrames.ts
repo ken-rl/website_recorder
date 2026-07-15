@@ -6,6 +6,7 @@ export interface StitchOptions {
   height?: number;
   preset?: string;
   crf?: number;
+  signal?: AbortSignal;
 }
 
 export async function stitchFramesToVideo(
@@ -52,6 +53,8 @@ export async function stitchFramesToVideo(
 
   return new Promise((resolve, reject) => {
     const proc = spawn("ffmpeg", args);
+    const abort = () => proc.kill("SIGTERM");
+    options?.signal?.addEventListener("abort", abort, { once: true });
 
     let stderr = "";
     proc.stderr?.on("data", (data) => {
@@ -59,7 +62,10 @@ export async function stitchFramesToVideo(
     });
 
     proc.on("close", (code) => {
-      if (code === 0) {
+      options?.signal?.removeEventListener("abort", abort);
+      if (options?.signal?.aborted) {
+        reject(options.signal.reason ?? new Error("Cancelled"));
+      } else if (code === 0) {
         resolve();
       } else {
         reject(

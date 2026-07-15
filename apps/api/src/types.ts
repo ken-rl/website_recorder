@@ -168,3 +168,91 @@ export type BackgroundPreset =
   | "gray_noise_gradient"
   | "paper_blue"
   | "red_blocks_gradient";
+
+export interface WebsiteSection {
+  label: string;
+  selector: string;
+  kind: "heading" | "landmark";
+  y: number;
+  progress: number;
+  height: number;
+  targetY: number;
+  distanceFromPrevious: number;
+  recommendedTransitionMs: number;
+  recommendedTarget: Extract<MotionTarget, { type: "selector" }>;
+}
+
+export interface StoryboardFrame {
+  imageIndex: number;
+  target: Extract<MotionTarget, { type: "progress" }>;
+  y?: number;
+}
+
+export interface WebsiteInspection {
+  url: string;
+  title: string;
+  pageHeight: number;
+  viewport: { width: number; height: number };
+  scrollMode: ResolvedScrollStrategy;
+  safeViewport: { topInsetPx: number; bottomInsetPx: number };
+  sections: WebsiteSection[];
+  storyboard: StoryboardFrame[];
+  screenshots: string[];
+  warnings: string[];
+}
+
+export type RecordingJobStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "interrupted";
+
+export type RecordingJobStage =
+  | "queued"
+  | "preparing"
+  | "capturing"
+  | "encoding"
+  | "styling"
+  | "finalizing"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "interrupted";
+
+export interface RecordingJobProgress {
+  stage: RecordingJobStage;
+  percent: number;
+  message: string;
+}
+
+export interface RecordingJobResult {
+  videoUrl: string;
+  sourceVideoUrl?: string;
+  thumbnailUrl?: string;
+  durationMs: number;
+  renderTimeMs: number;
+  sizeBytes: number;
+  viewport: ViewportConfig;
+  scrollStrategy: ResolvedScrollStrategy;
+  motionPlan?: ResolvedMotionPlan;
+  canRestyle: boolean;
+}
+
+export interface RecordingJobManifest {
+  schemaVersion: 1;
+  jobId: string;
+  targetUrl: string;
+  title?: string;
+  createdAt: string;
+  updatedAt: string;
+  status: RecordingJobStatus;
+  progress: RecordingJobProgress;
+  request?: RecordRequest;
+  result?: RecordingJobResult;
+  error?: { stage: RecordingJobStage; message: string };
+  attempt: number;
+  parentJobId?: string;
+  legacy?: boolean;
+}

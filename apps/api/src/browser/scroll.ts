@@ -40,6 +40,8 @@ export interface RunScrollOptions {
   viewportHeight: number;
   fastMode?: boolean;
   frameRecorder?: FrameRecorder;
+  signal?: AbortSignal;
+  onProgress?: (completedFrames: number, totalFrames: number) => void | Promise<void>;
 }
 
 export interface RunScrollResult {
@@ -101,7 +103,8 @@ async function runDirectedDocumentScroll(
   const frames: Array<{ file: string; y: number }> = [];
   let lastY = -1;
 
-  for (const sample of samples) {
+  for (const [index, sample] of samples.entries()) {
+    options.signal?.throwIfAborted();
     const y = Math.max(0, Math.min(maxScroll, Math.round(sample.position)));
     if (y !== lastY) {
       await settleScrollPaint(page, y);
@@ -117,6 +120,7 @@ async function runDirectedDocumentScroll(
     } else {
       await page.waitForTimeout(1000 / fps);
     }
+    await options.onProgress?.(index + 1, samples.length);
   }
 
   const durationMs = Math.round((samples.length / fps) * 1000);
@@ -173,6 +177,8 @@ async function runDirectedVirtualScroll(
     wheelBudget: virtual.wheelBudget,
     samples,
     frameRecorder: options.frameRecorder,
+    signal: options.signal,
+    onProgress: options.onProgress,
   });
   const durationMs = Math.round((samples.length / fps) * 1000);
 

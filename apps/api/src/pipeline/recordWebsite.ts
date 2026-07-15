@@ -45,11 +45,19 @@ interface CaptureSessionResult {
   motionPlan: ResolvedMotionPlan;
 }
 
+export interface RecordingRuntime {
+  signal?: AbortSignal;
+  onProgress?: (event: { stage: "preparing" | "capturing" | "encoding" | "styling" | "finalizing"; percent: number; message: string }) => void | Promise<void>;
+}
+
 export async function recordWebsite(
   request: RecordRequest,
   outputRoot: string,
   jobId?: string,
+  runtime: RecordingRuntime = {},
 ): Promise<RecordResult> {
+  runtime.signal?.throwIfAborted();
+  await runtime.onProgress?.({ stage: "preparing", percent: 2, message: "Launching Chromium and preparing the page" });
   validateDirectionMode(request.animationConfig);
   const resolvedJobId = jobId ?? createJobId(request.targetUrl);
   const outputDir = path.resolve(outputRoot, resolvedJobId);
@@ -84,7 +92,10 @@ export async function recordWebsite(
     contextOptions,
     removeOverlays,
     hydrateFast,
+    signal: runtime.signal,
   });
+  runtime.signal?.throwIfAborted();
+  await runtime.onProgress?.({ stage: "capturing", percent: 15, message: "Capturing the directed scroll" });
 
   let captureHeadless = launch.headless;
   let capture: CaptureSessionResult | null = null;
@@ -115,6 +126,7 @@ export async function recordWebsite(
       framerate: outputFramerate,
       captureFps,
       captureMode,
+      runtime,
     });
 
     const shouldRetryHeaded =
@@ -142,6 +154,9 @@ export async function recordWebsite(
     throw new Error("Playwright did not produce a recorded video file");
   }
 
+  runtime.signal?.throwIfAborted();
+  await runtime.onProgress?.({ stage: "encoding", percent: 82, message: "Encoding the source video" });
+
   const sourcePath = path.join(outputDir, SOURCE_FILENAME);
   const mp4Path = path.join(outputDir, "output.mp4");
   const targetWidth = viewport.width * deviceScaleFactor;
@@ -161,6 +176,8 @@ export async function recordWebsite(
     await removeFileIfExists(capture.rawVideoPath);
   }
 
+  runtime.signal?.throwIfAborted();
+  await runtime.onProgress?.({ stage: "styling", percent: 91, message: "Applying the recording canvas" });
   await renderRecordingStyle({
     sourcePath,
     outputPath: mp4Path,
@@ -168,6 +185,8 @@ export async function recordWebsite(
     addShadow: request.addShadow,
     roundedCorners: request.roundedCorners,
   });
+  runtime.signal?.throwIfAborted();
+  await runtime.onProgress?.({ stage: "finalizing", percent: 97, message: "Finalizing recording metadata" });
 
   const captureWarning = shouldWarnHeadlessVirtualCapture(
     capture.scrollStrategy,
@@ -227,8 +246,9 @@ async function runPrepSession(options: {
   contextOptions: BrowserContextOptions;
   removeOverlays: boolean;
   hydrateFast: boolean;
+  signal?: AbortSignal;
 }) {
-  const { request, animation, contextOptions, removeOverlays, hydrateFast } =
+  const { request, animation, contextOptions, removeOverlays, hydrateFast, signal } =
     options;
 
   let browser: Browser | null = null;
@@ -238,6 +258,8 @@ async function runPrepSession(options: {
       headless: true,
       args: launchArgsForHeadless(true),
     });
+    const abort = () => void browser?.close().catch(() => undefined);
+    signal?.addEventListener("abort", abort, { once: true });
 
     const prepContext = await browser.newContext(contextOptions);
     const prepPage = await prepContext.newPage();
@@ -273,6 +295,8 @@ async function runPrepSession(options: {
 
     const storageState = await prepContext.storageState();
     await prepContext.close();
+    signal?.removeEventListener("abort", abort);
+    signal?.throwIfAborted();
     return storageState;
   } finally {
     await browser?.close();
@@ -296,6 +320,7 @@ async function runRecordSession(options: {
   framerate: number;
   captureFps: number;
   captureMode: "preview" | "export";
+  runtime: RecordingRuntime;
 }): Promise<CaptureSessionResult> {
   const {
     request,
@@ -314,6 +339,7 @@ async function runRecordSession(options: {
     framerate,
     captureFps,
     captureMode,
+    runtime,
   } = options;
 
   const profile = resolveRecordingProfile(request);
@@ -371,6 +397,8 @@ async function runRecordSession(options: {
       (arg) => !arg.startsWith("--force-device-scale-factor"),
     );
     browser = await chromium.launch({ headless, args: recordLaunchArgs });
+    const abort = () => void browser?.close().catch(() => undefined);
+    runtime.signal?.addEventListener("abort", abort, { once: true });
 
     const frameRecorder = new FrameRecorder({
       outputDir: framesDir,
@@ -413,6 +441,12 @@ async function runRecordSession(options: {
         viewportHeight: viewport.height,
         fastMode: animation.fastMode ?? false,
         frameRecorder,
+        signal: runtime.signal,
+        onProgress: (completed, total) => runtime.onProgress?.({
+          stage: "capturing",
+          percent: 15 + (completed / Math.max(1, total)) * 55,
+          message: `Capturing frame ${completed} of ${total}`,
+        }),
       });
       scrollStrategy = scrollResult.scrollStrategy;
       motionPlan = scrollResult.motionPlan;
@@ -443,11 +477,14 @@ async function runRecordSession(options: {
       await recordContext.close().catch(() => undefined);
 
       const tempRawVideoPath = path.join(outputDir, "raw_frames.mp4");
+      runtime.signal?.throwIfAborted();
+      await runtime.onProgress?.({ stage: "encoding", percent: 72, message: "Stitching captured frames" });
       await stitchFramesToVideo(framesDir, tempRawVideoPath, captureFps, {
         width: viewport.width * deviceScaleFactor,
         height: viewport.height * deviceScaleFactor,
         preset: encode.preset,
         crf: encode.crf,
+        signal: runtime.signal,
       });
       rawVideoPath = tempRawVideoPath;
     }
@@ -458,6 +495,7 @@ async function runRecordSession(options: {
     if (isRamDisk || (captureMode as string) === "preview") {
       await fs.rm(framesDir, { recursive: true, force: true }).catch(() => undefined);
     }
+    runtime.signal?.throwIfAborted();
   }
 
   if (!motionPlan) throw new Error("Recording did not produce a motion plan");

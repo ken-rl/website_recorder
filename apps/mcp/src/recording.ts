@@ -1,6 +1,6 @@
 import path from "node:path";
-import { readdir, stat } from "node:fs/promises";
-import { recordWebsite } from "../../api/src/pipeline/recordWebsite.js";
+import { stat } from "node:fs/promises";
+import { RecordingJobManager } from "../../api/src/jobs/manager.js";
 import type {
   BackgroundPreset,
   RecordRequest,
@@ -128,13 +128,43 @@ export function outputRoot(): string {
   return path.resolve(process.env.OUTPUT_DIR ?? "./outputs");
 }
 
+let managerPromise: Promise<RecordingJobManager> | null = null;
+
+function recordingManager() {
+  if (!managerPromise) {
+    managerPromise = (async () => {
+      const manager = new RecordingJobManager(outputRoot());
+      await manager.initialize();
+      return manager;
+    })();
+  }
+  return managerPromise;
+}
+
 export async function createRecording(input: CreateRecordingInput) {
   const request = buildRecordRequest(input);
-  return recordWebsite(request, outputRoot());
+  const manager = await recordingManager();
+  const queued = await manager.create(request);
+  const job = await manager.waitForCompletion(queued.jobId);
+  if (job.status !== "completed" || !job.result) {
+    throw new Error(job.error?.message ?? `Recording ${job.status}`);
+  }
+  const outputDir = path.join(outputRoot(), job.jobId);
+  return {
+    jobId: job.jobId,
+    outputDir,
+    rawVideoPath: path.join(outputDir, "source.mp4"),
+    mp4Path: path.join(outputDir, "output.mp4"),
+    durationMs: job.result.durationMs,
+    renderTimeMs: job.result.renderTimeMs,
+    viewport: job.result.viewport,
+    scrollStrategy: job.result.scrollStrategy,
+    motionPlan: job.result.motionPlan,
+  };
 }
 
 export async function getRecording(jobId: string) {
-  if (!/^[a-zA-Z0-9_-]+$/.test(jobId)) throw new Error("Invalid jobId");
+  if (!/^[a-zA-Z0-9._-]+$/.test(jobId)) throw new Error("Invalid jobId");
   const mp4Path = path.join(outputRoot(), jobId, "output.mp4");
   const details = await stat(mp4Path).catch(() => null);
   if (!details?.isFile()) throw new Error("Recording not found");
@@ -142,18 +172,13 @@ export async function getRecording(jobId: string) {
 }
 
 export async function listRecordings() {
-  const root = outputRoot();
-  const entries = await readdir(root, { withFileTypes: true }).catch(() => []);
-  const recordings = await Promise.all(
-    entries.filter((entry) => entry.isDirectory()).map(async (entry) => {
-      try {
-        return await getRecording(entry.name);
-      } catch {
-        return null;
-      }
-    }),
-  );
-  return recordings
-    .filter((recording): recording is NonNullable<typeof recording> => Boolean(recording))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const manager = await recordingManager();
+  return (await manager.list())
+    .filter((job) => job.status === "completed" && job.result)
+    .map((job) => ({
+      jobId: job.jobId,
+      mp4Path: path.join(outputRoot(), job.jobId, "output.mp4"),
+      sizeBytes: job.result!.sizeBytes,
+      createdAt: job.createdAt,
+    }));
 }
