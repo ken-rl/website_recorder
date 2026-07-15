@@ -11,6 +11,7 @@ interface ScrollPhysicsFormProps {
   setPixelsPerFrame: (p: number) => void;
   heroHoldMs: number;
   setHeroHoldMs: (ms: number) => void;
+  showSpeed?: boolean;
 }
 
 const HERO_PRESETS = [
@@ -29,6 +30,7 @@ export default function ScrollPhysicsForm({
   setPixelsPerFrame,
   heroHoldMs,
   setHeroHoldMs,
+  showSpeed = true,
 }: ScrollPhysicsFormProps) {
   return (
     <div className="scroll-physics-form motion-stack">
@@ -65,7 +67,7 @@ export default function ScrollPhysicsForm({
       </section>
 
       <section className="motion-block">
-        <div className="motion-field">
+        {showSpeed && <div className="motion-field">
           <div className="motion-field-head">
             <FieldLabel
               htmlFor="speedRange"
@@ -92,7 +94,7 @@ export default function ScrollPhysicsForm({
             <span>Slow</span>
             <span>Fast</span>
           </div>
-        </div>
+        </div>}
 
         <div className="motion-field">
           <FieldLabel

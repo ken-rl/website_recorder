@@ -13,6 +13,8 @@ import AppSidebar from "./components/AppSidebar";
 import BackgroundCanvasForm, { type BackgroundPreset } from "./components/BackgroundCanvasForm";
 import BrowserMockup from "./components/BrowserMockup";
 import RecordingLibrary from "./components/RecordingLibrary";
+import PauseTriggersForm, { toPauseTriggersPayload, type PauseTriggerDraft } from "./components/PauseTriggersForm";
+import ScrollPhysicsForm from "./components/ScrollPhysicsForm";
 import StoryboardDirector from "./components/StoryboardDirector";
 import { CaptureTargetFields } from "./components/TargetPageForm";
 import type {
@@ -21,6 +23,7 @@ import type {
   RecordingRequest,
   WebsiteInspection,
 } from "./lib/productTypes";
+import { readJsonResponse } from "./lib/http";
 
 type RenderTier = "draft" | "standard" | "cinematic";
 
@@ -47,6 +50,10 @@ export default function App() {
   const [useFixedDuration, setUseFixedDuration] = useState(false);
   const [virtualDurationMs, setVirtualDurationMs] = useState(30_000);
   const [heroHoldMs, setHeroHoldMs] = useState(1_500);
+  const [selectedCurve, setSelectedCurve] = useState("ease-in-out");
+  const [customBezier, setCustomBezier] = useState<[number, number, number, number]>([0.42, 0, 0.58, 1]);
+  const [pixelsPerFrame, setPixelsPerFrame] = useState<number>(TIER_CONFIG.draft.pixelsPerFrame);
+  const [pauseTriggers, setPauseTriggers] = useState<PauseTriggerDraft[]>([]);
   const [inspection, setInspection] = useState<WebsiteInspection | null>(null);
   const [beats, setBeats] = useState<DirectorBeat[]>([]);
   const [isInspecting, setIsInspecting] = useState(false);
@@ -87,7 +94,7 @@ export default function App() {
     const jobId = localStorage.getItem("active-job-id");
     if (!jobId) return;
     void fetch(`/api/jobs/${jobId}`)
-      .then((response) => response.json())
+      .then((response) => readJsonResponse<{ ok?: boolean; job: RecordingJob }>(response, "Restore capture"))
       .then((data) => {
         if (!data.ok) return;
         setActiveJob(data.job);
@@ -101,7 +108,16 @@ export default function App() {
     localStorage.setItem("active-job-id", activeJobId);
     const events = new EventSource(`/api/jobs/${activeJobId}/events`);
     events.addEventListener("job", (event) => {
-      const job = JSON.parse((event as MessageEvent).data) as RecordingJob;
+      const payload = (event as MessageEvent).data;
+      if (!payload?.trim()) return;
+      let job: RecordingJob;
+      try {
+        job = JSON.parse(payload) as RecordingJob;
+      } catch {
+        setError("Live capture updates returned invalid data. Refresh to reconnect.");
+        events.close();
+        return;
+      }
       setActiveJob(job);
       if (!["queued", "running"].includes(job.status)) {
         localStorage.removeItem("active-job-id");
@@ -153,13 +169,13 @@ export default function App() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ targetUrl: url.trim(), viewport: { width, height } }),
       });
-      const data = await response.json();
+      const data = await readJsonResponse<{ ok?: boolean; inspection: WebsiteInspection; error?: string }>(response, "Page analysis");
       if (!response.ok || !data.ok) throw new Error(data.error || "Could not analyze page");
       const next = data.inspection as WebsiteInspection;
       setActiveJob(null);
       setInspection(next);
       setScrollMode(next.scrollMode);
-      setBeats(defaultBeats(next));
+      setBeats(defaultBeats(next, selectedCurve));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not analyze page");
     } finally {
@@ -179,22 +195,26 @@ export default function App() {
     useFixedDuration,
     virtualDurationMs,
     heroHoldMs,
+    selectedCurve,
+    customBezier,
+    pixelsPerFrame,
+    pauseTriggers,
     backgroundPreset,
     addShadow,
     roundedCorners,
-  }), [url, width, height, renderTier, inspection, beats, scrollMode, virtualCycles, useFixedDuration, virtualDurationMs, heroHoldMs, backgroundPreset, addShadow, roundedCorners]);
+  }), [url, width, height, renderTier, inspection, beats, scrollMode, virtualCycles, useFixedDuration, virtualDurationMs, heroHoldMs, selectedCurve, customBezier, pixelsPerFrame, pauseTriggers, backgroundPreset, addShadow, roundedCorners]);
 
   const startCapture = async (quick = false) => {
     if (!url.trim()) return;
     setError("");
     try {
-      const body = quick ? duplicatedRequest ?? buildRequest({ url, width, height, renderTier, inspection: null, beats: [], scrollMode, virtualCycles, useFixedDuration, virtualDurationMs, heroHoldMs, backgroundPreset, addShadow, roundedCorners }) : request;
+      const body = quick ? duplicatedRequest ?? buildRequest({ url, width, height, renderTier, inspection: null, beats: [], scrollMode, virtualCycles, useFixedDuration, virtualDurationMs, heroHoldMs, selectedCurve, customBezier, pixelsPerFrame, pauseTriggers, backgroundPreset, addShadow, roundedCorners }) : request;
       const response = await fetch("/api/jobs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-      const data = await response.json();
+      const data = await readJsonResponse<{ ok?: boolean; jobId: string; statusUrl: string; error?: string }>(response, "Queue capture");
       if (!response.ok || !data.ok) throw new Error(data.error || "Could not queue capture");
       localStorage.setItem("active-job-id", data.jobId);
       const jobResponse = await fetch(data.statusUrl);
-      const jobData = await jobResponse.json();
+      const jobData = await readJsonResponse<{ ok?: boolean; job: RecordingJob; error?: string }>(jobResponse, "Load queued capture");
       setActiveJob(jobData.job);
       setDuplicatedRequest(null);
     } catch (caught) {
@@ -204,9 +224,35 @@ export default function App() {
 
   const cancel = async () => {
     if (!activeJob) return;
-    const response = await fetch(`/api/jobs/${activeJob.jobId}/cancel`, { method: "POST" });
-    const data = await response.json();
-    if (!response.ok) setError(data.error || "Could not cancel capture");
+    try {
+      const response = await fetch(`/api/jobs/${activeJob.jobId}/cancel`, { method: "POST" });
+      const data = await readJsonResponse<{ ok?: boolean; error?: string }>(response, "Cancel capture");
+      if (!response.ok) setError(data.error || "Could not cancel capture");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not cancel capture");
+    }
+  };
+
+  const retryActiveJob = async () => {
+    if (!activeJob) return;
+    setError("");
+    try {
+      const response = await fetch(`/api/jobs/${activeJob.jobId}/retry`, { method: "POST" });
+      const data = await readJsonResponse<{ ok?: boolean; jobId: string; error?: string }>(response, "Retry capture");
+      if (!response.ok || !data.ok) throw new Error(data.error || "Could not retry capture");
+      localStorage.setItem("active-job-id", data.jobId);
+      const freshResponse = await fetch(`/api/jobs/${data.jobId}`);
+      const fresh = await readJsonResponse<{ ok?: boolean; job: RecordingJob; error?: string }>(freshResponse, "Load retried capture");
+      setActiveJob(fresh.job);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not retry capture");
+    }
+  };
+
+  const changeCurve = (curve: string) => {
+    setSelectedCurve(curve);
+    setDuplicatedRequest(null);
+    if (inspection) setBeats(beats.map((beat) => ({ ...beat, curve })));
   };
 
   const applyStyle = async () => {
@@ -215,9 +261,13 @@ export default function App() {
     setError("");
     try {
       const response = await fetch("/style", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jobId: activeJob.jobId, backgroundPreset, addShadow, roundedCorners }) });
-      const data = await response.json();
+      const data = await readJsonResponse<{ ok?: boolean; error?: string }>(response, "Apply style");
       if (!response.ok || !data.ok) throw new Error(data.error || "Could not apply style");
-      const fresh = await fetch(`/api/jobs/${activeJob.jobId}`).then((result) => result.json());
+      const freshResponse = await fetch(`/api/jobs/${activeJob.jobId}`);
+      const fresh = await readJsonResponse<{ ok?: boolean; job: RecordingJob; error?: string }>(freshResponse, "Refresh styled capture");
+      if (!freshResponse.ok || !fresh.ok || !fresh.job.result) {
+        throw new Error(fresh.error || "Styled capture result is unavailable");
+      }
       setActiveJob({ ...fresh.job, result: { ...fresh.job.result, videoUrl: `${fresh.job.result.videoUrl}?t=${Date.now()}` } });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not apply style");
@@ -271,15 +321,11 @@ export default function App() {
           <RecordingLibrary onOpen={openJob} onDuplicate={duplicateJob} />
         ) : (
           <div className="studio-page">
-            <header className="studio-masthead">
-              <div><span className="eyebrow">Website cinematography</span><h1>Direct the scroll.</h1><p>Analyze the page, choose the moments, then render one deliberate take.</p></div>
-              {inspection && <button type="button" className="quiet-button" onClick={() => { setInspection(null); setBeats([]); setActiveJob(null); }}><RefreshCcw size={14} /> New analysis</button>}
-            </header>
-
             <section className="capture-command-bar">
               <CaptureTargetFields url={url} setUrl={updateUrl} devicePreset={devicePreset} setDevicePreset={changeDevice} sizeLocked={isBusy} disabled={isBusy || isInspecting} />
               <div className="command-actions">
                 {!inspection && <button type="button" className="quick-capture" disabled={!url.trim() || isBusy || isInspecting} onClick={() => void startCapture(true)}><Zap size={14} /> {duplicatedRequest ? "Queue duplicate" : "Quick capture"}</button>}
+                {inspection && <button type="button" className="command-reset" title="New analysis" aria-label="New analysis" onClick={() => { setInspection(null); setBeats([]); setActiveJob(null); }}><RefreshCcw size={15} /></button>}
                 {!inspection ? (
                   <button type="button" className="analyze-button" disabled={!url.trim() || isBusy || isInspecting} onClick={() => void analyze()}>{isInspecting ? <span className="loader-circle" /> : <Compass size={16} />} {isInspecting ? "Analyzing…" : "Analyze page"}</button>
                 ) : (
@@ -298,17 +344,32 @@ export default function App() {
                   <div className="quality-stack">
                     {(Object.keys(TIER_CONFIG) as RenderTier[]).map((tier) => {
                       const Icon = tier === "draft" ? Zap : tier === "standard" ? Clapperboard : Sparkles;
-                      return <button type="button" key={tier} className={renderTier === tier ? "is-active" : ""} onClick={() => { setRenderTier(tier); setDuplicatedRequest(null); }} disabled={isBusy}><Icon size={15} /><span><strong>{TIER_CONFIG[tier].label}</strong><small>{tier === "draft" ? "30 fps · quick" : tier === "standard" ? "60 fps · 1×" : "60 fps · 2×"}</small></span></button>;
+                      return <button type="button" key={tier} className={renderTier === tier ? "is-active" : ""} onClick={() => { setRenderTier(tier); setPixelsPerFrame(TIER_CONFIG[tier].pixelsPerFrame); setDuplicatedRequest(null); }} disabled={isBusy}><Icon size={15} /><span><strong>{TIER_CONFIG[tier].label}</strong><small>{tier === "draft" ? "30 fps · quick" : tier === "standard" ? "60 fps · 1×" : "60 fps · 2×"}</small></span></button>;
                     })}
                   </div>
                 </section>
 
-                {!inspection && <section className="control-deck quick-settings">
-                  <div className="control-deck-title"><span>Quick motion</span><small>Used without analysis</small></div>
-                  <label><span>Scroll mode</span><select value={scrollMode} onChange={(event) => { setScrollMode(event.target.value as typeof scrollMode); setDuplicatedRequest(null); }}><option value="auto">Auto detect</option><option value="document">Document</option><option value="virtual">Virtual</option></select></label>
-                  <label><span>Hero hold</span><input type="number" min={0} max={15} step={0.5} value={heroHoldMs / 1000} onChange={(event) => { setHeroHoldMs(Number(event.target.value) * 1000); setDuplicatedRequest(null); }} /><small>seconds</small></label>
-                  {scrollMode !== "document" && <><label><span>Virtual cycles</span><input type="number" min={1} max={40} value={virtualCycles} onChange={(event) => { setVirtualCycles(Number(event.target.value)); setDuplicatedRequest(null); }} /></label><label className="toggle-line"><input type="checkbox" checked={useFixedDuration} onChange={(event) => { setUseFixedDuration(event.target.checked); setDuplicatedRequest(null); }} /><span>Use fixed duration</span></label>{useFixedDuration && <label><span>Duration</span><input type="number" min={3} max={120} value={virtualDurationMs / 1000} onChange={(event) => { setVirtualDurationMs(Number(event.target.value) * 1000); setDuplicatedRequest(null); }} /><small>seconds</small></label>}</>}
-                </section>}
+                <section className="control-deck motion-control-deck">
+                  <div className="control-deck-title"><span>Motion</span><small>{inspection ? "Applies to all scenes" : "Capture behavior"}</small></div>
+                  <ScrollPhysicsForm
+                    selectedCurve={selectedCurve}
+                    setSelectedCurve={changeCurve}
+                    customBezier={customBezier}
+                    setCustomBezier={(value) => { setCustomBezier(value); setDuplicatedRequest(null); }}
+                    pixelsPerFrame={pixelsPerFrame}
+                    setPixelsPerFrame={(value) => { setPixelsPerFrame(value); setDuplicatedRequest(null); }}
+                    heroHoldMs={heroHoldMs}
+                    setHeroHoldMs={(value) => { setHeroHoldMs(value); setDuplicatedRequest(null); }}
+                    showSpeed={!inspection}
+                  />
+                  {!inspection ? <div className="quick-motion-options">
+                    <label className="quick-option-row"><span>Scroll mode</span><select value={scrollMode} onChange={(event) => { setScrollMode(event.target.value as typeof scrollMode); setDuplicatedRequest(null); }}><option value="auto">Auto detect</option><option value="document">Document</option><option value="virtual">Virtual</option></select></label>
+                    {scrollMode !== "document" && <label className="quick-option-row"><span>Virtual cycles</span><input type="number" min={1} max={40} value={virtualCycles} onChange={(event) => { setVirtualCycles(Number(event.target.value)); setDuplicatedRequest(null); }} /></label>}
+                    <label className="fixed-duration-toggle"><input type="checkbox" checked={useFixedDuration} onChange={(event) => { setUseFixedDuration(event.target.checked); setDuplicatedRequest(null); }} /><span>Exact duration</span><small>{useFixedDuration ? `${virtualDurationMs / 1000}s` : "Automatic"}</small></label>
+                    {useFixedDuration && <label className="duration-slider"><input type="range" min={3} max={120} step={1} value={virtualDurationMs / 1000} onChange={(event) => { setVirtualDurationMs(Number(event.target.value) * 1000); setDuplicatedRequest(null); }} /><span><b>3s</b><b>120s</b></span></label>}
+                    {scrollMode === "document" && <PauseTriggersForm triggers={pauseTriggers} setTriggers={(value) => { setPauseTriggers(value); setDuplicatedRequest(null); }} disabled={isBusy} />}
+                  </div> : <p className="motion-director-note">Curve changes update every storyboard move. Fine-tune individual scenes in the timeline.</p>}
+                </section>
 
                 <section className="control-deck">
                   <BackgroundCanvasForm backgroundPreset={backgroundPreset} setBackgroundPreset={(value) => { setBackgroundPreset(value); setDuplicatedRequest(null); }} addShadow={addShadow} setAddShadow={(value) => { setAddShadow(value); setDuplicatedRequest(null); }} roundedCorners={roundedCorners} setRoundedCorners={(value) => { setRoundedCorners(value); setDuplicatedRequest(null); }} onApplyStyle={result?.canRestyle ? applyStyle : undefined} isApplyingStyle={isApplyingStyle} />
@@ -317,12 +378,12 @@ export default function App() {
 
               <div className="studio-stage">
                 {inspection && !activeJob ? (
-                  <StoryboardDirector inspection={inspection} beats={beats} setBeats={setBeats} startHoldMs={heroHoldMs} setStartHoldMs={setHeroHoldMs} />
+                  <StoryboardDirector inspection={inspection} beats={beats} setBeats={setBeats} startHoldMs={heroHoldMs} setStartHoldMs={setHeroHoldMs} defaultCurve={selectedCurve} />
                 ) : (
                   <div className={`recording-stage${backgroundPreset !== "none" && !result ? " has-canvas-background" : ""}`} style={backgroundPreset !== "none" && !result ? { backgroundImage: `url(/background_presets/${backgroundPreset}.png)` } : undefined}>
                     <BrowserMockup url={url} videoUrl={result?.videoUrl || null} downloadUrl={result?.videoUrl || null} duration={result ? `${(result.durationMs / 1000).toFixed(1)}s` : null} scrollStrategy={result?.scrollStrategy} width={previewWidth} height={previewHeight} isSubmitting={isBusy} isRenderingStyle={isApplyingStyle} recordingElapsed={elapsed} recordingPercent={activeJob?.progress.percent || 0} recordingStatus={activeJob?.progress.message} />
                     {isBusy && <button type="button" className="cancel-capture" onClick={() => void cancel()}><Square size={12} fill="currentColor" /> Cancel capture</button>}
-                    {activeJob && ["failed", "cancelled", "interrupted"].includes(activeJob.status) && <div className="failed-capture"><AlertTriangle size={18} /><div><strong>{activeJob.status}</strong><span>{activeJob.error?.message || activeJob.progress.message}</span></div></div>}
+                    {activeJob && ["failed", "cancelled", "interrupted"].includes(activeJob.status) && <div className="failed-capture"><AlertTriangle size={18} /><div><strong>{activeJob.status}</strong><span>{activeJob.error?.message || activeJob.progress.message}</span></div><button type="button" onClick={() => void retryActiveJob()}><RefreshCcw size={13} /> Retry</button></div>}
                   </div>
                 )}
               </div>
@@ -334,7 +395,7 @@ export default function App() {
   );
 }
 
-function defaultBeats(inspection: WebsiteInspection): DirectorBeat[] {
+function defaultBeats(inspection: WebsiteInspection, curve: string): DirectorBeat[] {
   const directed = inspection.storyboard
     .filter((frame) => frame.target.value > 0.001)
     .map((frame, index) => ({
@@ -344,7 +405,7 @@ function defaultBeats(inspection: WebsiteInspection): DirectorBeat[] {
       progress: frame.target.value,
       transitionMs: 2_000,
       holdMs: 0,
-      curve: "ease-in-out",
+      curve,
       imageIndex: frame.imageIndex,
     }));
   return directed.length > 0 ? directed : [{
@@ -354,7 +415,7 @@ function defaultBeats(inspection: WebsiteInspection): DirectorBeat[] {
     progress: 1,
     transitionMs: 1_000,
     holdMs: 0,
-    curve: "ease-in-out",
+    curve,
     imageIndex: inspection.storyboard[0]?.imageIndex,
   }];
 }
@@ -371,6 +432,10 @@ function buildRequest(options: {
   useFixedDuration: boolean;
   virtualDurationMs: number;
   heroHoldMs: number;
+  selectedCurve: string;
+  customBezier: [number, number, number, number];
+  pixelsPerFrame: number;
+  pauseTriggers: PauseTriggerDraft[];
   backgroundPreset: BackgroundPreset;
   addShadow: boolean;
   roundedCorners: boolean;
@@ -384,19 +449,27 @@ function buildRequest(options: {
     scrollMode: options.inspection.scrollMode,
     direction: {
       startHoldMs: options.heroHoldMs,
-      beats: options.beats.map((beat) => ({ target: beat.target, transitionMs: beat.transitionMs, holdMs: beat.holdMs, curve: { preset: beat.curve } })),
+      beats: options.beats.map((beat) => ({
+        target: beat.target.type === "selector"
+          ? { ...beat.target, fallbackProgress: beat.progress }
+          : beat.target,
+        transitionMs: beat.transitionMs,
+        holdMs: beat.holdMs,
+        curve: { preset: beat.curve, ...(beat.curve === "custom" ? { bezier: options.customBezier } : {}) },
+      })),
     },
   } : {
     fastMode: tier.fastMode,
     captureMode: tier.captureMode,
-    pixelsPerFrame: tier.pixelsPerFrame,
+    pixelsPerFrame: options.pixelsPerFrame,
     heroHoldMs: options.heroHoldMs,
     preRecordingDelayMs: tier.preRecordingDelayMs,
-    scrollCurve: { preset: "ease-in-out" },
+    scrollCurve: { preset: options.selectedCurve, ...(options.selectedCurve === "custom" ? { bezier: options.customBezier } : {}) },
+    ...(options.scrollMode === "document" ? { pauseTriggers: toPauseTriggersPayload(options.pauseTriggers) } : {}),
     removeOverlayElements: true,
     scrollMode: options.scrollMode,
     ...(options.scrollMode !== "document" ? { virtualScrollCycles: options.virtualCycles } : {}),
-    ...(options.scrollMode !== "document" && options.useFixedDuration ? { virtualScrollDurationMs: options.virtualDurationMs } : {}),
+    ...(options.useFixedDuration ? { durationMs: options.virtualDurationMs } : {}),
   };
   return {
     targetUrl: options.url.trim(),

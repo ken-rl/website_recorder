@@ -3,7 +3,7 @@ export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancell
 export type JobStage = "queued" | "preparing" | "capturing" | "encoding" | "styling" | "finalizing" | "completed" | "failed" | "cancelled" | "interrupted";
 
 export type MotionTarget =
-  | { type: "selector"; selector: string; align?: "top" | "center" | "bottom"; offsetPx?: number }
+  | { type: "selector"; selector: string; align?: "top" | "center" | "bottom"; offsetPx?: number; fallbackProgress?: number }
   | { type: "progress"; value: number }
   | { type: "page-end" };
 

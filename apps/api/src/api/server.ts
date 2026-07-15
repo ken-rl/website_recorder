@@ -19,7 +19,22 @@ const PUBLIC_DIR = path.resolve(
 const jobs = new RecordingJobManager(OUTPUT_DIR);
 await jobs.initialize();
 
-const server = http.createServer(async (req, res) => {
+const server = http.createServer((req, res) => {
+  void handleRequest(req, res).catch((error) => {
+    console.error("Unhandled API request error", error);
+    if (res.writableEnded) return;
+    if (!res.headersSent) {
+      sendJson(res, 500, { ok: false, error: errorMessage(error) });
+    } else {
+      res.end();
+    }
+  });
+});
+
+async function handleRequest(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+) {
   const url = new URL(
     req.url ?? "/",
     `http://${req.headers.host ?? "localhost"}`,
@@ -236,7 +251,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   sendJson(res, 404, { ok: false, error: "Not found" });
-});
+}
 
 server.listen(PORT, HOST, () => {
   console.log(`websiterecorder listening on http://${HOST}:${PORT}`);

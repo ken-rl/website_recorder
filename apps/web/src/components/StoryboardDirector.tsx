@@ -8,6 +8,7 @@ interface StoryboardDirectorProps {
   setBeats: (beats: DirectorBeat[]) => void;
   startHoldMs: number;
   setStartHoldMs: (value: number) => void;
+  defaultCurve: string;
 }
 
 export default function StoryboardDirector({
@@ -16,8 +17,11 @@ export default function StoryboardDirector({
   setBeats,
   startHoldMs,
   setStartHoldMs,
+  defaultCurve,
 }: StoryboardDirectorProps) {
   const totalMs = startHoldMs + beats.reduce((sum, beat) => sum + beat.transitionMs + beat.holdMs, 0);
+  const minimumMs = startHoldMs + beats.reduce((sum, beat) => sum + beat.holdMs + 250, 0);
+  const maximumMs = Math.min(300_000, startHoldMs + beats.reduce((sum, beat) => sum + beat.holdMs + 60_000, 0));
   const selectedSelectors = new Set(
     beats.flatMap((beat) => beat.target.type === "selector" ? [beat.target.selector] : []),
   );
@@ -37,7 +41,7 @@ export default function StoryboardDirector({
       progress: section.progress,
       transitionMs: section.recommendedTransitionMs,
       holdMs: 1000,
-      curve: "ease-in-out",
+      curve: defaultCurve,
     };
     const updated = replacementIndex >= 0
       ? beats.map((beat, index) => index === replacementIndex ? next : beat)
@@ -90,6 +94,20 @@ export default function StoryboardDirector({
         </div>
       )}
 
+      <label className="director-duration-slider">
+        <span>{Math.max(1, Math.ceil(minimumMs / 1000))}s</span>
+        <input
+          type="range"
+          min={Math.max(1, Math.ceil(minimumMs / 1000))}
+          max={Math.max(1, Math.floor(maximumMs / 1000))}
+          step={0.5}
+          value={Math.max(minimumMs / 1000, Math.min(maximumMs / 1000, totalMs / 1000))}
+          onChange={(event) => setTargetDuration(Number(event.target.value))}
+          aria-label="Total storyboard duration"
+        />
+        <span>{Math.max(1, Math.floor(maximumMs / 1000))}s</span>
+      </label>
+
       <div className="storyboard-strip">
         {inspection.storyboard.map((frame, index) => (
           <figure key={`${frame.target.value}-${index}`}>
@@ -117,6 +135,7 @@ export default function StoryboardDirector({
                 <option value="linear">Linear</option>
                 <option value="ease-out-cubic">Ease out</option>
                 <option value="ease-in-cubic">Ease in</option>
+                <option value="custom">Custom</option>
               </select>
               <button type="button" className="icon-button" onClick={() => setBeats(beats.filter((item) => item.id !== beat.id))} aria-label={`Remove ${beat.label}`}><Trash2 size={14} /></button>
             </div>

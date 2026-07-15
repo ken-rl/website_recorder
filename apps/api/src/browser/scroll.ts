@@ -340,11 +340,17 @@ function resolveDirectedVirtualBeats(
   for (const beat of beats) {
     validateBeat(beat);
     if (beat.target.type === "selector") {
-      throw new Error(
-        `Selector target ${beat.target.selector} cannot direct a virtual-scroll page; use a progress target from inspect_website`,
-      );
+      if (beat.target.fallbackProgress === undefined) {
+        throw new Error(
+          `Selector target ${beat.target.selector} cannot direct a virtual-scroll page; use a progress target from inspect_website`,
+        );
+      }
     }
-    const position = beat.target.type === "page-end" ? 1 : beat.target.value;
+    const position = beat.target.type === "page-end"
+      ? 1
+      : beat.target.type === "selector"
+        ? beat.target.fallbackProgress!
+        : beat.target.value;
     if (position < 0 || position > 1) throw new Error("Virtual progress targets must be between 0 and 1");
     if (position + 1e-6 < previous) throw new Error("Virtual progress beats must be ordered from 0 to 1");
     previous = position;
@@ -431,7 +437,10 @@ async function resolveDocumentTarget(
     if (rect.width <= 0 || rect.height <= 0) return null;
     return { top: rect.top + window.scrollY, height: rect.height };
   }, target.selector);
-  if (!metrics) throw new Error(`Direction selector was not found or visible: ${target.selector}`);
+  if (!metrics) {
+    if (target.fallbackProgress !== undefined) return maxScroll * target.fallbackProgress;
+    throw new Error(`Direction selector was not found or visible: ${target.selector}`);
+  }
   return alignedDocumentPosition({
     y: metrics.top,
     height: metrics.height,
@@ -450,6 +459,13 @@ function validateBeat(beat: MotionBeat) {
   const holdMs = beat.holdMs ?? 0;
   if (!Number.isFinite(holdMs) || holdMs < 0 || holdMs > 15_000) {
     throw new Error("Each direction holdMs must be between 0 and 15000");
+  }
+  if (
+    beat.target.type === "selector"
+    && beat.target.fallbackProgress !== undefined
+    && (!Number.isFinite(beat.target.fallbackProgress) || beat.target.fallbackProgress < 0 || beat.target.fallbackProgress > 1)
+  ) {
+    throw new Error("Selector fallbackProgress must be between 0 and 1");
   }
   resolveScrollCurve(beat.curve ?? DEFAULT_BEAT_CURVE);
 }

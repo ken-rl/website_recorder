@@ -15,6 +15,8 @@ export type MotionTarget =
       selector: string;
       align?: "top" | "center" | "bottom";
       offsetPx?: number;
+      /** Last measured page progress, used when a dynamic selector goes stale. */
+      fallbackProgress?: number;
     }
   | { type: "progress"; value: number }
   | { type: "page-end" };

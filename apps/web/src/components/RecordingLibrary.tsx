@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Copy, Download, Film, Play, RefreshCcw, Trash2 } from "lucide-react";
 import type { RecordingJob } from "../lib/productTypes";
+import { readJsonResponse } from "../lib/http";
 
 interface RecordingLibraryProps {
   onOpen: (job: RecordingJob) => void;
@@ -16,7 +17,7 @@ export default function RecordingLibrary({ onOpen, onDuplicate }: RecordingLibra
     if (!silent) setLoading(true);
     try {
       const response = await fetch("/api/jobs");
-      const data = await response.json();
+      const data = await readJsonResponse<{ ok?: boolean; jobs: RecordingJob[]; error?: string }>(response, "Load recordings");
       if (!response.ok || !data.ok) throw new Error(data.error || "Could not load recordings");
       setJobs(data.jobs);
       setError("");
@@ -35,26 +36,33 @@ export default function RecordingLibrary({ onOpen, onDuplicate }: RecordingLibra
   }, [jobs, load]);
 
   const retry = async (job: RecordingJob) => {
-    const response = await fetch(`/api/jobs/${job.jobId}/retry`, { method: "POST" });
-    const data = await response.json();
-    if (!response.ok) return setError(data.error || "Could not retry recording");
-    await load();
+    try {
+      const response = await fetch(`/api/jobs/${job.jobId}/retry`, { method: "POST" });
+      const data = await readJsonResponse<{ ok?: boolean; error?: string }>(response, "Retry recording");
+      if (!response.ok) return setError(data.error || "Could not retry recording");
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not retry recording");
+    }
   };
 
   const remove = async (job: RecordingJob) => {
     if (!window.confirm(`Delete ${displayHost(job.targetUrl, job.jobId)} and its video files?`)) return;
-    const response = await fetch(`/api/jobs/${job.jobId}`, { method: "DELETE" });
-    const data = await response.json();
-    if (!response.ok) return setError(data.error || "Could not delete recording");
-    await load();
+    try {
+      const response = await fetch(`/api/jobs/${job.jobId}`, { method: "DELETE" });
+      const data = await readJsonResponse<{ ok?: boolean; error?: string }>(response, "Delete recording");
+      if (!response.ok) return setError(data.error || "Could not delete recording");
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not delete recording");
+    }
   };
 
   return (
     <section className="library-page">
-      <header className="library-header">
-        <div><span className="eyebrow">Local archive</span><h1>Recording library</h1><p>Every capture, recoverable and ready to reuse.</p></div>
-        <button type="button" className="quiet-button" onClick={() => void load(false)}><RefreshCcw size={15} /> Refresh</button>
-      </header>
+      <div className="library-toolbar">
+        <button type="button" className="command-reset" title="Refresh library" aria-label="Refresh library" onClick={() => void load(false)}><RefreshCcw size={15} /></button>
+      </div>
       {error && <p className="workflow-error">{error}</p>}
       {loading ? (
         <div className="library-empty"><span className="loader-circle" /> Loading the archive…</div>

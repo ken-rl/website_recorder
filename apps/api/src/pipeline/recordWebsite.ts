@@ -415,6 +415,7 @@ async function runRecordSession(options: {
     });
     const page = await recordContext.newPage();
     await installMediaClock(page);
+    let captureCompleted = false;
 
     try {
       await gotoReachablePage(page, request.targetUrl);
@@ -472,21 +473,32 @@ async function runRecordSession(options: {
         );
       }
       await page.waitForTimeout(500);
+      captureCompleted = true;
     } finally {
       await page.close().catch(() => undefined);
       await recordContext.close().catch(() => undefined);
 
-      const tempRawVideoPath = path.join(outputDir, "raw_frames.mp4");
-      runtime.signal?.throwIfAborted();
-      await runtime.onProgress?.({ stage: "encoding", percent: 72, message: "Stitching captured frames" });
-      await stitchFramesToVideo(framesDir, tempRawVideoPath, captureFps, {
-        width: viewport.width * deviceScaleFactor,
-        height: viewport.height * deviceScaleFactor,
-        preset: encode.preset,
-        crf: encode.crf,
-        signal: runtime.signal,
-      });
-      rawVideoPath = tempRawVideoPath;
+      // Do not let FFmpeg's "no files found" error mask the real browser or
+      // capture failure. Encoding only belongs to a completed capture.
+      if (captureCompleted) {
+        const capturedFrames = frameRecorder.getFrameCount();
+        if (capturedFrames < 1) {
+          throw new Error("Capture completed without producing any frames");
+        }
+        await fs.access(path.join(framesDir, "frame-000000.jpg"));
+
+        const tempRawVideoPath = path.join(outputDir, "raw_frames.mp4");
+        runtime.signal?.throwIfAborted();
+        await runtime.onProgress?.({ stage: "encoding", percent: 72, message: `Stitching ${capturedFrames} captured frames` });
+        await stitchFramesToVideo(framesDir, tempRawVideoPath, captureFps, {
+          width: viewport.width * deviceScaleFactor,
+          height: viewport.height * deviceScaleFactor,
+          preset: encode.preset,
+          crf: encode.crf,
+          signal: runtime.signal,
+        });
+        rawVideoPath = tempRawVideoPath;
+      }
     }
   } finally {
     await browser?.close();

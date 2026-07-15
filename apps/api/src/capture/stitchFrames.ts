@@ -68,8 +68,9 @@ export async function stitchFramesToVideo(
       } else if (code === 0) {
         resolve();
       } else {
+        const conciseStderr = stderr.trim().slice(-3000);
         reject(
-          new Error(`FFmpeg stitch failed with code ${code}: ${stderr}`),
+          new Error(`FFmpeg stitch failed with code ${code}: ${conciseStderr}`),
         );
       }
     });
