@@ -61,6 +61,8 @@ export interface RecordingRequest {
 export interface RecordingJob {
   schemaVersion: 1;
   jobId: string;
+  workspaceId?: string;
+  projectId?: string;
   targetUrl: string;
   title?: string;
   createdAt: string;

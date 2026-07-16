@@ -245,6 +245,9 @@ export interface RecordingJobResult {
 export interface RecordingJobManifest {
   schemaVersion: 1;
   jobId: string;
+  /** Stable tenancy seams used by the local SQLite store and future hosted adapters. */
+  workspaceId?: string;
+  projectId?: string;
   targetUrl: string;
   title?: string;
   createdAt: string;

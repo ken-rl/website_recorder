@@ -56,6 +56,9 @@ pnpm dev
 - **API + static UI:** [http://localhost:3847](http://localhost:3847)
 - **Vite frontend (hot reload):** URL printed by `pnpm dev:web` (proxies API to 3847)
 
+`pnpm dev` starts the API, one local capture worker, and Vite. Job state is
+durable in SQLite, so the API and worker can restart independently.
+
 Enter a URL, choose screen size and quality, then **Start capture**. Scrollizard handles the scroll and encode.
 
 ## Usage
@@ -75,9 +78,10 @@ for an example prompt and behavior details.
 ### Web UI
 
 ```bash
-pnpm dev          # API + Vite together
+pnpm dev          # API + capture worker + Vite
 # or
-pnpm dev:api      # API only (serves built/public UI on :3847)
+pnpm dev:api      # enqueue/read API only (serves built/public UI on :3847)
+pnpm dev:worker   # local capture worker
 pnpm dev:web      # Vite frontend only
 ```
 
@@ -186,8 +190,15 @@ Inspect a page before building directed motion with `POST /api/inspect`:
 }
 ```
 
-Job state is stored in `outputs/<jobId>/job.json`. Existing MP4 output folders
-are imported automatically into the local library.
+Job state, leases, artifact metadata, and usage events are stored in
+`outputs/scrollizard.sqlite3`. `outputs/<jobId>/job.json` remains a compatibility
+snapshot. Existing job manifests and MP4-only output folders are imported
+automatically into SQLite.
+
+The API only enqueues jobs. A separately runnable worker claims each job with a
+renewable SQLite lease, reports progress, and safely requeues an interrupted job
+after the stale lease expires. CLI and MCP commands keep an embedded worker for
+single-command local use.
 
 **Restyle** an existing job (background / shadow / corners) without re-recording:
 
@@ -213,6 +224,13 @@ Content-Type: application/json
 | `HOST` | `127.0.0.1` | Bind address; set `0.0.0.0` only on a trusted network |
 | `OUTPUT_DIR` | `./outputs` | Directory for recordings |
 | `RECORD_HEADED` | auto | `1` force headed Chromium; `0` force headless |
+| `WORKER_ID` | generated | Stable label for a capture worker |
+| `ALLOW_LOCALHOST_TARGETS` | `1` | Allow localhost capture during local development; set `0` when hosted |
+| `ALLOW_PRIVATE_TARGETS` | `0` | Allow RFC1918/private targets; keep disabled for hosted use |
+| `MAX_JOB_RUNTIME_MS` | `900000` | Hard capture-worker runtime limit |
+| `MAX_OUTPUT_BYTES` | `1073741824` | Maximum completed MP4 size |
+| `SOURCE_RETENTION_DAYS` | disabled | Delete restylable source MP4s older than this many days |
+| `OUTPUT_RETENTION_DAYS` | disabled | Delete completed jobs and artifacts older than this many days |
 
 ### Record request options
 
@@ -277,10 +295,12 @@ Virtual captures prefer a **headed** Chromium window when possible (WebGL often 
 
 ## How it works
 
-1. **Prep** — navigate, dismiss banners, sanitize overlays, hydrate lazy assets.
-2. **Capture** — scroll the page (or inject wheel events) while recording frames / video.
-3. **Encode** — stitch / transcode to H.264 MP4.
-4. **Optional style** — composite onto a background with shadow and corner radius (`POST /style`).
+1. **Enqueue** — validate the request and persist it to SQLite.
+2. **Lease** — a capture worker atomically claims the next queued job.
+3. **Prep** — enforce the network policy, dismiss banners, sanitize overlays, and hydrate lazy assets.
+4. **Capture** — scroll the page (or inject wheel events) while recording frames / video.
+5. **Encode** — stitch / transcode to H.264 MP4 and register local artifacts and usage.
+6. **Optional style** — composite onto a background with shadow and corner radius (`POST /style`).
 
 ## Project structure
 
@@ -289,8 +309,11 @@ apps/
   api/                 Playwright capture pipeline, HTTP API, CLI
     src/
       api/server.ts
-      browser/         scroll, hydrate, sanitize, virtual scroll
+      worker.ts        leased capture worker
+      artifacts/       local storage adapter (S3-ready boundary)
+      browser/         scroll, hydration, network policy, virtual scroll
       capture/         frame recorder
+      jobs/            SQLite repository, leases, recovery, retention
       pipeline/        record + style orchestration
       transcode/       ffmpeg
     public/            built web assets + scrollizard-mark.png
@@ -308,8 +331,9 @@ outputs/               recorded videos (gitignored)
 
 | Command | Description |
 | ------- | ----------- |
-| `pnpm dev` | API + Vite frontend |
+| `pnpm dev` | API + local capture worker + Vite frontend |
 | `pnpm dev:api` | API only (port 3847) |
+| `pnpm dev:worker` | Capture worker only |
 | `pnpm dev:web` | Vite frontend only |
 | `pnpm --filter websiterecorder-api record <config.json>` | CLI record |
 | `pnpm typecheck` | Typecheck all packages |
@@ -317,7 +341,11 @@ outputs/               recorded videos (gitignored)
 
 ## Security note
 
-The server loads arbitrary URLs in a browser. Do not expose it publicly without authentication and network restrictions. Only record sites you have permission to capture.
+The browser boundary blocks cloud metadata, private/link-local destinations, unsafe
+redirects, and private subresource requests. Localhost remains enabled for local
+development; set `ALLOW_LOCALHOST_TARGETS=0` before hosting. Authentication,
+authorization, rate limits, and per-workspace quotas are still required before
+binding the service publicly. Only record sites you have permission to capture.
 
 ## License
 

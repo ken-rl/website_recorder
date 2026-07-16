@@ -9,6 +9,7 @@ import type {
   MotionDirection,
 } from "../../api/src/types.js";
 import { DEFAULT_DIRECTED_START_HOLD_MS } from "../../api/src/types.js";
+import { parseRecordRequest } from "../../api/src/contracts.js";
 
 export type RecordingQuality = "draft" | "standard" | "cinematic";
 export type RecordingPace = "slow" | "normal" | "fast";
@@ -87,7 +88,7 @@ export function buildRecordRequest(input: CreateRecordingInput): RecordRequest {
     throw new Error("viewport must be at least 320×240");
   }
 
-  return {
+  return parseRecordRequest({
     targetUrl: input.targetUrl,
     exportFormat: "mp4",
     videoConfig: {
@@ -121,7 +122,7 @@ export function buildRecordRequest(input: CreateRecordingInput): RecordRequest {
     backgroundPreset: input.backgroundPreset,
     addShadow: input.addShadow,
     roundedCorners: input.roundedCorners,
-  };
+  });
 }
 
 export function outputRoot(): string {

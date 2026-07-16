@@ -4,6 +4,7 @@ import type {
   WebsiteInspection,
   WebsiteSection,
 } from "../types.js";
+import { gotoReachablePage } from "../browser/goto.js";
 
 export interface RawWebsiteSection {
   label: string;
@@ -24,10 +25,7 @@ export async function inspectWebsite(options: {
 
   try {
     const page = await browser.newPage({ viewport });
-    await page.goto(target.href, {
-      waitUntil: "domcontentloaded",
-      timeout: 45_000,
-    });
+    await gotoReachablePage(page, target.href);
     await page
       .waitForLoadState("networkidle", { timeout: 10_000 })
       .catch(() => undefined);

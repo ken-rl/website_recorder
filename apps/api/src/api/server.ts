@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 import { restyleRecording } from "../pipeline/styleRecording.js";
 import { inspectWebsite } from "../inspection/inspectWebsite.js";
 import { RecordingJobManager } from "../jobs/manager.js";
-import type { RecordRequest, StyleRequest } from "../types.js";
+import { assertSafeTargetUrl } from "../browser/networkPolicy.js";
+import { parseInspectRequest, parseRecordRequest, parseStyleRequest } from "../contracts.js";
+import type { RecordRequest } from "../types.js";
 
 const PORT = Number(process.env.PORT ?? 3847);
 const HOST = process.env.HOST ?? "127.0.0.1";
@@ -16,7 +18,8 @@ const PUBLIC_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../public",
 );
-const jobs = new RecordingJobManager(OUTPUT_DIR);
+// HTTP only enqueues and observes jobs. Capture work runs in src/worker.ts.
+const jobs = new RecordingJobManager(OUTPUT_DIR, { processJobs: false });
 await jobs.initialize();
 
 const server = http.createServer((req, res) => {
@@ -46,10 +49,8 @@ async function handleRequest(
 
   if (req.method === "POST" && url.pathname === "/api/inspect") {
     try {
-      const body = await readJsonBody<{
-        targetUrl: string;
-        viewport?: { width: number; height: number };
-      }>(req);
+      const body = parseInspectRequest(await readJsonBody(req));
+      await assertSafeTargetUrl(body.targetUrl);
       const inspection = await inspectWebsite(body);
       return sendJson(res, 200, { ok: true, inspection });
     } catch (error) {
@@ -60,8 +61,8 @@ async function handleRequest(
 
   if (req.method === "POST" && url.pathname === "/api/jobs") {
     try {
-      const body = await readJsonBody<RecordRequest>(req);
-      validateRecordRequest(body);
+      const body = parseRecordRequest(await readJsonBody(req));
+      await assertSafeTargetUrl(body.targetUrl);
       const job = await jobs.create(body);
       return sendJson(res, 202, jobLinks(job.jobId));
     } catch (error) {
@@ -206,8 +207,8 @@ async function handleRequest(
 
   if (req.method === "POST" && url.pathname === "/record") {
     try {
-      const body = await readJsonBody<RecordRequest>(req);
-      validateRecordRequest(body);
+      const body = parseRecordRequest(await readJsonBody(req));
+      await assertSafeTargetUrl(body.targetUrl);
       const queued = await jobs.create(body);
       const job = await jobs.waitForCompletion(queued.jobId);
       if (job.status !== "completed" || !job.result) {
@@ -234,7 +235,7 @@ async function handleRequest(
 
   if (req.method === "POST" && url.pathname === "/style") {
     try {
-      const body = await readJsonBody<StyleRequest>(req);
+      const body = parseStyleRequest(await readJsonBody(req));
       const result = await restyleRecording(body, OUTPUT_DIR);
       const existing = await jobs.get(body.jobId).catch(() => null);
       if (existing) {
@@ -257,6 +258,17 @@ server.listen(PORT, HOST, () => {
   console.log(`websiterecorder listening on http://${HOST}:${PORT}`);
   console.log(`output directory: ${OUTPUT_DIR}`);
 });
+
+const shutdown = () => {
+  server.close(() => {
+    void jobs.shutdown().finally(() => process.exit(0));
+  });
+  // SSE clients are intentionally long-lived and would otherwise keep close() pending.
+  server.closeAllConnections();
+};
+
+process.once("SIGINT", shutdown);
+process.once("SIGTERM", shutdown);
 
 function sendJson(res: http.ServerResponse, status: number, payload: unknown) {
   res.writeHead(status, { "content-type": "application/json" });
@@ -290,38 +302,31 @@ function contentTypeFor(filePath: string) {
   return "application/octet-stream";
 }
 
-function readJsonBody<T>(req: http.IncomingMessage): Promise<T> {
+function readJsonBody(req: http.IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on("data", (chunk) => chunks.push(chunk));
+    let size = 0;
+    let tooLarge = false;
+    req.on("data", (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > 1_048_576) {
+        tooLarge = true;
+        chunks.length = 0;
+        return;
+      }
+      if (!tooLarge) chunks.push(chunk);
+    });
     req.on("end", () => {
+      if (tooLarge) return reject(new Error("JSON body cannot exceed 1 MB"));
       try {
         const raw = Buffer.concat(chunks).toString("utf8");
-        resolve(JSON.parse(raw) as T);
+        resolve(JSON.parse(raw) as unknown);
       } catch {
         reject(new Error("Invalid JSON body"));
       }
     });
     req.on("error", reject);
   });
-}
-
-function validateRecordRequest(body: RecordRequest) {
-  if (!body?.targetUrl) throw new Error("targetUrl is required");
-  try {
-    const target = new URL(body.targetUrl);
-    if (target.protocol !== "http:" && target.protocol !== "https:") throw new Error();
-  } catch {
-    throw new Error("targetUrl must be a valid URL");
-  }
-  if (
-    !body.videoConfig?.viewport?.width ||
-    !body.videoConfig?.viewport?.height
-  ) {
-    throw new Error(
-      "videoConfig.viewport.width and videoConfig.viewport.height are required",
-    );
-  }
 }
 
 function jobLinks(jobId: string) {
