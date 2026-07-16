@@ -5,8 +5,11 @@ live website into a deliberately paced, continuous video.
 
 ## Identity
 
-The Deio Scroll mark combines a structural **D** with a curved scroll path. The
-blue point is the active playhead; the cyan line is the captured trajectory.
+The Deio Scroll mark is a single sculpted loop whose open center implies a
+**D**. A chevron is carved directly into its spine, echoing a scrolling
+playhead without becoming a separate icon. The deliberately off-kilter, solid
+silhouette makes the letter feel in motion rather than like a conventional
+monogram, while staying legible at favicon and navigation sizes.
 Use the complete `Deio Scroll` name in titles and documentation. In compact
 navigation, set `Deio` as the wordmark and `SCROLL` as the product label.
 
