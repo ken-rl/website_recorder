@@ -3,9 +3,7 @@
   min-height: 0;
   height: 100vh;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 82% 4%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 28rem),
-    var(--bg);
+  background: var(--bg);
 }
 
 .studio-page {
@@ -64,12 +62,12 @@
 .quick-capture:hover { border-color: var(--border-hover); transform: translateY(-1px); }
 .analyze-button {
   min-width: 142px;
-  color: #fff;
+  color: var(--accent-text);
   border-color: transparent;
-  background: linear-gradient(135deg, #004b43, #00786a 58%, #169b83);
-  box-shadow: 0 10px 28px rgba(0, 102, 91, .2);
+  background: var(--accent);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 24%, transparent);
 }
-.analyze-button:hover { transform: translateY(-1px); box-shadow: 0 14px 34px rgba(0, 102, 91, .3); }
+.analyze-button:hover { transform: translateY(-1px); box-shadow: 0 14px 34px color-mix(in srgb, var(--accent) 34%, transparent); }
 .analyze-button:disabled,
 .quick-capture:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 
@@ -83,7 +81,7 @@
   border: 1px solid var(--border);
   border-radius: 14px;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
-  box-shadow: 0 18px 60px rgba(0,0,0,.12);
+  box-shadow: 0 18px 60px rgba(0,0,0,.12), inset 0 1px color-mix(in srgb, var(--text) 5%, transparent);
   backdrop-filter: blur(18px);
   flex: none;
 }
@@ -237,11 +235,8 @@
   padding: clamp(20px, 4vw, 60px);
   border: 1px solid var(--border);
   border-radius: 14px;
-  background:
-    linear-gradient(90deg, var(--border) 1px, transparent 1px),
-    linear-gradient(var(--border) 1px, transparent 1px),
-    var(--surface);
-  background-size: 32px 32px;
+  background: var(--surface);
+  box-shadow: inset 0 1px color-mix(in srgb, var(--text) 4%, transparent);
   overflow: hidden;
   container: recording-stage / size;
 }
@@ -362,7 +357,7 @@
 .scene-picker-list strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .62rem; }
 .scene-picker-list small { color: var(--muted); font-size: .52rem; }
 .inspection-warnings { display: flex; flex-wrap: wrap; gap: 6px; }
-.inspection-warnings span { padding: 5px 8px; color: #d97706; background: rgba(217,119,6,.09); border-radius: 5px; font-size: .58rem; }
+.inspection-warnings span { padding: 5px 8px; color: var(--accent-secondary); background: var(--accent-secondary-soft); border-radius: 5px; font-size: .58rem; }
 .route-warnings { padding: 0 20px 16px; }
 
 /* Library */

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>Deio Scroll</title>
+  <rect width="64" height="64" rx="18" fill="#151713"/>
+  <path d="M18 14.5h12.5C42.4 14.5 50 21.2 50 32s-7.6 17.5-19.5 17.5H18v-35Z" stroke="#F4F1E8" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M28 21.5c8.5 3.5-6.2 8.2 2.2 13.1 5.8 3.4.2 7.9-2.2 9.2" stroke="#5AD8C5" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="28" cy="21.5" r="4" fill="#6B8CFF"/>
+  <path d="m24.8 40.7 3.3 3.3 3.3-3.3" stroke="#6B8CFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

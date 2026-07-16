@@ -1,7 +1,7 @@
 {
-  "name": "websiterecorder-api",
+  "name": "deio-scroll-api",
   "version": "1.0.0",
-  "description": "Record smooth scroll-through videos of any webpage as MP4",
+  "description": "Deio Scroll API and worker for directed website scroll videos",
   "license": "MIT",
   "author": "ken-rl (https://github.com/ken-rl)",
   "repository": {
@@ -27,8 +27,10 @@
   },
   "type": "module",
   "scripts": {
-    "start": "tsx watch src/api/server.ts",
-    "worker": "tsx watch src/worker.ts",
+    "start": "tsx src/api/server.ts",
+    "start:watch": "tsx watch src/api/server.ts",
+    "worker": "tsx src/worker.ts",
+    "worker:watch": "tsx watch src/worker.ts",
     "record": "tsx src/cli.ts",
     "test": "tsx --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit"

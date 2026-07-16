@@ -40,6 +40,15 @@ const server = http.createServer((req, res) => {
   });
 });
 
+server.on("error", (error: NodeJS.ErrnoException) => {
+  const message = error.code === "EADDRINUSE"
+    ? `Deio Scroll cannot start: ${HOST}:${PORT} is already in use. Stop the existing dev server or choose another PORT.`
+    : `Deio Scroll server error: ${error.message}`;
+  console.error(message);
+  process.exitCode = 1;
+  void jobs.shutdown();
+});
+
 async function handleRequest(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -276,7 +285,7 @@ async function handleRequest(
 }
 
 server.listen(PORT, HOST, () => {
-  console.log(`websiterecorder listening on http://${HOST}:${PORT}`);
+  console.log(`Deio Scroll listening on http://${HOST}:${PORT}`);
   console.log(`output directory: ${OUTPUT_DIR}`);
   console.log(
     hasEmbeddedWorker

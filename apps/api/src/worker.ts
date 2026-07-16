@@ -11,7 +11,7 @@ const worker = new RecordingJobManager(outputRoot, {
 });
 
 await worker.initialize();
-console.log(`Scrollizard capture worker listening for jobs in ${outputRoot}`);
+console.log(`Deio Scroll capture worker listening for jobs in ${outputRoot}`);
 
 // The manager's poll timer is deliberately unreferenced for embedded CLI/MCP use.
 const keepAlive = setInterval(() => undefined, 60_000);

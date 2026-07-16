@@ -1,7 +1,7 @@
-# Scrollizard
+# Deio Scroll
 
 <p align="center">
-  <img src="assets/scrollizard-mark.png" alt="Scrollizard logo — lizard with a red recording head" width="220" />
+  <img src="assets/deio-scroll-mark.svg" alt="Deio Scroll logo" width="180" />
 </p>
 
 <p align="center">
@@ -14,9 +14,9 @@
   <img alt="Node.js" src="https://img.shields.io/badge/node-%3E%3D20-brightgreen" />
 </p>
 
-Scrollizard loads a page with Playwright, hydrates lazy content, runs a controlled scroll (eased document scroll or virtual wheel), and exports H.264 MP4. Optional canvas framing — backgrounds, soft bottom shadow, rounded corners — for marketing-ready clips.
+Deio Scroll loads a page with Playwright, hydrates lazy content, runs a controlled scroll (eased document scroll or virtual wheel), and exports H.264 MP4. Optional canvas framing — backgrounds, soft bottom shadow, rounded corners — makes clips ready for product pages, launch posts, and demos.
 
-> Package paths still use `websiterecorder-*`; the product is **Scrollizard**.
+Product identity, palette, and logo usage are documented in [BRAND.md](BRAND.md).
 
 ## Features
 
@@ -60,7 +60,13 @@ pnpm dev
 is durable in SQLite. A future hosted deployment can set `EMBEDDED_WORKER=0`
 and run `pnpm dev:worker` independently.
 
-Enter a URL, choose screen size and quality, then **Start capture**. Scrollizard handles the scroll and encode.
+The root development command supervises both services and stops both on one
+Ctrl-C. The API runs without filesystem watch mode by default, and Vite uses
+polling to remain reliable on Linux systems with editors or MCP sessions that
+already consume many inotify watchers. Use `pnpm dev:api:watch` only when API
+hot reload is needed.
+
+Enter a URL, choose screen size and quality, then **Start capture**. Deio Scroll handles the scroll and encode.
 
 ## Usage
 
@@ -70,7 +76,7 @@ Use the recorder as a local MCP server so Codex can inspect a page, choose scrol
 pace and curves, add section pauses, and create an MP4:
 
 ```bash
-codex mcp add scrollizard -- pnpm --dir "$(pwd)" --filter websiterecorder-mcp start
+codex mcp add deio-scroll -- pnpm --dir "$(pwd)" --filter deio-scroll-mcp start
 ```
 
 Restart Codex after adding the server. See [the MCP package guide](apps/mcp/README.md)
@@ -82,6 +88,7 @@ for an example prompt and behavior details.
 pnpm dev          # API with embedded worker + Vite
 # or
 pnpm dev:api      # API with embedded worker (serves built/public UI on :3847)
+pnpm dev:api:watch # API with source-file hot reload
 pnpm dev:worker   # external worker; use with EMBEDDED_WORKER=0
 pnpm dev:web      # Vite frontend only
 ```
@@ -101,7 +108,7 @@ Left nav: Capture (collapsible brand sidebar).
 ### CLI
 
 ```bash
-pnpm --filter websiterecorder-api record apps/api/config.example.json
+pnpm --filter deio-scroll-api record apps/api/config.example.json
 ```
 
 Videos are written under `OUTPUT_DIR` (default `./outputs/<job-id>/output.mp4`).
@@ -192,7 +199,8 @@ Inspect a page before building directed motion with `POST /api/inspect`:
 ```
 
 Job state, leases, artifact metadata, and usage events are stored in
-`outputs/scrollizard.sqlite3`. `outputs/<jobId>/job.json` remains a compatibility
+`outputs/scrollizard.sqlite3` (the legacy filename is retained so existing local
+libraries migrate without intervention). `outputs/<jobId>/job.json` remains a compatibility
 snapshot. Existing job manifests and MP4-only output folders are imported
 automatically into SQLite.
 
@@ -260,7 +268,7 @@ Content-Type: application/json
 
 ### Virtual scroll
 
-Some sites lock the document to one viewport (WebGL, scroll-scrubbing, infinite loops). With `scrollMode: "auto"`, Scrollizard detects this and switches to **virtual scroll** (wheel input over time). Force with `"virtual"` or `"document"`.
+Some sites lock the document to one viewport (WebGL, scroll-scrubbing, infinite loops). With `scrollMode: "auto"`, Deio Scroll detects this and switches to **virtual scroll** (wheel input over time). Force with `"virtual"` or `"document"`.
 
 ```json
 "animationConfig": {
@@ -319,14 +327,14 @@ apps/
       jobs/            SQLite repository, leases, recovery, retention
       pipeline/        record + style orchestration
       transcode/       ffmpeg
-    public/            built web assets + scrollizard-mark.png
+    public/            built web assets + deio-scroll-mark.svg
   web/                 React + Vite UI
     src/
       App.tsx
       components/      motion, canvas, pause triggers, preview player
-    public/scrollizard-mark.png
+    public/deio-scroll-mark.svg
 assets/
-  scrollizard-mark.png README / brand mark
+  deio-scroll-mark.svg README / brand mark
 outputs/               recorded videos (gitignored)
 ```
 
@@ -336,11 +344,12 @@ outputs/               recorded videos (gitignored)
 | ------- | ----------- |
 | `pnpm dev` | API with embedded worker + Vite frontend |
 | `pnpm dev:api` | API with embedded worker (port 3847) |
+| `pnpm dev:api:watch` | API with source-file hot reload |
 | `pnpm dev:worker` | External worker for `EMBEDDED_WORKER=0` mode |
 | `pnpm dev:web` | Vite frontend only |
-| `pnpm --filter websiterecorder-api record <config.json>` | CLI record |
+| `pnpm --filter deio-scroll-api record <config.json>` | CLI record |
 | `pnpm typecheck` | Typecheck all packages |
-| `pnpm --filter websiterecorder-api test` | API tests |
+| `pnpm --filter deio-scroll-api test` | API tests |
 
 ## Security note
 

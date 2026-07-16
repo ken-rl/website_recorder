@@ -33,10 +33,10 @@ export default function AppSidebar({
           type="button"
           className="app-nav-brand"
           onClick={() => onNavigate("/")}
-          title="Scrollizard"
+          title="Deio Scroll"
         >
           <img
-            src="/scrollizard-mark.png"
+            src="/deio-scroll-mark.svg"
             alt=""
             className="app-nav-logo"
             width={44}
@@ -45,7 +45,10 @@ export default function AppSidebar({
           />
           {!collapsed && (
             <span className="app-nav-brand-text">
-              <strong>Scrollizard</strong>
+              <span className="app-nav-wordmark">
+                <strong>Deio</strong>
+                <small>Scroll</small>
+              </span>
               {isRecording && (
                 <span className="app-nav-live">Recording</span>
               )}

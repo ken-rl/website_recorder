@@ -30,15 +30,15 @@ const directionSchema = z.object({
 });
 
 const server = new McpServer(
-  { name: "scrollizard", version: "0.4.0" },
+  { name: "deio-scroll", version: "0.4.0" },
   {
     instructions:
-      "Inspect before directing. Directed recordings hold the hero for 1500ms by default; only override startHoldMs when the user requests a different opening. On document pages, copy each section's recommendedTarget for every held beat so headings are safely framed; progress targets are only for non-held fly-through waypoints. Use recommendedTransitionMs as a floor, hold only sections the user emphasizes, and default to at most two section holds unless the user explicitly requests more. Use ease-in-out curves around holds, vary timing by distance, and do not add page-end when the prior target is already near the bottom. On virtual pages, use storyboard progress targets. Start with draft quality unless the user requests a final render. Report any motionPlan.adjustments and unverified beat framing returned by Scrollizard.",
+      "Inspect before directing. Directed recordings hold the hero for 1500ms by default; only override startHoldMs when the user requests a different opening. On document pages, copy each section's recommendedTarget for every held beat so headings are safely framed; progress targets are only for non-held fly-through waypoints. Use recommendedTransitionMs as a floor, hold only sections the user emphasizes, and default to at most two section holds unless the user explicitly requests more. Use ease-in-out curves around holds, vary timing by distance, and do not add page-end when the prior target is already near the bottom. On virtual pages, use storyboard progress targets. Start with draft quality unless the user requests a final render. Report any motionPlan.adjustments and unverified beat framing returned by Deio Scroll.",
   },
 );
 
 function toolError(error: unknown) {
-  const message = error instanceof Error ? error.message : "Unknown Scrollizard error";
+  const message = error instanceof Error ? error.message : "Unknown Deio Scroll error";
   return {
     isError: true as const,
     content: [{ type: "text" as const, text: JSON.stringify({ ok: false, error: message }, null, 2) }],
@@ -136,7 +136,7 @@ server.registerTool(
   "list_recordings",
   {
     title: "List local recordings",
-    description: "Lists complete MP4 recordings in the local Scrollizard output directory.",
+    description: "Lists complete MP4 recordings in the local Deio Scroll output directory.",
     annotations: { readOnlyHint: true },
   },
   async () => ({ content: [{ type: "text", text: JSON.stringify(await listRecordings(), null, 2) }] }),

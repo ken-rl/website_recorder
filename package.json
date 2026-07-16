@@ -1,12 +1,13 @@
 {
-  "name": "websiterecorder-monorepo",
+  "name": "deio-scroll-monorepo",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev:api": "pnpm --filter websiterecorder-api start",
-    "dev:worker": "pnpm --filter websiterecorder-api worker",
-    "dev:web": "pnpm --filter websiterecorder-web dev",
-    "dev": "pnpm dev:api & pnpm dev:web",
+    "dev:api": "pnpm --filter deio-scroll-api start",
+    "dev:api:watch": "pnpm --filter deio-scroll-api start:watch",
+    "dev:worker": "pnpm --filter deio-scroll-api worker",
+    "dev:web": "pnpm --filter deio-scroll-web dev",
+    "dev": "node scripts/dev.mjs",
     "typecheck": "pnpm --filter \"*\" typecheck"
   }
 }

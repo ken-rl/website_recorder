@@ -1,6 +1,6 @@
-# Scrollizard MCP
+# Deio Scroll MCP
 
-Use Scrollizard locally from Codex to inspect a website, direct section-level
+Use Deio Scroll locally from Codex to inspect a website, direct section-level
 motion, and create an MP4.
 
 ## Install in Codex CLI
@@ -8,7 +8,7 @@ motion, and create an MP4.
 From this repository root:
 
 ```bash
-codex mcp add scrollizard -- pnpm --dir "$(pwd)" --filter websiterecorder-mcp start
+codex mcp add deio-scroll -- pnpm --dir "$(pwd)" --filter deio-scroll-mcp start
 ```
 
 Restart Codex after adding the server. The server uses `OUTPUT_DIR` (or
@@ -30,7 +30,7 @@ progress for non-held fly-through waypoints. Inspection includes safe viewport
 insets and a recommended transition duration for every semantic section. For
 virtual-scroll pages, use the progress targets returned by the storyboard.
 
-Each beat accepts `transitionMs`, a curve, and an optional `holdMs`. Scrollizard
+Each beat accepts `transitionMs`, a curve, and an optional `holdMs`. Deio Scroll
 automatically merges redundant targets, replaces harsh curves at hold boundaries,
 and stretches transitions that exceed 1.5 viewport heights per second. The
 resolved `motionPlan.adjustments` array explains every correction.

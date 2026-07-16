@@ -159,16 +159,16 @@ function readCurveCanvasPalette(): CurveCanvasPalette {
       window.matchMedia("(prefers-color-scheme: light)").matches);
 
   const style = getComputedStyle(root);
-  const text = style.getPropertyValue("--text").trim() || (isLight ? "#090d16" : "#fafafa");
-  const muted = style.getPropertyValue("--muted").trim() || (isLight ? "#3e4e63" : "#8e8e93");
-  const border = style.getPropertyValue("--border").trim() || (isLight ? "#e2e8f0" : "rgba(255,255,255,0.07)");
-  const surface = style.getPropertyValue("--surface").trim() || (isLight ? "#ffffff" : "#121214");
+  const text = style.getPropertyValue("--text").trim() || (isLight ? "#171914" : "#f4f1e8");
+  const muted = style.getPropertyValue("--muted").trim() || (isLight ? "#5f6259" : "#9b9d92");
+  const border = style.getPropertyValue("--border").trim() || (isLight ? "#d7d3c7" : "rgba(244,241,232,0.08)");
+  const surface = style.getPropertyValue("--surface").trim() || (isLight ? "#faf8f1" : "#151713");
   const surfaceMuted =
     style.getPropertyValue("--surface-muted").trim() ||
     style.getPropertyValue("--surface-elevated").trim() ||
-    (isLight ? "#f8fafc" : "#1e1e24");
-  const accent = style.getPropertyValue("--accent").trim() || (isLight ? "#00665b" : "#168f7d");
-  const bg = style.getPropertyValue("--bg").trim() || (isLight ? "#f8fafc" : "#09090b");
+    (isLight ? "#f2f0e8" : "#1a1d18");
+  const accent = style.getPropertyValue("--accent").trim() || (isLight ? "#3158c9" : "#6b8cff");
+  const bg = style.getPropertyValue("--bg").trim() || (isLight ? "#eeece3" : "#0d0f0c");
 
   const inkRgb = cssColorToRgbChannels(text);
   const accentRgb = cssColorToRgbChannels(accent);
@@ -283,15 +283,15 @@ export default function BezierVisualizer({
       ? readCurveCanvasPalette()
       : {
           isLight: false,
-          ink: "#fafafa",
-          inkRgb: "250, 250, 250",
-          accent: "#168f7d",
-          accentRgb: "22, 143, 125",
-          border: "rgba(255,255,255,0.12)",
-          surface: "#121214",
-          surfaceMuted: "#1e1e24",
-          grid: "rgba(255,255,255,0.06)",
-          control: "rgba(255,255,255,0.28)",
+          ink: "#f4f1e8",
+          inkRgb: "244, 241, 232",
+          accent: "#6b8cff",
+          accentRgb: "107, 140, 255",
+          border: "rgba(244,241,232,0.12)",
+          surface: "#151713",
+          surfaceMuted: "#1a1d18",
+          grid: "rgba(244,241,232,0.06)",
+          control: "rgba(244,241,232,0.28)",
           simChrome: "rgba(255,255,255,0.04)",
           simBlock: "rgba(255,255,255,0.06)",
           simLine: "rgba(255,255,255,0.14)",
