@@ -102,7 +102,7 @@ export async function recordWebsite(
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (!captureHeadless) {
-      console.log("Using headed Chromium for smooth virtual-scroll capture.");
+      console.log("Using headed Chromium for smooth GPU-assisted capture.");
     }
 
     // Use the resolved headless setting (runs headed when DISPLAY is present to leverage

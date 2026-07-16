@@ -300,7 +300,7 @@ Virtual captures prefer a **headed** Chromium window when possible (WebGL often 
 
 1. **Enqueue** — validate the request and persist it to SQLite.
 2. **Lease** — a capture worker atomically claims the next queued job.
-3. **Prep** — enforce the network policy, dismiss banners, sanitize overlays, and hydrate lazy assets.
+3. **Prep** — enforce the network policy, wait out temporary scroll-intro locks, dismiss banners, sanitize overlays, and hydrate lazy assets.
 4. **Capture** — scroll the page (or inject wheel events) while recording frames / video.
 5. **Encode** — stitch / transcode to H.264 MP4 and register local artifacts and usage.
 6. **Optional style** — composite onto a background with shadow and corner radius (`POST /style`).
