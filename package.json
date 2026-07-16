@@ -6,7 +6,7 @@
     "dev:api": "pnpm --filter websiterecorder-api start",
     "dev:worker": "pnpm --filter websiterecorder-api worker",
     "dev:web": "pnpm --filter websiterecorder-web dev",
-    "dev": "pnpm dev:api & pnpm dev:worker & pnpm dev:web",
+    "dev": "pnpm dev:api & pnpm dev:web",
     "typecheck": "pnpm --filter \"*\" typecheck"
   }
 }

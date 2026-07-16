@@ -56,8 +56,9 @@ pnpm dev
 - **API + static UI:** [http://localhost:3847](http://localhost:3847)
 - **Vite frontend (hot reload):** URL printed by `pnpm dev:web` (proxies API to 3847)
 
-`pnpm dev` starts the API, one local capture worker, and Vite. Job state is
-durable in SQLite, so the API and worker can restart independently.
+`pnpm dev` starts the API with an embedded capture worker plus Vite. Job state
+is durable in SQLite. A future hosted deployment can set `EMBEDDED_WORKER=0`
+and run `pnpm dev:worker` independently.
 
 Enter a URL, choose screen size and quality, then **Start capture**. Scrollizard handles the scroll and encode.
 
@@ -78,10 +79,10 @@ for an example prompt and behavior details.
 ### Web UI
 
 ```bash
-pnpm dev          # API + capture worker + Vite
+pnpm dev          # API with embedded worker + Vite
 # or
-pnpm dev:api      # enqueue/read API only (serves built/public UI on :3847)
-pnpm dev:worker   # local capture worker
+pnpm dev:api      # API with embedded worker (serves built/public UI on :3847)
+pnpm dev:worker   # external worker; use with EMBEDDED_WORKER=0
 pnpm dev:web      # Vite frontend only
 ```
 
@@ -195,10 +196,11 @@ Job state, leases, artifact metadata, and usage events are stored in
 snapshot. Existing job manifests and MP4-only output folders are imported
 automatically into SQLite.
 
-The API only enqueues jobs. A separately runnable worker claims each job with a
-renewable SQLite lease, reports progress, and safely requeues an interrupted job
-after the stale lease expires. CLI and MCP commands keep an embedded worker for
-single-command local use.
+For local use, the API embeds a worker that claims jobs immediately. With
+`EMBEDDED_WORKER=0`, the API becomes enqueue-only and a separately runnable
+worker claims each job with a renewable SQLite lease, reports progress, and
+safely requeues interrupted work after a stale lease expires. CLI and MCP
+commands also keep an embedded worker for single-command use.
 
 **Restyle** an existing job (background / shadow / corners) without re-recording:
 
@@ -223,6 +225,7 @@ Content-Type: application/json
 | `PORT` | `3847` | HTTP server port |
 | `HOST` | `127.0.0.1` | Bind address; set `0.0.0.0` only on a trusted network |
 | `OUTPUT_DIR` | `./outputs` | Directory for recordings |
+| `EMBEDDED_WORKER` | `1` | Keep local startup self-contained; set `0` when running an external worker |
 | `RECORD_HEADED` | auto | `1` force headed Chromium; `0` force headless |
 | `WORKER_ID` | generated | Stable label for a capture worker |
 | `ALLOW_LOCALHOST_TARGETS` | `1` | Allow localhost capture during local development; set `0` when hosted |
@@ -331,9 +334,9 @@ outputs/               recorded videos (gitignored)
 
 | Command | Description |
 | ------- | ----------- |
-| `pnpm dev` | API + local capture worker + Vite frontend |
-| `pnpm dev:api` | API only (port 3847) |
-| `pnpm dev:worker` | Capture worker only |
+| `pnpm dev` | API with embedded worker + Vite frontend |
+| `pnpm dev:api` | API with embedded worker (port 3847) |
+| `pnpm dev:worker` | External worker for `EMBEDDED_WORKER=0` mode |
 | `pnpm dev:web` | Vite frontend only |
 | `pnpm --filter websiterecorder-api record <config.json>` | CLI record |
 | `pnpm typecheck` | Typecheck all packages |

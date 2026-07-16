@@ -9,6 +9,7 @@ import { inspectWebsite } from "../inspection/inspectWebsite.js";
 import { RecordingJobManager } from "../jobs/manager.js";
 import { assertSafeTargetUrl } from "../browser/networkPolicy.js";
 import { parseInspectRequest, parseRecordRequest, parseStyleRequest } from "../contracts.js";
+import { embeddedWorkerEnabled } from "../config/runtimeMode.js";
 import type { RecordRequest } from "../types.js";
 
 const PORT = Number(process.env.PORT ?? 3847);
@@ -18,8 +19,13 @@ const PUBLIC_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../public",
 );
-// HTTP only enqueues and observes jobs. Capture work runs in src/worker.ts.
-const jobs = new RecordingJobManager(OUTPUT_DIR, { processJobs: false });
+// Local startup is self-contained. Hosted deployments can set EMBEDDED_WORKER=0
+// and run src/worker.ts independently against the same durable job database.
+const hasEmbeddedWorker = embeddedWorkerEnabled();
+const jobs = new RecordingJobManager(OUTPUT_DIR, {
+  processJobs: hasEmbeddedWorker,
+  recoverRunning: hasEmbeddedWorker ? "requeue" : "interrupt",
+});
 await jobs.initialize();
 
 const server = http.createServer((req, res) => {
@@ -44,7 +50,10 @@ async function handleRequest(
   );
 
   if (req.method === "GET" && url.pathname === "/health") {
-    return sendJson(res, 200, { ok: true });
+    return sendJson(res, 200, {
+      ok: true,
+      workerMode: hasEmbeddedWorker ? "embedded" : "external",
+    });
   }
 
   if (req.method === "POST" && url.pathname === "/api/inspect") {
@@ -257,6 +266,11 @@ async function handleRequest(
 server.listen(PORT, HOST, () => {
   console.log(`websiterecorder listening on http://${HOST}:${PORT}`);
   console.log(`output directory: ${OUTPUT_DIR}`);
+  console.log(
+    hasEmbeddedWorker
+      ? "capture worker: embedded"
+      : "capture worker: external (start pnpm dev:worker)",
+  );
 });
 
 const shutdown = () => {
