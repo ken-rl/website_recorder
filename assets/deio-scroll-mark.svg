@@ -1,8 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
   <title>Deio Scroll</title>
-  <rect width="64" height="64" rx="18" fill="#151713"/>
-  <path d="M18 14.5h12.5C42.4 14.5 50 21.2 50 32s-7.6 17.5-19.5 17.5H18v-35Z" stroke="#F4F1E8" stroke-width="4" stroke-linejoin="round"/>
-  <path d="M28 21.5c8.5 3.5-6.2 8.2 2.2 13.1 5.8 3.4.2 7.9-2.2 9.2" stroke="#5AD8C5" stroke-width="3" stroke-linecap="round"/>
-  <circle cx="28" cy="21.5" r="4" fill="#6B8CFF"/>
-  <path d="m24.8 40.7 3.3 3.3 3.3-3.3" stroke="#6B8CFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <defs>
+    <linearGradient id="ribbon" x1="13" y1="12" x2="53" y2="53" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#82A0FF"/>
+      <stop offset="1" stop-color="#5AD8C5"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="#151713"/>
+  <!-- One sculpted loop. The counter's chevron is a carved scroll cue, not a second symbol. -->
+  <path d="M11 10h18.5C45.7 10 55 19 55 32s-9.3 22-25.5 22H11V40.5L19.3 32 11 23.5V10Zm18.5 9.5H21v8.8l5.1 3.7L21 35.7v8.8h8.5c10.1 0 15.8-4.5 15.8-12.5s-5.7-12.5-15.8-12.5Z" fill="url(#ribbon)"/>
 </svg>
