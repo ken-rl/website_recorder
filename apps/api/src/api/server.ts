@@ -99,20 +99,32 @@ async function handleRequest(
       const jobId = eventsRoute[1];
       const current = await jobs.get(jobId);
       res.writeHead(200, {
-        "content-type": "text/event-stream",
-        "cache-control": "no-cache",
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-cache, no-transform",
         connection: "keep-alive",
+        "x-accel-buffering": "no",
       });
+      res.flushHeaders();
+      res.write("retry: 1500\n\n");
       const write = (job: typeof current) => {
-        res.write(`event: job\ndata: ${JSON.stringify(job)}\n\n`);
+        if (!res.writableEnded && !res.destroyed) {
+          res.write(`event: job\ndata: ${JSON.stringify(job)}\n\n`);
+        }
       };
       write(current);
       const unsubscribe = jobs.subscribe(jobId, write);
-      const heartbeat = setInterval(() => res.write(": keepalive\n\n"), 15_000);
-      req.on("close", () => {
+      const heartbeat = setInterval(() => {
+        if (!res.writableEnded && !res.destroyed) res.write(": keepalive\n\n");
+      }, 10_000);
+      let cleanedUp = false;
+      const cleanup = () => {
+        if (cleanedUp) return;
+        cleanedUp = true;
         clearInterval(heartbeat);
         unsubscribe();
-      });
+      };
+      req.on("close", cleanup);
+      res.on("close", cleanup);
       return;
     } catch (error) {
       return sendJson(res, 404, { ok: false, error: errorMessage(error) });
@@ -285,7 +297,10 @@ process.once("SIGINT", shutdown);
 process.once("SIGTERM", shutdown);
 
 function sendJson(res: http.ServerResponse, status: number, payload: unknown) {
-  res.writeHead(status, { "content-type": "application/json" });
+  res.writeHead(status, {
+    "content-type": "application/json",
+    "cache-control": "no-store",
+  });
   res.end(JSON.stringify(payload, null, 2));
 }
 

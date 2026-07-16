@@ -34,6 +34,23 @@ const TIER_CONFIG = {
   cinematic: { label: "Cinematic", framerate: 60, qualityPreset: "high", deviceScaleFactor: 2, fastMode: false, captureMode: "export", preRecordingDelayMs: 3_000, pixelsPerFrame: 10 },
 } as const;
 
+function newestJobSnapshot(current: RecordingJob | null, incoming: RecordingJob) {
+  if (!current || current.jobId !== incoming.jobId) return incoming;
+
+  const currentUpdatedAt = Date.parse(current.updatedAt);
+  const incomingUpdatedAt = Date.parse(incoming.updatedAt);
+  if (Number.isFinite(currentUpdatedAt) && Number.isFinite(incomingUpdatedAt)) {
+    if (incomingUpdatedAt < currentUpdatedAt) return current;
+    if (incomingUpdatedAt > currentUpdatedAt) return incoming;
+  }
+
+  const currentIsActive = ["queued", "running"].includes(current.status);
+  const incomingIsActive = ["queued", "running"].includes(incoming.status);
+  if (currentIsActive && !incomingIsActive) return incoming;
+  if (!currentIsActive && incomingIsActive) return current;
+  return incoming.progress.percent >= current.progress.percent ? incoming : current;
+}
+
 export default function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname === "/library" ? "/library" : "/");
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -94,7 +111,7 @@ export default function App() {
   useEffect(() => {
     const jobId = localStorage.getItem("active-job-id");
     if (!jobId) return;
-    void fetch(`/api/jobs/${jobId}`)
+    void fetch(`/api/jobs/${jobId}`, { cache: "no-store" })
       .then((response) => readJsonResponse<{ ok?: boolean; job: RecordingJob }>(response, "Restore capture"))
       .then((data) => {
         if (!data.ok) return;
@@ -107,25 +124,66 @@ export default function App() {
   useEffect(() => {
     if (!activeJobId || !activeJobStatus || !["queued", "running"].includes(activeJobStatus)) return;
     localStorage.setItem("active-job-id", activeJobId);
+
+    let stopped = false;
+    let pollInFlight = false;
+    let pollTimer: number | undefined;
     const events = new EventSource(`/api/jobs/${activeJobId}/events`);
+
+    const stopUpdates = () => {
+      if (stopped) return;
+      stopped = true;
+      events.close();
+      if (pollTimer !== undefined) window.clearInterval(pollTimer);
+      window.removeEventListener("focus", poll);
+      window.removeEventListener("online", poll);
+      document.removeEventListener("visibilitychange", pollWhenVisible);
+    };
+
+    const applyJob = (job: RecordingJob) => {
+      if (stopped || job.jobId !== activeJobId) return;
+      setActiveJob((current) => newestJobSnapshot(current, job));
+      if (!["queued", "running"].includes(job.status)) {
+        localStorage.removeItem("active-job-id");
+        stopUpdates();
+      }
+    };
+
+    async function poll() {
+      if (stopped || pollInFlight) return;
+      pollInFlight = true;
+      try {
+        const response = await fetch(`/api/jobs/${activeJobId}`, { cache: "no-store" });
+        const data = await readJsonResponse<{ ok?: boolean; job: RecordingJob }>(response, "Refresh capture progress");
+        if (response.ok && data.ok) applyJob(data.job);
+      } catch {
+        // EventSource reconnects automatically; the next poll also retries.
+      } finally {
+        pollInFlight = false;
+      }
+    }
+
+    function pollWhenVisible() {
+      if (document.visibilityState === "visible") void poll();
+    }
+
     events.addEventListener("job", (event) => {
       const payload = (event as MessageEvent).data;
       if (!payload?.trim()) return;
-      let job: RecordingJob;
       try {
-        job = JSON.parse(payload) as RecordingJob;
+        applyJob(JSON.parse(payload) as RecordingJob);
       } catch {
-        setError("Live capture updates returned invalid data. Refresh to reconnect.");
-        events.close();
-        return;
-      }
-      setActiveJob(job);
-      if (!["queued", "running"].includes(job.status)) {
-        localStorage.removeItem("active-job-id");
-        events.close();
+        void poll();
       }
     });
-    return () => events.close();
+    events.addEventListener("error", () => void poll());
+    pollTimer = window.setInterval(() => void poll(), 2_000);
+    window.addEventListener("focus", poll);
+    window.addEventListener("online", poll);
+    document.addEventListener("visibilitychange", pollWhenVisible);
+    void poll();
+
+    return stopUpdates;
   }, [activeJobId, activeJobStatus]);
 
   useEffect(() => {
@@ -214,7 +272,7 @@ export default function App() {
       const data = await readJsonResponse<{ ok?: boolean; jobId: string; statusUrl: string; error?: string }>(response, "Queue capture");
       if (!response.ok || !data.ok) throw new Error(data.error || "Could not queue capture");
       localStorage.setItem("active-job-id", data.jobId);
-      const jobResponse = await fetch(data.statusUrl);
+      const jobResponse = await fetch(data.statusUrl, { cache: "no-store" });
       const jobData = await readJsonResponse<{ ok?: boolean; job: RecordingJob; error?: string }>(jobResponse, "Load queued capture");
       setActiveJob(jobData.job);
       setDuplicatedRequest(null);
