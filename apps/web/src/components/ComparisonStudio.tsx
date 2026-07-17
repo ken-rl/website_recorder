@@ -2,13 +2,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeftRight,
+  Clapperboard,
   Download,
-  FileVideo2,
-  Link2,
-  MonitorCheck,
   Play,
   RefreshCcw,
+  Sparkles,
   Square,
+  Zap,
 } from "lucide-react";
 import { readJsonResponse } from "../lib/http";
 import type { RecordingJob, RecordingRequest } from "../lib/productTypes";
@@ -242,7 +242,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
 
   return (
     <section className="comparison-page">
-      <div className="comparison-input-rail">
+      <div className="capture-command-bar comparison-input-rail">
         <ComparisonTarget side="A" accent="blue" label={primaryLabel} url={primaryUrl} onLabel={(value) => { beginEdit(); setPrimaryLabel(value); }} onUrl={(value) => { beginEdit(); setPrimaryUrl(value); }} disabled={isBusy} />
         <button type="button" className="comparison-swap" onClick={swap} disabled={isBusy} title="Swap sides" aria-label="Swap sides"><ArrowLeftRight size={16} /></button>
         <ComparisonTarget side="B" accent="cyan" label={secondaryLabel} url={secondaryUrl} onLabel={(value) => { beginEdit(); setSecondaryLabel(value); }} onUrl={(value) => { beginEdit(); setSecondaryUrl(value); }} disabled={isBusy} />
@@ -263,37 +263,43 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
 
       {error && <p className="workflow-error"><AlertTriangle size={15} /> {error}</p>}
 
-      <div className="comparison-controls" aria-label="Shared comparison settings">
-        <div className="comparison-control-group">
-          <span>Viewport</span>
-          <div className="comparison-device-grid">
-            {DEVICE_PRESETS.map(({ value, label, Icon }) => (
-              <button type="button" key={value} className={devicePreset === value ? "is-active" : ""} onClick={() => { beginEdit(); setDevicePreset(value); }} disabled={isBusy} title={value.replace("x", " × ")} aria-label={`${label} viewport, ${value.replace("x", " by ")}`}>
-                <Icon size={14} /><span>{label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="comparison-control-divider" />
-        <div className="comparison-control-group">
-          <span>Quality</span>
-          <div className="comparison-tier-list">
-            {(Object.keys(TIERS) as RenderTier[]).map((tier) => (
-              <button type="button" key={tier} className={renderTier === tier ? "is-active" : ""} onClick={() => { beginEdit(); setRenderTier(tier); }} disabled={isBusy} title={TIERS[tier].detail}>
-                {TIERS[tier].label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="comparison-control-divider" />
-        <label className="comparison-duration">
-          <span>Timeline <b>{durationSeconds}s</b></span>
-          <input type="range" min={8} max={45} value={durationSeconds} onChange={(event) => { beginEdit(); setDurationSeconds(Number(event.target.value)); }} disabled={isBusy} />
-        </label>
-        <p className="comparison-control-note">Shared settings · popups removed · ending held automatically</p>
-      </div>
+      <div className="studio-layout comparison-workspace">
+        <aside className="studio-controls comparison-settings" aria-label="Comparison settings">
+          <section className="control-deck">
+            <div className="control-deck-title"><span>Output quality</span><small>Applies to both pages</small></div>
+            <div className="quality-stack">
+              {(Object.keys(TIERS) as RenderTier[]).map((tier) => {
+                const Icon = tier === "draft" ? Zap : tier === "standard" ? Clapperboard : Sparkles;
+                return (
+                  <button type="button" key={tier} className={renderTier === tier ? "is-active" : ""} onClick={() => { beginEdit(); setRenderTier(tier); }} disabled={isBusy}>
+                    <Icon size={15} /><span><strong>{TIERS[tier].label}</strong><small>{TIERS[tier].detail}</small></span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
-      <div className="comparison-stage">
+          <section className="control-deck">
+            <div className="control-deck-title"><span>Viewport</span><small>Matched breakpoint</small></div>
+            <div className="recorder-device-row comparison-device-grid" role="radiogroup" aria-label="Shared viewport">
+              {DEVICE_PRESETS.map(({ value, label, Icon }) => (
+                <button type="button" role="radio" aria-checked={devicePreset === value} key={value} className={`recorder-device-btn${devicePreset === value ? " is-active" : ""}`} onClick={() => { beginEdit(); setDevicePreset(value); }} disabled={isBusy} title={value.replace("x", " × ")}>
+                  <Icon size={15} /><span>{label}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="control-deck comparison-timing">
+            <div className="control-deck-title"><span>Synchronized timeline</span><small>{durationSeconds}s</small></div>
+            <input type="range" min={8} max={45} value={durationSeconds} onChange={(event) => { beginEdit(); setDurationSeconds(Number(event.target.value)); }} disabled={isBusy} aria-label="Comparison duration" />
+            <div className="comparison-duration-scale"><span>8s</span><span>45s</span></div>
+            <p>Both pages use the same viewport and scroll duration. Popups are removed, the shorter ending is held, and the final MP4 is composed automatically.</p>
+          </section>
+        </aside>
+
+        <div className="studio-stage">
+          <div className="recording-stage comparison-stage">
           {result ? (
             <BrowserMockup
               url={`${primaryLabel} · ${secondaryLabel}`}
@@ -313,12 +319,16 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
               secondaryUrl={secondaryUrl}
               job={activeJob}
               elapsed={elapsed}
+              width={width}
+              height={height}
             />
           )}
           {isBusy && <button type="button" className="cancel-capture" onClick={() => void cancel()}><Square size={12} fill="currentColor" /> Cancel comparison</button>}
           {activeJob && ["failed", "cancelled", "interrupted"].includes(activeJob.status) && (
             <div className="failed-capture"><AlertTriangle size={18} /><div><strong>{activeJob.status}</strong><span>{activeJob.error?.message || activeJob.progress.message}</span></div><button type="button" onClick={() => void retry()}><RefreshCcw size={13} /> Retry</button></div>
           )}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -372,58 +382,43 @@ function ComparisonCanvas(props: {
   secondaryUrl: string;
   job: RecordingJob | null;
   elapsed: string;
+  width: number;
+  height: number;
 }) {
   const recording = props.job && ["queued", "running"].includes(props.job.status);
+  const isPortrait = props.width < props.height;
+  const previewStyle = {
+    "--comparison-ratio": String((props.width / props.height) * 2),
+  } as React.CSSProperties;
   return (
-    <div className={`comparison-canvas${recording ? " is-recording" : ""}`}>
-      <div className="comparison-canvas-topline">
-        <span>{recording ? props.job?.progress.message : "Synchronized output preview"}</span>
-        <small>{recording ? props.elapsed : "SIDE BY SIDE · 1 TIMELINE"}</small>
+    <div className={`comparison-canvas${recording ? " is-recording" : ""}${isPortrait ? " is-portrait" : " is-landscape"}`} style={previewStyle}>
+      <div className="comparison-preview-labels">
+        <span><i>A</i><b>{props.primaryLabel}</b></span>
+        <span><i>B</i><b>{props.secondaryLabel}</b></span>
       </div>
       <div className="comparison-panels">
-        <PreviewPanel side="A" label={props.primaryLabel} url={props.primaryUrl} />
-        <div className="comparison-axis"><span><ArrowLeftRight size={13} /></span></div>
-        <PreviewPanel side="B" label={props.secondaryLabel} url={props.secondaryUrl} />
+        <PreviewPanel url={props.primaryUrl} width={props.width} height={props.height} recording={Boolean(recording)} />
+        <PreviewPanel url={props.secondaryUrl} width={props.width} height={props.height} recording={Boolean(recording)} />
       </div>
       {recording && (
-        <div className="comparison-progress">
-          <i style={{ width: `${props.job?.progress.percent ?? 0}%` }} />
-          <span>{props.job?.progress.percent ?? 0}%</span>
-        </div>
-      )}
-      {!recording && (
-        <div className="comparison-automation">
-          <span><MonitorCheck size={13} /><b>Matched viewport</b></span>
-          <span><Link2 size={13} /><b>Synchronized scroll</b></span>
-          <span><FileVideo2 size={13} /><b>One composed MP4</b></span>
+        <div className="comparison-capture-state" role="status" aria-live="polite">
+          <span>{props.job?.progress.message}</span>
+          <div><i style={{ width: `${props.job?.progress.percent ?? 0}%` }} /></div>
+          <small>{props.elapsed} · {props.job?.progress.percent ?? 0}%</small>
         </div>
       )}
     </div>
   );
 }
 
-function PreviewPanel({ side, label, url }: { side: string; label: string; url: string }) {
-  const host = safeHost(url);
+function PreviewPanel({ url, width, height, recording }: { url: string; width: number; height: number; recording: boolean }) {
   return (
-    <div className="comparison-panel">
-      <div className="comparison-browser-bar"><span>{side}</span><div><i /><i /><i /></div><small>{host}</small></div>
-      <div className="comparison-ghost-page">
-        <span className="ghost-kicker" />
-        <strong>{label}</strong>
-        <span className="ghost-copy" />
-        <span className="ghost-copy is-short" />
-        <span className="ghost-button" />
-        <div><i /><i /><i /></div>
+    <div className="comparison-panel" style={{ aspectRatio: `${width} / ${height}` }}>
+      <div className={`browser-placeholder ${recording ? "browser-placeholder-recording" : "browser-placeholder-idle"}`}>
+        <span className="idle-viewport-badge">{width} × {height}</span>
+        <div className="placeholder-title">{recording ? "Capturing" : "Ready to compare"}</div>
+        <p className="idle-preview-url">{url || "Paste a URL above"}</p>
       </div>
     </div>
   );
-}
-
-function safeHost(url: string) {
-  if (!url) return "Paste a URL above";
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
 }
