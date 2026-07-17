@@ -50,6 +50,25 @@ test("maps section-level direction into the recorder request", () => {
   assert.equal(request.animationConfig?.captureMode, "export");
 });
 
+test("maps an inspected component interaction into the recorder request", () => {
+  const request = buildRecordRequest({
+    targetUrl: "https://example.com",
+    direction: {
+      beats: [{
+        target: { type: "selector", selector: "#feature-tab", align: "center" },
+        transitionMs: 1800,
+        holdMs: 1400,
+        interaction: { action: "hover", zoomScale: 1.24, showCursor: true },
+      }],
+    },
+  });
+  assert.deepEqual(request.animationConfig?.direction?.beats[0].interaction, {
+    action: "hover",
+    zoomScale: 1.24,
+    showCursor: true,
+  });
+});
+
 test("defaults directed recordings to a 1500ms hero hold", () => {
   const request = buildRecordRequest({
     targetUrl: "https://example.com",

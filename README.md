@@ -24,6 +24,7 @@ Product identity, palette, and logo usage are documented in [BRAND.md](BRAND.md)
 - **Document + virtual capture** — normal pages and fixed-viewport / WebGL scroll sites
 - **Motion control** — curve presets + visual bezier handles, speed slider, hero hold
 - **Pause triggers** — hold when a CSS selector first enters the viewport (document scroll)
+- **Interactive moments** — inspected hover/focus/click states with smooth cursor motion, guarded navigation, pauses, and component zooms
 - **Quality tiers** — Draft, Standard, and Cinematic for iteration through final export
 - **Canvas framing** — backgrounds, drop shadow, rounded corners; re-style without re-recording
 - **Overlay cleanup** — strips cookie banners, modals, and popups by default

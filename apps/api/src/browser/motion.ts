@@ -12,6 +12,7 @@ export interface MotionSample {
   position: number;
   phase: "transition" | "hold";
   beatIndex: number;
+  phaseProgress?: number;
 }
 
 export function buildMotionTimeline(options: {
@@ -26,7 +27,7 @@ export function buildMotionTimeline(options: {
 
   const startHoldFrames = framesForDuration(options.startHoldMs ?? 0, fps);
   for (let frame = 0; frame < startHoldFrames; frame += 1) {
-    samples.push({ position, phase: "hold", beatIndex: -1 });
+    samples.push({ position, phase: "hold", beatIndex: -1, phaseProgress: startHoldFrames <= 1 ? 1 : frame / (startHoldFrames - 1) });
   }
 
   options.beats.forEach((beat, beatIndex) => {
@@ -39,18 +40,24 @@ export function buildMotionTimeline(options: {
         position: start + (beat.position - start) * eased,
         phase: "transition",
         beatIndex,
+        phaseProgress: progress,
       });
     }
     position = beat.position;
 
     const holdFrames = framesForDuration(beat.holdMs, fps);
     for (let frame = 0; frame < holdFrames; frame += 1) {
-      samples.push({ position, phase: "hold", beatIndex });
+      samples.push({
+        position,
+        phase: "hold",
+        beatIndex,
+        phaseProgress: holdFrames <= 1 ? 1 : frame / (holdFrames - 1),
+      });
     }
   });
 
   if (samples.length === 0) {
-    samples.push({ position, phase: "hold", beatIndex: -1 });
+    samples.push({ position, phase: "hold", beatIndex: -1, phaseProgress: 1 });
   }
   return samples;
 }

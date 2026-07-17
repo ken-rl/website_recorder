@@ -2,6 +2,7 @@ import { chromium, type Page } from "playwright";
 import type {
   StoryboardFrame,
   WebsiteInspection,
+  WebsiteInteractionCandidate,
   WebsiteSection,
 } from "../types.js";
 import { gotoReachablePage } from "../browser/goto.js";
@@ -44,6 +45,9 @@ export async function inspectWebsite(options: {
       viewport.height,
       Math.max(0, pageHeight - viewport.height),
     );
+    const interactions = scrollMode === "document"
+      ? await collectInteractionCandidates(page)
+      : [];
     const { screenshots, storyboard } =
       scrollMode === "virtual"
         ? await takeVirtualStoryboardScreenshots(page, viewport)
@@ -74,6 +78,7 @@ export async function inspectWebsite(options: {
       scrollMode,
       safeViewport,
       sections,
+      interactions,
       storyboard,
       screenshots,
       warnings,
@@ -81,6 +86,64 @@ export async function inspectWebsite(options: {
   } finally {
     await browser.close();
   }
+}
+
+async function collectInteractionCandidates(
+  page: Page,
+): Promise<WebsiteInteractionCandidate[]> {
+  return page.evaluate(`(() => {
+    const blocked = /\\b(delete|remove|unsubscribe|sign out|log out|purchase|buy|pay|checkout|submit|send|publish|confirm|destroy|upload|download)\\b/i;
+    const pathFor = (element) => {
+      if (element.id) return "#" + CSS.escape(element.id);
+      for (const name of ["data-testid", "data-test", "data-qa"]) {
+        const value = element.getAttribute(name);
+        if (value) return "[" + name + "=\\"" + CSS.escape(value) + "\\"]";
+      }
+      const segments = [];
+      let current = element;
+      while (current && current !== document.body && segments.length < 5) {
+        const parent = current.parentElement;
+        const tag = current.tagName.toLowerCase();
+        const siblings = parent ? Array.from(parent.children).filter((child) => child.tagName === current.tagName) : [];
+        const suffix = siblings.length > 1 ? ":nth-of-type(" + (siblings.indexOf(current) + 1) + ")" : "";
+        segments.unshift(tag + suffix);
+        current = parent;
+      }
+      return "body > " + segments.join(" > ");
+    };
+    return Array.from(document.querySelectorAll("button,a[href],[role='button'],[role='tab'],[role='switch'],[role='menuitem'],[aria-expanded],summary,input:not([type='hidden'])"))
+      .flatMap((element, index) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        const label = (element.getAttribute("aria-label") || element.getAttribute("title") || element.textContent || element.value || "").replace(/\\s+/g, " ").trim().slice(0, 120);
+        if (!label || blocked.test(label) || rect.width < 28 || rect.height < 20 || style.display === "none" || style.visibility === "hidden" || Number(style.opacity) < 0.05 || element.hasAttribute("disabled") || element.getAttribute("aria-disabled") === "true") return [];
+        const tag = element.tagName.toLowerCase();
+        const role = element.getAttribute("role") || (tag === "a" ? "link" : tag);
+        const type = (element.getAttribute("type") || "").toLowerCase();
+        const semanticClick = ["tab", "switch", "menuitem", "option"].includes(role) || element.hasAttribute("aria-expanded") || tag === "summary" || (tag === "button" && type === "button") || (tag === "button" && !element.closest("form") && !type);
+        const focusable = element.tabIndex >= 0 || ["button", "a", "input", "summary"].includes(tag);
+        const actions = ["hover", ...(focusable ? ["focus"] : []), ...(semanticClick && tag !== "a" ? ["click"] : [])];
+        const selector = pathFor(element);
+        return [{
+          id: "interaction_" + String(index + 1).padStart(2, "0"),
+          selector,
+          label,
+          tag,
+          role,
+          actions,
+          rect: {
+            x: Math.round(rect.left + window.scrollX),
+            y: Math.round(rect.top + window.scrollY),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+          },
+          recommendedTarget: { type: "selector", selector, align: "center" },
+          recommendedHoldMs: semanticClick ? 1600 : 1300,
+          recommendedZoomScale: rect.width > innerWidth * 0.4 ? 1.12 : 1.28,
+        }];
+      })
+      .slice(0, 30);
+  })()`) as Promise<WebsiteInteractionCandidate[]>;
 }
 
 export function normalizeInspectionSections(

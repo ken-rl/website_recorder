@@ -19,6 +19,11 @@ const motionTargetSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("progress"), value: z.number().min(0).max(1) }),
   z.object({ type: z.literal("page-end") }),
 ]);
+const interactionSchema = z.object({
+  action: z.enum(["hover", "focus", "click"]),
+  zoomScale: z.number().min(1).max(1.8).optional(),
+  showCursor: z.boolean().optional(),
+});
 const directionSchema = z.object({
   startHoldMs: z.number().int().min(0).max(15_000).optional(),
   beats: z.array(z.object({
@@ -26,6 +31,7 @@ const directionSchema = z.object({
     transitionMs: z.number().int().min(250).max(60_000),
     curve: scrollCurveSchema.optional(),
     holdMs: z.number().int().min(0).max(15_000).optional(),
+    interaction: interactionSchema.optional(),
   })).min(1).max(12),
 });
 
@@ -33,7 +39,7 @@ const server = new McpServer(
   { name: "deio-scroll", version: "0.4.0" },
   {
     instructions:
-      "Inspect before directing. Directed recordings hold the hero for 1500ms by default; only override startHoldMs when the user requests a different opening. On document pages, copy each section's recommendedTarget for every held beat so headings are safely framed; progress targets are only for non-held fly-through waypoints. Use recommendedTransitionMs as a floor, hold only sections the user emphasizes, and default to at most two section holds unless the user explicitly requests more. Use ease-in-out curves around holds, vary timing by distance, and do not add page-end when the prior target is already near the bottom. On virtual pages, use storyboard progress targets. Start with draft quality unless the user requests a final render. Report any motionPlan.adjustments and unverified beat framing returned by Deio Scroll.",
+      "This MCP creates direct website recordings, not launch films. Inspect before directing. Keep smooth scrolling as the base motion. For interactive moments, use only selectors and allowed actions returned in inspection.interactions, give the beat at least the recommended hold, and let the recorder animate the pause, camera zoom, visible cursor, component state, and return to scrolling. Never invent interaction selectors. Directed recordings hold the hero for 1500ms by default. On document pages, use recommended selector targets for held beats and progress targets only for fly-through waypoints. Use recommendedTransitionMs as a floor and ease-in-out curves around holds. On virtual pages, use storyboard progress targets and omit component interactions. Start with draft quality unless the user requests a final render. Report motionPlan adjustments.",
   },
 );
 
@@ -49,7 +55,7 @@ server.registerTool(
   "inspect_website",
   {
     title: "Inspect website for recording direction",
-    description: "Returns scroll mode, safe viewport insets, a targeted storyboard, and semantic sections with safe recommendedTarget selectors, composition position, distance, and recommended transition timing.",
+    description: "Returns scroll mode, storyboard, semantic section targets, and guarded interaction candidates that can be used for cursor, hover, focus, click, pause, and zoom moments.",
     inputSchema: { targetUrl: z.string().url(), viewport: viewportSchema.optional() },
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
@@ -72,7 +78,7 @@ server.registerTool(
   "create_recording",
   {
     title: "Create AI-directed website recording",
-    description: "Captures a local MP4 and auto-corrects weak direction for composition, hold-boundary easing, maximum velocity, and redundant nearby beats. Prefer inspected selector beats on document pages.",
+    description: "Captures a direct local MP4 with smooth scrolling and optional inspected component interactions, including pauses, camera zooms, a visible smooth cursor, hover/focus/click states, and guarded navigation.",
     inputSchema: {
       targetUrl: z.string().url(),
       quality: z.enum(["draft", "standard", "cinematic"]).optional(),

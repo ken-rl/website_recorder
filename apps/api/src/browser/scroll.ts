@@ -27,6 +27,7 @@ import {
   resolvePauseFraming,
 } from "./composition.js";
 import { normalizeResolvedBeats } from "./directionGuardrails.js";
+import { ComponentInteractionAnimator } from "./componentInteraction.js";
 
 const DEFAULT_BEAT_CURVE: ScrollCurve = { preset: "ease-in-out-cubic" };
 
@@ -102,6 +103,7 @@ async function runDirectedDocumentScroll(
   });
   const frames: Array<{ file: string; y: number }> = [];
   let lastY = -1;
+  const interactionAnimator = new ComponentInteractionAnimator(page);
 
   for (const [index, sample] of samples.entries()) {
     options.signal?.throwIfAborted();
@@ -109,6 +111,21 @@ async function runDirectedDocumentScroll(
     if (y !== lastY) {
       await settleScrollPaint(page, y);
       lastY = y;
+    }
+    const activeBeat = sample.beatIndex >= 0 ? resolved.beats[sample.beatIndex] : undefined;
+    if (
+      sample.phase === "hold"
+      && activeBeat?.interaction
+      && activeBeat.target.type === "selector"
+    ) {
+      await interactionAnimator.render({
+        beatIndex: sample.beatIndex,
+        selector: activeBeat.target.selector,
+        interaction: activeBeat.interaction,
+        progress: sample.phaseProgress ?? 0,
+      });
+    } else {
+      await interactionAnimator.reset();
     }
     if (options.frameRecorder) {
       const frameNumber = options.frameRecorder.getFrameCount();
@@ -124,6 +141,7 @@ async function runDirectedDocumentScroll(
   }
 
   const durationMs = Math.round((samples.length / fps) * 1000);
+  await interactionAnimator.reset();
   return {
     scrollStrategy: "document",
     maxScroll,
@@ -241,6 +259,7 @@ async function resolveDirectedDocumentBeats(
       transitionMs: beat.transitionMs,
       holdMs: beat.holdMs ?? 0,
       curve,
+      interaction: beat.interaction,
     });
   }
   await applyHeldBeatFraming(
@@ -339,6 +358,9 @@ function resolveDirectedVirtualBeats(
   const resolved: ResolvedMotionBeat[] = [];
   for (const beat of beats) {
     validateBeat(beat);
+    if (beat.interaction) {
+      throw new Error("Component interactions are only supported on document-scroll pages");
+    }
     if (beat.target.type === "selector") {
       if (beat.target.fallbackProgress === undefined) {
         throw new Error(
@@ -459,6 +481,18 @@ function validateBeat(beat: MotionBeat) {
   const holdMs = beat.holdMs ?? 0;
   if (!Number.isFinite(holdMs) || holdMs < 0 || holdMs > 15_000) {
     throw new Error("Each direction holdMs must be between 0 and 15000");
+  }
+  if (beat.interaction) {
+    if (beat.target.type !== "selector") {
+      throw new Error("Component interactions require a selector target from inspect_website");
+    }
+    if (holdMs < 900) {
+      throw new Error("Interactive beats require holdMs of at least 900ms");
+    }
+    const zoomScale = beat.interaction.zoomScale ?? 1.25;
+    if (!Number.isFinite(zoomScale) || zoomScale < 1 || zoomScale > 1.8) {
+      throw new Error("Interaction zoomScale must be between 1 and 1.8");
+    }
   }
   if (
     beat.target.type === "selector"

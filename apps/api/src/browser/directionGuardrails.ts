@@ -36,6 +36,7 @@ export function normalizeResolvedBeats(options: {
         previous.position = beat.position;
         previous.framing = beat.framing;
       }
+      if (!previous.interaction && beat.interaction) previous.interaction = beat.interaction;
       previous.holdMs = Math.max(previous.holdMs, beat.holdMs);
       adjustments.push({
         beatIndex: sourceIndex,

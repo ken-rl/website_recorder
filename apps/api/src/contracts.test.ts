@@ -12,6 +12,24 @@ test("accepts a bounded recording request", () => {
   assert.equal(request.videoConfig.viewport.width, 1280);
 });
 
+test("accepts bounded component interaction direction", () => {
+  const request = parseRecordRequest({
+    targetUrl: "https://example.com",
+    videoConfig: { framerate: 30, viewport: { width: 1280, height: 720 } },
+    animationConfig: {
+      direction: {
+        beats: [{
+          target: { type: "selector", selector: "#demo-tab", align: "center" },
+          transitionMs: 1500,
+          holdMs: 1400,
+          interaction: { action: "click", zoomScale: 1.3, showCursor: true },
+        }],
+      },
+    },
+  });
+  assert.equal(request.animationConfig?.direction?.beats[0].interaction?.action, "click");
+});
+
 test("rejects oversized viewports and timelines", () => {
   assert.throws(() => parseRecordRequest({
     targetUrl: "https://example.com",

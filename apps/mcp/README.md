@@ -16,7 +16,8 @@ Restart Codex after adding the server. The server uses `OUTPUT_DIR` (or
 
 Always ask the AI to inspect before recording. Inspection reports whether the
 page uses document or virtual scrolling, pairs each storyboard image with a
-usable target, and returns semantic selectors for normal pages.
+usable target, and returns semantic selectors plus guarded interaction
+candidates for normal pages.
 
 Example prompt:
 
@@ -24,6 +25,20 @@ Example prompt:
 > eases into the first major section over 2.5 seconds, holds it for 1 second,
 > then moves through the remaining sections deliberately and finishes at the
 > bottom. Show me the applied motion plan and local MP4 path.
+
+Interactive prompt:
+
+> Inspect https://linear.app and create a 20-second draft with one continuous
+> smooth scroll. Use two safe interaction candidates returned by inspection.
+> Ease into each target, pause, zoom in gently, move the visible cursor to it,
+> show its hover or local control state, then zoom out and continue scrolling.
+
+Interactive beats use the candidate's `recommendedTarget`, at least its
+`recommendedHoldMs`, and an `interaction` object with `action`, optional
+`zoomScale`, and `showCursor`. Only use actions returned for that exact
+candidate. Links, forms, destructive labels, popup navigation, downloads, and
+top-level navigation are not eligible for click interactions. Component
+interactions are intentionally unavailable for virtual-scroll pages.
 
 For document pages, use selector targets for held sections and reserve normalized
 progress for non-held fly-through waypoints. Inspection includes safe viewport

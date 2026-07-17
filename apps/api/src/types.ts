@@ -26,6 +26,17 @@ export interface MotionBeat {
   transitionMs: number;
   curve?: ScrollCurve;
   holdMs?: number;
+  interaction?: ComponentInteraction;
+}
+
+export type ComponentInteractionAction = "hover" | "focus" | "click";
+
+export interface ComponentInteraction {
+  action: ComponentInteractionAction;
+  /** Maximum camera scale while the component is active. */
+  zoomScale?: number;
+  /** Show and animate a rendered cursor toward the component. */
+  showCursor?: boolean;
 }
 
 export interface MotionDirection {
@@ -141,6 +152,7 @@ export interface ResolvedMotionBeat {
   transitionMs: number;
   holdMs: number;
   curve: ScrollCurve;
+  interaction?: ComponentInteraction;
   framing?: ResolvedBeatFraming;
 }
 
@@ -207,9 +219,23 @@ export interface WebsiteInspection {
   scrollMode: ResolvedScrollStrategy;
   safeViewport: { topInsetPx: number; bottomInsetPx: number };
   sections: WebsiteSection[];
+  interactions: WebsiteInteractionCandidate[];
   storyboard: StoryboardFrame[];
   screenshots: string[];
   warnings: string[];
+}
+
+export interface WebsiteInteractionCandidate {
+  id: string;
+  selector: string;
+  label: string;
+  tag: string;
+  role: string;
+  actions: ComponentInteractionAction[];
+  rect: { x: number; y: number; width: number; height: number };
+  recommendedTarget: Extract<MotionTarget, { type: "selector" }>;
+  recommendedHoldMs: number;
+  recommendedZoomScale: number;
 }
 
 export type RecordingJobStatus =

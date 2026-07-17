@@ -36,6 +36,12 @@ const motionTargetSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("page-end") }),
 ]);
 
+const interactionSchema = z.object({
+  action: z.enum(["hover", "focus", "click"]),
+  zoomScale: z.number().min(1).max(1.8).optional(),
+  showCursor: z.boolean().optional(),
+});
+
 const animationSchema = z.object({
   pixelsPerFrame: z.number().min(0.25).max(200).optional(),
   preRecordingDelayMs: z.number().int().min(0).max(30_000).optional(),
@@ -59,6 +65,7 @@ const animationSchema = z.object({
       transitionMs: z.number().int().min(250).max(60_000),
       curve: scrollCurveSchema.optional(),
       holdMs: z.number().int().min(0).max(15_000).optional(),
+      interaction: interactionSchema.optional(),
     })).min(1).max(12),
   }).optional(),
 }).optional();

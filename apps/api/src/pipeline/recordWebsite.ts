@@ -24,6 +24,7 @@ import { resolveRecordingProfile } from "../config/recordingProfile.js";
 import { removeFileIfExists, transcodeToMp4 } from "../transcode/ffmpeg.js";
 import { FrameRecorder } from "../capture/frameRecorder.js";
 import { createMediaClockSync, installMediaClock } from "../browser/mediaClock.js";
+import { installInteractionNavigationGuards } from "../browser/componentInteraction.js";
 import { stitchFramesToVideo } from "../capture/stitchFrames.js";
 import { renderRecordingStyle, SOURCE_FILENAME } from "./styleRecording.js";
 import type {
@@ -423,6 +424,9 @@ async function runRecordSession(options: {
       await dismissCookieBanners(page);
       await sanitizeDom(page, removeOverlays);
       await primeLazyAssets(page);
+      if (animation.direction?.beats.some((beat) => beat.interaction)) {
+        await installInteractionNavigationGuards(page);
+      }
 
       frameRecorder.setBeforeCapture(await createMediaClockSync(page, captureFps));
 
