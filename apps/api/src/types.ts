@@ -97,6 +97,15 @@ export interface RecordRequest {
   addShadow?: boolean;
   /** Round the contained recording's corners. */
   roundedCorners?: boolean;
+  /** Capture a second page with the same motion settings and export a paired video. */
+  comparison?: ComparisonConfig;
+}
+
+export interface ComparisonConfig {
+  targetUrl: string;
+  primaryLabel: string;
+  secondaryLabel: string;
+  layout?: "side-by-side";
 }
 
 export interface StyleRequest {
@@ -240,6 +249,13 @@ export interface RecordingJobResult {
   scrollStrategy: ResolvedScrollStrategy;
   motionPlan?: ResolvedMotionPlan;
   canRestyle: boolean;
+  comparison?: {
+    primaryUrl: string;
+    secondaryUrl: string;
+    primaryLabel: string;
+    secondaryLabel: string;
+    layout: "side-by-side";
+  };
 }
 
 export interface RecordingJobManifest {

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Copy, Download, Film, Play, RefreshCcw, Trash2 } from "lucide-react";
+import { Columns2, Copy, Download, Film, Play, RefreshCcw, Trash2 } from "lucide-react";
 import type { RecordingJob } from "../lib/productTypes";
 import { readJsonResponse } from "../lib/http";
 
@@ -73,9 +73,10 @@ export default function RecordingLibrary({ onOpen, onDuplicate }: RecordingLibra
           {jobs.map((job) => (
             <article className={`recording-card is-${job.status}`} key={job.jobId}>
               <button type="button" className="recording-poster" onClick={() => job.result && onOpen(job)} disabled={!job.result}>
-                {job.result?.thumbnailUrl ? <img src={job.result.thumbnailUrl} alt="" /> : <div className="poster-fallback"><Film size={24} /><span>{job.progress.percent}%</span></div>}
+                {job.result?.thumbnailUrl ? <img src={job.result.thumbnailUrl} alt="" /> : <div className="poster-fallback">{job.request?.comparison ? <Columns2 size={24} /> : <Film size={24} />}<span>{job.progress.percent}%</span></div>}
                 {job.status === "completed" && <span className="poster-play"><Play size={15} fill="currentColor" /></span>}
                 <span className={`job-status status-${job.status}`}>{job.status}</span>
+                {job.request?.comparison && <span className="comparison-card-badge"><Columns2 size={11} /> Compare</span>}
               </button>
               <div className="recording-card-body">
                 <div className="recording-title"><strong>{job.title || displayHost(job.targetUrl, job.jobId)}</strong><small>{new Date(job.createdAt).toLocaleString()}</small></div>
@@ -83,7 +84,7 @@ export default function RecordingLibrary({ onOpen, onDuplicate }: RecordingLibra
                 {job.result && <div className="recording-facts"><span>{formatDuration(job.result.durationMs)}</span><span>{job.result.viewport.width}×{job.result.viewport.height}</span><span>{formatBytes(job.result.sizeBytes)}</span></div>}
                 <div className="recording-actions">
                   {job.result && <button type="button" onClick={() => onOpen(job)}><Play size={14} /> Open</button>}
-                  {job.result && <a href={job.result.videoUrl} download="recording.mp4"><Download size={14} /> MP4</a>}
+                  {job.result && <a href={job.result.videoUrl} download={job.request?.comparison ? "comparison.mp4" : "recording.mp4"}><Download size={14} /> MP4</a>}
                   {job.request && <button type="button" onClick={() => onDuplicate(job)}><Copy size={14} /> Duplicate</button>}
                   {["failed", "cancelled", "interrupted"].includes(job.status) && job.request && <button type="button" onClick={() => void retry(job)}><RefreshCcw size={14} /> Retry</button>}
                   <button type="button" className="danger-action" onClick={() => void remove(job)} disabled={job.status === "queued" || job.status === "running"}><Trash2 size={14} /><span className="sr-only">Delete</span></button>

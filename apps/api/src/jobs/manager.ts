@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { LocalArtifactStore, type ArtifactStore } from "../artifacts/store.js";
-import { recordWebsite } from "../pipeline/recordWebsite.js";
+import { processRecordingRequest } from "../pipeline/processRecordingRequest.js";
 import type {
   RecordRequest,
   RecordingJobManifest,
@@ -9,7 +9,7 @@ import type {
 import { JobStore, progress, WorkerLeaseLostError } from "./store.js";
 import { createVideoThumbnail } from "./thumbnail.js";
 
-type RecordProcessor = typeof recordWebsite;
+type RecordProcessor = typeof processRecordingRequest;
 
 export interface RecordingJobManagerOptions {
   /** The HTTP process sets this false; CLI and MCP keep an embedded worker. */
@@ -54,7 +54,7 @@ export class RecordingJobManager {
     this.pollIntervalMs = options.pollIntervalMs ?? 750;
     this.leaseMs = options.leaseMs ?? 15_000;
     this.recoverRunning = options.recoverRunning ?? "interrupt";
-    this.processor = options.processor ?? recordWebsite;
+    this.processor = options.processor ?? processRecordingRequest;
     this.sourceRetentionDays = options.sourceRetentionDays ?? envDays("SOURCE_RETENTION_DAYS");
     this.outputRetentionDays = options.outputRetentionDays ?? envDays("OUTPUT_RETENTION_DAYS");
     this.maxJobRuntimeMs = options.maxJobRuntimeMs ?? envPositiveNumber("MAX_JOB_RUNTIME_MS", 900_000);
@@ -246,10 +246,13 @@ export class RecordingJobManager {
     this.controllers.set(job.jobId, controller);
     let timedOut = false;
     let leaseLost = false;
+    const runtimeLimitMs = job.request.comparison
+      ? this.maxJobRuntimeMs * 2
+      : this.maxJobRuntimeMs;
     const runtimeTimeout = setTimeout(() => {
       timedOut = true;
-      controller.abort(new Error(`Capture exceeded ${this.maxJobRuntimeMs}ms runtime limit`));
-    }, this.maxJobRuntimeMs);
+      controller.abort(new Error(`Capture exceeded ${runtimeLimitMs}ms runtime limit`));
+    }, runtimeLimitMs);
     let lastWriteAt = 0;
     let lastPercent = -1;
     const heartbeat = setInterval(() => {
@@ -328,6 +331,13 @@ export class RecordingJobManager {
           scrollStrategy: result.scrollStrategy,
           motionPlan: result.motionPlan,
           canRestyle: Boolean(source),
+          comparison: job.request.comparison ? {
+            primaryUrl: job.request.targetUrl,
+            secondaryUrl: job.request.comparison.targetUrl,
+            primaryLabel: job.request.comparison.primaryLabel,
+            secondaryLabel: job.request.comparison.secondaryLabel,
+            layout: job.request.comparison.layout ?? "side-by-side",
+          } : undefined,
         },
       });
     } catch (error) {

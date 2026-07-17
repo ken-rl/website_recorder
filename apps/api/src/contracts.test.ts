@@ -30,3 +30,42 @@ test("rejects oversized viewports and timelines", () => {
     },
   }), /timeline/);
 });
+
+test("accepts a labeled side-by-side comparison", () => {
+  const request = parseRecordRequest({
+    targetUrl: "https://alpha.example.com",
+    videoConfig: { framerate: 30, viewport: { width: 1920, height: 1080 } },
+    animationConfig: { durationMs: 18_000, scrollMode: "auto" },
+    comparison: {
+      targetUrl: "https://beta.example.com",
+      primaryLabel: "Model Alpha",
+      secondaryLabel: "Model Beta",
+      layout: "side-by-side",
+    },
+  });
+
+  assert.equal(request.comparison?.targetUrl, "https://beta.example.com");
+  assert.equal(request.comparison?.secondaryLabel, "Model Beta");
+});
+
+test("rejects unsafe comparison contracts before they reach the worker", () => {
+  assert.throws(() => parseRecordRequest({
+    targetUrl: "https://alpha.example.com",
+    videoConfig: { viewport: { width: 1920, height: 1080 } },
+    comparison: {
+      targetUrl: "file:///tmp/page.html",
+      primaryLabel: "Alpha",
+      secondaryLabel: "Beta",
+    },
+  }), /HTTP/);
+
+  assert.throws(() => parseRecordRequest({
+    targetUrl: "https://alpha.example.com",
+    videoConfig: { viewport: { width: 1920, height: 1080 } },
+    comparison: {
+      targetUrl: "https://beta.example.com",
+      primaryLabel: "",
+      secondaryLabel: "Beta",
+    },
+  }));
+});

@@ -34,6 +34,27 @@ test("writes and patches an atomic job manifest", async () => {
   }
 });
 
+test("gives comparison jobs a useful library title", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "deio-comparison-store-"));
+  try {
+    const store = new JobStore(root);
+    await store.initialize();
+    const created = await store.create({
+      ...request,
+      comparison: {
+        targetUrl: "https://other.example.com",
+        primaryLabel: "Claude",
+        secondaryLabel: "GPT",
+        layout: "side-by-side",
+      },
+    });
+    assert.equal(created.title, "Claude vs GPT");
+    assert.equal(created.request?.comparison?.secondaryLabel, "GPT");
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
 test("marks an in-flight job interrupted on manager startup", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "scrollizard-recovery-"));
   try {

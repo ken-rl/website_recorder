@@ -88,6 +88,9 @@ export class JobStore {
       attempt: options?.attempt ?? 1,
       parentJobId: options?.parentJobId,
     };
+    if (request.comparison) {
+      manifest.title = `${request.comparison.primaryLabel} vs ${request.comparison.secondaryLabel}`;
+    }
     await fs.mkdir(this.jobDir(jobId), { recursive: true });
     return this.write(manifest);
   }

@@ -13,6 +13,7 @@ import {
 import AppSidebar from "./components/AppSidebar";
 import BackgroundCanvasForm, { type BackgroundPreset } from "./components/BackgroundCanvasForm";
 import BrowserMockup from "./components/BrowserMockup";
+import ComparisonStudio from "./components/ComparisonStudio";
 import RecordingLibrary from "./components/RecordingLibrary";
 import PauseTriggersForm, { toPauseTriggersPayload, type PauseTriggerDraft } from "./components/PauseTriggersForm";
 import ScrollPhysicsForm from "./components/ScrollPhysicsForm";
@@ -52,7 +53,7 @@ function newestJobSnapshot(current: RecordingJob | null, incoming: RecordingJob)
 }
 
 export default function App() {
-  const [currentPath, setCurrentPath] = useState(window.location.pathname === "/library" ? "/library" : "/");
+  const [currentPath, setCurrentPath] = useState(resolveAppPath);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     const saved = localStorage.getItem("theme");
     return saved === "light" || saved === "dark" ? saved : "dark";
@@ -83,6 +84,8 @@ export default function App() {
   const [roundedCorners, setRoundedCorners] = useState(true);
   const [isApplyingStyle, setIsApplyingStyle] = useState(false);
   const [duplicatedRequest, setDuplicatedRequest] = useState<RecordingRequest | null>(null);
+  const [comparisonJob, setComparisonJob] = useState<RecordingJob | null>(null);
+  const [comparisonBusy, setComparisonBusy] = useState(false);
   const activeJobId = activeJob?.jobId;
   const activeJobStatus = activeJob?.status;
   const activeJobCreatedAt = activeJob?.createdAt;
@@ -103,7 +106,7 @@ export default function App() {
   }, [navCollapsed]);
 
   useEffect(() => {
-    const pop = () => setCurrentPath(window.location.pathname === "/library" ? "/library" : "/");
+    const pop = () => setCurrentPath(resolveAppPath());
     window.addEventListener("popstate", pop);
     return () => window.removeEventListener("popstate", pop);
   }, []);
@@ -336,6 +339,11 @@ export default function App() {
   };
 
   const openJob = (job: RecordingJob) => {
+    if (job.request?.comparison) {
+      setComparisonJob(job);
+      navigate("/compare");
+      return;
+    }
     setActiveJob(job);
     setInspection(null);
     setBeats([]);
@@ -352,6 +360,17 @@ export default function App() {
 
   const duplicateJob = (job: RecordingJob) => {
     if (!job.request) return;
+    if (job.request.comparison) {
+      setComparisonJob({
+        ...job,
+        jobId: `${job.jobId}-draft`,
+        result: undefined,
+        status: "completed",
+        progress: { stage: "completed", percent: 100, message: "Comparison settings copied" },
+      });
+      navigate("/compare");
+      return;
+    }
     const viewport = job.request.videoConfig.viewport;
     setUrl(job.request.targetUrl);
     setWidth(viewport.width);
@@ -374,10 +393,12 @@ export default function App() {
 
   return (
     <main className={`app-shell workflow-shell${navCollapsed ? " is-nav-collapsed" : ""}`}>
-      <AppSidebar currentPath={currentPath} onNavigate={navigate} isRecording={isBusy} theme={theme} onToggleTheme={() => setTheme(theme === "light" ? "dark" : "light")} collapsed={navCollapsed} onToggleCollapsed={() => setNavCollapsed(!navCollapsed)} />
+      <AppSidebar currentPath={currentPath} onNavigate={navigate} isRecording={isBusy || comparisonBusy} theme={theme} onToggleTheme={() => setTheme(theme === "light" ? "dark" : "light")} collapsed={navCollapsed} onToggleCollapsed={() => setNavCollapsed(!navCollapsed)} />
       <div className="app-content workflow-content">
         {currentPath === "/library" ? (
           <RecordingLibrary onOpen={openJob} onDuplicate={duplicateJob} />
+        ) : currentPath === "/compare" ? (
+          <ComparisonStudio initialJob={comparisonJob} onBusyChange={setComparisonBusy} onReset={() => setComparisonJob(null)} />
         ) : (
           <div className="studio-page">
             <section className="capture-command-bar">
@@ -472,6 +493,12 @@ export default function App() {
       </div>
     </main>
   );
+}
+
+function resolveAppPath() {
+  if (window.location.pathname === "/library") return "/library";
+  if (window.location.pathname === "/compare") return "/compare";
+  return "/";
 }
 
 function curveName(curve: string) {

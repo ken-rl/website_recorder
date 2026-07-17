@@ -80,7 +80,10 @@ async function handleRequest(
   if (req.method === "POST" && url.pathname === "/api/jobs") {
     try {
       const body = parseRecordRequest(await readJsonBody(req));
-      await assertSafeTargetUrl(body.targetUrl);
+      await Promise.all([
+        assertSafeTargetUrl(body.targetUrl),
+        body.comparison ? assertSafeTargetUrl(body.comparison.targetUrl) : Promise.resolve(),
+      ]);
       const job = await jobs.create(body);
       return sendJson(res, 202, jobLinks(job.jobId));
     } catch (error) {
@@ -201,7 +204,8 @@ async function handleRequest(
     req.method === "GET" &&
     (url.pathname === "/" ||
       url.pathname === "/upcoming" ||
-      url.pathname === "/library")
+      url.pathname === "/library" ||
+      url.pathname === "/compare")
   ) {
     return serveFile(
       res,
@@ -238,7 +242,10 @@ async function handleRequest(
   if (req.method === "POST" && url.pathname === "/record") {
     try {
       const body = parseRecordRequest(await readJsonBody(req));
-      await assertSafeTargetUrl(body.targetUrl);
+      await Promise.all([
+        assertSafeTargetUrl(body.targetUrl),
+        body.comparison ? assertSafeTargetUrl(body.comparison.targetUrl) : Promise.resolve(),
+      ]);
       const queued = await jobs.create(body);
       const job = await jobs.waitForCompletion(queued.jobId);
       if (job.status !== "completed" || !job.result) {

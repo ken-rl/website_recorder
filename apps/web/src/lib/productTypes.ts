@@ -56,6 +56,12 @@ export interface RecordingRequest {
   backgroundPreset?: string;
   addShadow?: boolean;
   roundedCorners?: boolean;
+  comparison?: {
+    targetUrl: string;
+    primaryLabel: string;
+    secondaryLabel: string;
+    layout?: "side-by-side";
+  };
 }
 
 export interface RecordingJob {
@@ -80,6 +86,13 @@ export interface RecordingJob {
     viewport: { width: number; height: number; deviceScaleFactor?: number };
     scrollStrategy: ScrollMode;
     canRestyle: boolean;
+    comparison?: {
+      primaryUrl: string;
+      secondaryUrl: string;
+      primaryLabel: string;
+      secondaryLabel: string;
+      layout: "side-by-side";
+    };
   };
   error?: { stage: JobStage; message: string };
   attempt: number;

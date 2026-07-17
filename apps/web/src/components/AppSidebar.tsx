@@ -1,5 +1,5 @@
 import React from "react";
-import { Archive, ChevronLeft, ChevronRight, Moon, ScanLine, Sun } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, Columns2, Moon, ScanLine, Sun } from "lucide-react";
 
 interface AppSidebarProps {
   currentPath: string;
@@ -22,6 +22,7 @@ export default function AppSidebar({
 }: AppSidebarProps) {
   const isRecorder = currentPath === "/" || currentPath === "";
   const isLibrary = currentPath === "/library";
+  const isCompare = currentPath === "/compare";
 
   return (
     <aside
@@ -68,6 +69,15 @@ export default function AppSidebar({
               <i />
             </span>
             {!collapsed && <span>Capture</span>}
+          </button>
+          <button
+            type="button"
+            className={`app-nav-link${isCompare ? " is-active" : ""}`}
+            onClick={() => onNavigate("/compare")}
+            title="Compare"
+          >
+            <Columns2 size={18} strokeWidth={1.8} />
+            {!collapsed && <span>Compare</span>}
           </button>
           <button
             type="button"

@@ -28,6 +28,7 @@ Product identity, palette, and logo usage are documented in [BRAND.md](BRAND.md)
 - **Canvas framing** — backgrounds, drop shadow, rounded corners; re-style without re-recording
 - **Overlay cleanup** — strips cookie banners, modals, and popups by default
 - **Analyze + direct** — inspect a page, review storyboard frames, and time section-level motion before rendering
+- **Side-by-side comparisons** — capture two URLs with one shared viewport and synchronized timeline, then export a labeled comparison MP4
 - **Durable capture jobs** — real pipeline progress, cancellation, retry, refresh recovery, and a local recording library
 - **Web UI, CLI, and HTTP API**
 
@@ -104,6 +105,15 @@ pnpm dev:web      # Vite frontend only
 Use **Quick capture** to skip analysis and use the global motion controls.
 
 Left nav: Capture (collapsible brand sidebar).
+
+**Comparison workflow**
+
+1. Open **Compare** and paste the two landing-page URLs.
+2. Name each side, then choose the shared viewport, quality, and timeline.
+3. Select **Create comparison**. Deio captures each page sequentially for stable
+   local performance, aligns both recordings, and holds the shorter ending frame.
+4. Preview or download the combined MP4. Comparisons remain available in
+   **Library** and can be retried or duplicated like regular captures.
 
 ### CLI
 

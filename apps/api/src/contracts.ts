@@ -77,6 +77,12 @@ export const recordRequestSchema = z.object({
   ]).optional(),
   addShadow: z.boolean().optional(),
   roundedCorners: z.boolean().optional(),
+  comparison: z.object({
+    targetUrl: httpUrl,
+    primaryLabel: z.string().trim().min(1).max(48),
+    secondaryLabel: z.string().trim().min(1).max(48),
+    layout: z.literal("side-by-side").optional(),
+  }).optional(),
 }).superRefine((request, context) => {
   const direction = request.animationConfig?.direction;
   if (!direction) return;
