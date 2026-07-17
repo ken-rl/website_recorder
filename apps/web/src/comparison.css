@@ -2,90 +2,35 @@
   width: 100%;
   height: 100vh;
   min-height: 0;
-  padding: 22px 24px 18px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
+  gap: 10px;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 72% -12%, color-mix(in srgb, var(--accent-secondary) 8%, transparent), transparent 34%),
-    var(--bg);
+  background: var(--bg);
 }
 
-.comparison-heading {
-  min-height: 70px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  flex: none;
-}
-
-.comparison-heading .eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.comparison-heading h1 {
-  margin: 5px 0 2px;
-  font-family: var(--font-display);
-  font-size: clamp(1.35rem, 2vw, 1.8rem);
-  line-height: 1;
-  letter-spacing: -.045em;
-}
-
-.comparison-heading p {
-  color: var(--muted);
-  font-size: .7rem;
-}
-
-.comparison-result-actions {
-  display: flex;
-  gap: 7px;
-}
-
-.comparison-result-actions button,
-.comparison-result-actions a {
-  height: 34px;
-  padding: 0 11px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--muted);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  text-decoration: none;
-  cursor: pointer;
-  font: 700 .63rem var(--font-sans);
-}
-
-.comparison-result-actions a {
-  color: var(--accent-text);
-  border-color: transparent;
-  background: var(--accent);
-}
-
+/* The first row is the workflow: source A, source B, then one export action. */
 .comparison-input-rail {
   position: relative;
   z-index: 4;
+  min-height: 70px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr);
+  grid-template-columns: minmax(250px, 1fr) 38px minmax(250px, 1fr) auto;
   align-items: center;
   flex: none;
   border: 1px solid var(--border);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
-  box-shadow: 0 18px 60px rgba(0,0,0,.12), inset 0 1px color-mix(in srgb, var(--text) 5%, transparent);
-  backdrop-filter: blur(18px);
+  border-radius: 13px;
+  background: var(--surface);
+  box-shadow: inset 0 1px color-mix(in srgb, var(--text) 4%, transparent);
 }
 
 .comparison-target {
   min-width: 0;
-  height: 67px;
-  padding: 9px 11px;
+  height: 68px;
+  padding: 9px 12px;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
+  grid-template-columns: 34px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
 }
@@ -98,7 +43,6 @@
   color: #fff;
   border-radius: 8px;
   background: var(--accent);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 25%, transparent);
   font-size: .68rem;
   font-weight: 850;
 }
@@ -106,7 +50,6 @@
 .comparison-target.is-cyan .comparison-side {
   color: #071b18;
   background: var(--accent-secondary);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent-secondary) 22%, transparent);
 }
 
 .comparison-target > div {
@@ -121,24 +64,24 @@
   border: 0;
   outline: 0;
   background: transparent;
-  font: 500 .71rem var(--font-sans);
+  font: 500 .73rem var(--font-sans);
 }
 
-.comparison-target input::placeholder { color: color-mix(in srgb, var(--muted) 62%, transparent); }
+.comparison-target input::placeholder { color: color-mix(in srgb, var(--muted) 58%, transparent); }
 .comparison-target input:focus { color: var(--accent); }
 .comparison-target.is-cyan input:focus { color: var(--accent-secondary); }
 .comparison-target .comparison-label-input {
-  height: 21px;
+  height: 20px;
   color: var(--muted);
-  font-size: .58rem;
+  font-size: .56rem;
   font-weight: 800;
-  letter-spacing: .065em;
+  letter-spacing: .075em;
   text-transform: uppercase;
 }
 
 .comparison-swap {
-  width: 32px;
-  height: 32px;
+  width: 31px;
+  height: 31px;
   display: grid;
   place-items: center;
   color: var(--muted);
@@ -155,74 +98,102 @@
   transform: rotate(180deg);
 }
 
-.comparison-workspace {
-  min-height: 0;
-  flex: 1 1 0;
-  margin-top: 12px;
-  display: grid;
-  grid-template-columns: 310px minmax(0, 1fr);
-  gap: 12px;
-}
-
-.comparison-settings {
-  min-height: 0;
-  padding-right: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--accent) 58%, var(--border-hover)) transparent;
-}
-
-.comparison-shared-banner {
-  min-height: 50px;
-  padding: 9px 11px;
+.comparison-rail-actions {
+  min-width: 172px;
+  padding: 0 11px 0 4px;
   display: flex;
   align-items: center;
-  gap: 9px;
-  border: 1px solid color-mix(in srgb, var(--accent-secondary) 22%, var(--border));
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.comparison-start,
+.comparison-new,
+.comparison-export {
+  height: 40px;
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  font: 800 .68rem var(--font-sans);
+}
+
+.comparison-start,
+.comparison-export {
+  color: var(--accent-text);
+  border: 1px solid transparent;
+  background: var(--accent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 19%, transparent);
+}
+
+.comparison-start { width: 100%; }
+.comparison-start:disabled { opacity: .42; cursor: not-allowed; box-shadow: none; }
+.comparison-new {
+  width: 40px;
+  padding: 0;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  background: var(--surface-elevated);
+}
+.comparison-new span { display: none; }
+
+/* One compact settings strip replaces the previous card sidebar. */
+.comparison-controls {
+  min-height: 54px;
+  padding: 7px 9px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  border: 1px solid var(--border);
   border-radius: 11px;
-  background: linear-gradient(120deg, var(--accent-secondary-soft), transparent 76%);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
 }
 
-.comparison-shared-banner > span {
-  width: 25px;
-  height: 25px;
-  display: grid;
-  place-items: center;
-  color: var(--accent-secondary);
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--accent-secondary) 13%, transparent);
+.comparison-control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.comparison-shared-banner div { display: grid; }
-.comparison-shared-banner strong { font-size: .67rem; }
-.comparison-shared-banner small { color: var(--muted); font-size: .55rem; }
+.comparison-control-group > span,
+.comparison-duration > span {
+  color: var(--muted);
+  font-size: .56rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
 
-.comparison-device-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px;
+.comparison-device-grid,
+.comparison-tier-list {
+  display: flex;
+  align-items: center;
+  gap: 3px;
 }
 
 .comparison-device-grid button,
 .comparison-tier-list button {
-  min-width: 0;
-  padding: 8px;
-  display: flex;
+  height: 32px;
+  padding: 0 8px;
+  display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   color: var(--muted);
-  text-align: left;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 7px;
   background: transparent;
   cursor: pointer;
+  font: 650 .59rem var(--font-sans);
 }
 
 .comparison-device-grid button:hover,
-.comparison-tier-list button:hover { background: var(--surface-elevated); }
+.comparison-tier-list button:hover { color: var(--text); background: var(--surface-elevated); }
 .comparison-device-grid button.is-active,
 .comparison-tier-list button.is-active {
   color: var(--text);
@@ -230,108 +201,61 @@
   background: var(--accent-soft);
 }
 
-.comparison-device-grid button > span,
-.comparison-tier-list button > span {
-  min-width: 0;
-  display: grid;
-}
-
-.comparison-device-grid strong,
-.comparison-tier-list strong { font-size: .65rem; }
-.comparison-device-grid small,
-.comparison-tier-list small { color: var(--muted); font-size: .52rem; }
-
-.comparison-tier-list { display: grid; gap: 3px; }
-.comparison-tier-list button { width: 100%; }
-.comparison-tier-list i {
-  width: 7px;
-  height: 7px;
-  margin-left: auto;
-  border: 1px solid var(--border-hover);
-  border-radius: 50%;
-}
-.comparison-tier-list button.is-active i {
-  border-color: var(--accent);
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.comparison-timing label {
-  margin-top: 9px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 5px;
-  color: var(--muted);
-  font-size: .61rem;
-}
-
-.comparison-timing label > span {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.comparison-timing output { color: var(--text); font-weight: 750; }
-.comparison-timing input {
-  grid-column: 1 / -1;
-  width: 100%;
-  accent-color: var(--accent);
-}
-.comparison-timing p {
-  margin: 9px 0 0;
-  padding-top: 8px;
-  color: var(--muted);
-  border-top: 1px solid var(--border);
-  font-size: .55rem;
-  line-height: 1.45;
-}
-
-.comparison-start {
-  min-height: 43px;
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+.comparison-control-divider {
+  width: 1px;
+  height: 26px;
   flex: none;
-  color: var(--accent-text);
-  border: 0;
-  border-radius: 10px;
-  background: var(--accent);
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--accent) 24%, transparent);
-  cursor: pointer;
-  font: 800 .7rem var(--font-sans);
+  background: var(--border);
 }
-.comparison-start:hover:not(:disabled) { transform: translateY(-1px); }
-.comparison-start:disabled { opacity: .43; cursor: not-allowed; box-shadow: none; }
+
+.comparison-duration {
+  width: 165px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3px;
+}
+.comparison-duration > span {
+  display: flex;
+  justify-content: space-between;
+}
+.comparison-duration b { color: var(--text); font-weight: 750; }
+.comparison-duration input { width: 100%; height: 9px; accent-color: var(--accent); }
+
+.comparison-control-note {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: .56rem;
+  white-space: nowrap;
+}
 
 .comparison-stage {
   position: relative;
   min-width: 0;
   min-height: 0;
-  padding: clamp(18px, 3vw, 42px);
+  flex: 1 1 0;
+  padding: clamp(18px, 3vw, 44px);
   display: grid;
   place-items: center;
   border: 1px solid var(--border);
   border-radius: 14px;
   background:
-    linear-gradient(90deg, transparent 49.95%, color-mix(in srgb, var(--text) 4%, transparent) 50%, transparent 50.05%),
-    radial-gradient(circle at 28% 20%, var(--accent-soft), transparent 27%),
-    radial-gradient(circle at 72% 80%, var(--accent-secondary-soft), transparent 27%),
+    radial-gradient(circle at 18% 15%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 30%),
+    radial-gradient(circle at 82% 85%, color-mix(in srgb, var(--accent-secondary) 8%, transparent), transparent 30%),
     var(--surface);
   overflow: hidden;
   container: comparison-stage / size;
 }
 
 .comparison-stage > .capture-window {
-  width: min(100%, 1040px, calc((100cqh - 2rem) * var(--preview-w) / var(--preview-h)));
+  width: min(100%, 1080px, calc((100cqh - 2rem) * var(--preview-w) / var(--preview-h)));
   max-height: 100%;
 }
 
 .comparison-canvas {
-  width: min(100%, 1040px);
+  position: relative;
+  width: min(100%, 1080px);
   aspect-ratio: 16 / 9;
-  padding: 11px;
+  padding: 11px 11px 45px;
   display: grid;
   grid-template-rows: 29px 1fr;
   border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
@@ -397,7 +321,6 @@
   gap: 7px;
   color: #777b72;
   background: #d8d8d1;
-  font-size: .48rem;
 }
 .comparison-browser-bar > span {
   width: 18px;
@@ -407,6 +330,7 @@
   color: #fff;
   border-radius: 5px;
   background: #3158c9;
+  font-size: .48rem;
   font-weight: 850;
 }
 .comparison-panel:last-child .comparison-browser-bar > span { color: #08211d; background: #5ad8c5; }
@@ -415,7 +339,7 @@
 .comparison-browser-bar small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .47rem; }
 
 .comparison-ghost-page {
-  padding: 11% 9% 7%;
+  padding: 10% 9% 7%;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -437,11 +361,32 @@
 .comparison-ghost-page > div { width: 100%; margin-top: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4%; }
 .comparison-ghost-page > div i { aspect-ratio: 1.6; border: 1px solid #d0cfc7; border-radius: 5px; background: rgba(255,255,255,.45); }
 
+.comparison-automation {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 9px;
+  height: 27px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  color: #8f9389;
+}
+.comparison-automation span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .52rem;
+}
+.comparison-automation svg { color: #5ad8c5; }
+.comparison-automation b { color: #c8cbc2; font-weight: 650; }
+
 .comparison-progress {
   position: absolute;
-  left: 11px;
-  right: 11px;
-  bottom: 6px;
+  left: 16px;
+  right: 16px;
+  bottom: 18px;
   height: 3px;
   background: rgba(255,255,255,.1);
 }
@@ -481,14 +426,23 @@
   text-transform: uppercase;
 }
 
-@media (max-width: 980px) {
-  .comparison-page { height: auto; min-height: 100vh; overflow: visible; padding: 18px 14px 40px; }
-  .comparison-workspace { grid-template-columns: 1fr; flex: none; }
-  .comparison-settings { min-height: auto; overflow: visible; padding: 0; }
-  .comparison-device-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .comparison-tier-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .comparison-start { margin-top: 0; }
-  .comparison-stage { min-height: min(620px, 72dvh); }
+@media (max-width: 1160px) {
+  .comparison-input-rail { grid-template-columns: minmax(210px, 1fr) 36px minmax(210px, 1fr) auto; }
+  .comparison-device-grid button span { display: none; }
+  .comparison-control-note { display: none; }
+}
+
+@media (max-width: 900px) {
+  .comparison-page { height: auto; min-height: 100vh; overflow: visible; padding: 12px; }
+  .comparison-input-rail {
+    grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1fr);
+  }
+  .comparison-rail-actions { grid-column: 1 / -1; min-width: 0; padding: 0 8px 8px; }
+  .comparison-new { width: 40px; }
+  .comparison-export { flex: 1; }
+  .comparison-controls { flex-wrap: wrap; }
+  .comparison-duration { margin-left: auto; }
+  .comparison-stage { min-height: min(620px, 72dvh); flex: none; }
 }
 
 @media (max-width: 680px) {
@@ -504,18 +458,21 @@
   .app-nav-sidebar .app-nav-brand-text,
   .app-nav-sidebar .app-nav-link > span:not(.capture-nav-icon) { display: none; }
   .app-nav-sidebar .app-nav-link { justify-content: center; padding-inline: .4rem; }
-  .comparison-heading { min-height: 92px; }
-  .comparison-heading p { max-width: 34ch; }
-  .comparison-result-actions button span { display: none; }
-  .comparison-input-rail { grid-template-columns: 1fr; padding: 7px; }
-  .comparison-target { height: 62px; padding: 6px; }
-  .comparison-swap { position: absolute; z-index: 3; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(90deg); }
+  .comparison-input-rail { grid-template-columns: 1fr; padding: 6px; }
+  .comparison-target { height: 58px; padding: 5px 7px; }
+  .comparison-swap { position: absolute; z-index: 3; left: 50%; top: 64px; transform: translate(-50%, -50%) rotate(90deg); }
   .comparison-swap:hover:not(:disabled) { transform: translate(-50%, -50%) rotate(270deg); }
-  .comparison-device-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .comparison-tier-list { grid-template-columns: 1fr; }
-  .comparison-stage { min-height: 430px; padding: 12px; }
-  .comparison-canvas { padding: 7px; grid-template-rows: 24px 1fr; }
+  .comparison-rail-actions { grid-column: 1; padding: 6px 0 0; }
+  .comparison-controls { align-items: flex-start; gap: 7px; }
+  .comparison-control-group { width: 100%; justify-content: space-between; }
+  .comparison-control-divider { display: none; }
+  .comparison-duration { width: 100%; margin: 2px 0 0; }
+  .comparison-stage { min-height: 360px; padding: 10px; }
+  .comparison-canvas { padding: 7px 7px 39px; grid-template-rows: 24px 1fr; }
   .comparison-canvas-topline small { display: none; }
   .comparison-browser-bar { grid-template-columns: 18px minmax(0, 1fr); }
   .comparison-browser-bar > div { display: none; }
+  .comparison-automation { gap: 12px; }
+  .comparison-automation span { gap: 3px; }
+  .comparison-automation b { display: none; }
 }

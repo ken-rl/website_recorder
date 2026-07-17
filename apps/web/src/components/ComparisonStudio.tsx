@@ -2,16 +2,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeftRight,
-  Check,
-  Columns2,
   Download,
-  Film,
-  Gauge,
+  FileVideo2,
+  Link2,
+  MonitorCheck,
   Play,
   RefreshCcw,
   Square,
-  Timer,
-  Zap,
 } from "lucide-react";
 import { readJsonResponse } from "../lib/http";
 import type { RecordingJob, RecordingRequest } from "../lib/productTypes";
@@ -40,7 +37,6 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
   const [devicePreset, setDevicePreset] = useState("1920x1080");
   const [renderTier, setRenderTier] = useState<RenderTier>("draft");
   const [durationSeconds, setDurationSeconds] = useState(18);
-  const [heroHoldSeconds, setHeroHoldSeconds] = useState(1.5);
   const [activeJob, setActiveJob] = useState<RecordingJob | null>(null);
   const [error, setError] = useState("");
   const [elapsed, setElapsed] = useState("0.0s");
@@ -151,7 +147,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
         scrollCurve: { preset: "ease-in-out" },
         durationMs: durationSeconds * 1_000,
         virtualScrollDurationMs: durationSeconds * 1_000,
-        heroHoldMs: heroHoldSeconds * 1_000,
+        heroHoldMs: 1_500,
         scrollMode: "auto",
         virtualScrollCycles: 8,
         fastMode: tier.fast,
@@ -167,7 +163,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
         layout: "side-by-side",
       },
     };
-  }, [primaryUrl, secondaryUrl, primaryLabel, secondaryLabel, width, height, renderTier, durationSeconds, heroHoldSeconds]);
+  }, [primaryUrl, secondaryUrl, primaryLabel, secondaryLabel, width, height, renderTier, durationSeconds]);
 
   const canStart =
     primaryUrl.trim() &&
@@ -246,70 +242,58 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
 
   return (
     <section className="comparison-page">
-      <header className="comparison-heading">
-        <div>
-          <span className="eyebrow"><Columns2 size={12} /> Comparison mode</span>
-          <h1>One timeline. Two ideas.</h1>
-          <p>Capture both pages at the same viewport, then synchronize them into a single export.</p>
-        </div>
-        {result && (
-          <div className="comparison-result-actions">
-            <button type="button" onClick={clearResult}><RefreshCcw size={14} /> New comparison</button>
-            <a href={result.videoUrl} download="comparison.mp4"><Download size={14} /> Export MP4</a>
-          </div>
-        )}
-      </header>
-
       <div className="comparison-input-rail">
         <ComparisonTarget side="A" accent="blue" label={primaryLabel} url={primaryUrl} onLabel={(value) => { beginEdit(); setPrimaryLabel(value); }} onUrl={(value) => { beginEdit(); setPrimaryUrl(value); }} disabled={isBusy} />
         <button type="button" className="comparison-swap" onClick={swap} disabled={isBusy} title="Swap sides" aria-label="Swap sides"><ArrowLeftRight size={16} /></button>
         <ComparisonTarget side="B" accent="cyan" label={secondaryLabel} url={secondaryUrl} onLabel={(value) => { beginEdit(); setSecondaryLabel(value); }} onUrl={(value) => { beginEdit(); setSecondaryUrl(value); }} disabled={isBusy} />
+        <div className="comparison-rail-actions">
+          {result ? (
+            <>
+              <button type="button" className="comparison-new" onClick={clearResult} title="New comparison"><RefreshCcw size={15} /><span>New</span></button>
+              <a className="comparison-export" href={result.videoUrl} download="comparison.mp4"><Download size={15} /> Export MP4</a>
+            </>
+          ) : (
+            <button type="button" className="comparison-start" onClick={() => void start()} disabled={!canStart}>
+              {isBusy ? <span className="loader-circle" /> : <Play size={15} fill="currentColor" />}
+              {isBusy ? "Capturing…" : "Compare pages"}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && <p className="workflow-error"><AlertTriangle size={15} /> {error}</p>}
 
-      <div className="comparison-workspace">
-        <aside className="comparison-settings" aria-label="Shared comparison settings">
-          <div className="comparison-shared-banner"><span><Check size={13} /></span><div><strong>Matched capture</strong><small>Every setting below applies to both pages.</small></div></div>
+      <div className="comparison-controls" aria-label="Shared comparison settings">
+        <div className="comparison-control-group">
+          <span>Viewport</span>
+          <div className="comparison-device-grid">
+            {DEVICE_PRESETS.map(({ value, label, Icon }) => (
+              <button type="button" key={value} className={devicePreset === value ? "is-active" : ""} onClick={() => { beginEdit(); setDevicePreset(value); }} disabled={isBusy} title={value.replace("x", " × ")} aria-label={`${label} viewport, ${value.replace("x", " by ")}`}>
+                <Icon size={14} /><span>{label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="comparison-control-divider" />
+        <div className="comparison-control-group">
+          <span>Quality</span>
+          <div className="comparison-tier-list">
+            {(Object.keys(TIERS) as RenderTier[]).map((tier) => (
+              <button type="button" key={tier} className={renderTier === tier ? "is-active" : ""} onClick={() => { beginEdit(); setRenderTier(tier); }} disabled={isBusy} title={TIERS[tier].detail}>
+                {TIERS[tier].label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="comparison-control-divider" />
+        <label className="comparison-duration">
+          <span>Timeline <b>{durationSeconds}s</b></span>
+          <input type="range" min={8} max={45} value={durationSeconds} onChange={(event) => { beginEdit(); setDurationSeconds(Number(event.target.value)); }} disabled={isBusy} />
+        </label>
+        <p className="comparison-control-note">Shared settings · popups removed · ending held automatically</p>
+      </div>
 
-          <section className="control-deck">
-            <div className="control-deck-title"><span>Viewport</span><small>Same breakpoint</small></div>
-            <div className="comparison-device-grid">
-              {DEVICE_PRESETS.map(({ value, label, Icon }) => (
-                <button type="button" key={value} className={devicePreset === value ? "is-active" : ""} onClick={() => { beginEdit(); setDevicePreset(value); }} disabled={isBusy}>
-                  <Icon size={15} /><span><strong>{label}</strong><small>{value.replace("x", " × ")}</small></span>
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="control-deck">
-            <div className="control-deck-title"><span>Quality</span><small>Sequential capture</small></div>
-            <div className="comparison-tier-list">
-              {(Object.keys(TIERS) as RenderTier[]).map((tier) => (
-                <button type="button" key={tier} className={renderTier === tier ? "is-active" : ""} onClick={() => { beginEdit(); setRenderTier(tier); }} disabled={isBusy}>
-                  {tier === "draft" ? <Zap size={15} /> : tier === "standard" ? <Film size={15} /> : <Gauge size={15} />}
-                  <span><strong>{TIERS[tier].label}</strong><small>{TIERS[tier].detail}</small></span>
-                  <i />
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="control-deck comparison-timing">
-            <div className="control-deck-title"><span>Timeline</span><small>Progress locked</small></div>
-            <label><span><Timer size={14} /> Scroll duration</span><output>{durationSeconds}s</output><input type="range" min={8} max={45} value={durationSeconds} onChange={(event) => { beginEdit(); setDurationSeconds(Number(event.target.value)); }} disabled={isBusy} /></label>
-            <label><span>Opening hold</span><output>{heroHoldSeconds.toFixed(1)}s</output><input type="range" min={0} max={4} step={0.5} value={heroHoldSeconds} onChange={(event) => { beginEdit(); setHeroHoldSeconds(Number(event.target.value)); }} disabled={isBusy} /></label>
-            <p>Both pages travel from top to bottom over the same duration. A shorter recording holds its final frame.</p>
-          </section>
-
-          <button type="button" className="comparison-start" onClick={() => void start()} disabled={!canStart}>
-            {isBusy ? <span className="loader-circle" /> : <Play size={16} fill="currentColor" />}
-            {isBusy ? "Comparison in progress" : "Create comparison"}
-          </button>
-        </aside>
-
-        <div className="comparison-stage">
+      <div className="comparison-stage">
           {result ? (
             <BrowserMockup
               url={`${primaryLabel} · ${secondaryLabel}`}
@@ -335,7 +319,6 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
           {activeJob && ["failed", "cancelled", "interrupted"].includes(activeJob.status) && (
             <div className="failed-capture"><AlertTriangle size={18} /><div><strong>{activeJob.status}</strong><span>{activeJob.error?.message || activeJob.progress.message}</span></div><button type="button" onClick={() => void retry()}><RefreshCcw size={13} /> Retry</button></div>
           )}
-        </div>
       </div>
     </section>
   );
@@ -359,8 +342,6 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
     );
     const duration = Number(job.request.animationConfig.durationMs);
     if (duration) setDurationSeconds(Math.round(duration / 1_000));
-    const hold = Number(job.request.animationConfig.heroHoldMs);
-    if (Number.isFinite(hold)) setHeroHoldSeconds(hold / 1_000);
   }
 }
 
@@ -408,6 +389,13 @@ function ComparisonCanvas(props: {
         <div className="comparison-progress">
           <i style={{ width: `${props.job?.progress.percent ?? 0}%` }} />
           <span>{props.job?.progress.percent ?? 0}%</span>
+        </div>
+      )}
+      {!recording && (
+        <div className="comparison-automation">
+          <span><MonitorCheck size={13} /><b>Matched viewport</b></span>
+          <span><Link2 size={13} /><b>Synchronized scroll</b></span>
+          <span><FileVideo2 size={13} /><b>One composed MP4</b></span>
         </div>
       )}
     </div>
