@@ -61,6 +61,32 @@ test("merges a redundant page-end beat without stacking holds", () => {
   assert.equal(result.adjustments[0].code, "merged-nearby-beat");
 });
 
+test("preserves separate interactions at the same scroll position", () => {
+  const result = normalizeResolvedBeats({
+    beats: [
+      beat({
+        target: { type: "selector", selector: "#tab-one" },
+        position: 700,
+        holdMs: 1300,
+        interaction: { action: "hover", candidateId: "interaction_01", label: "Overview", role: "tab" },
+      }),
+      beat({
+        target: { type: "selector", selector: "#tab-two" },
+        position: 700,
+        holdMs: 1300,
+        interaction: { action: "hover", candidateId: "interaction_02", label: "Activity", role: "tab" },
+      }),
+    ],
+    startHoldMs: 0,
+    viewportHeight: 900,
+  });
+
+  assert.equal(result.beats.length, 2);
+  assert.equal(result.beats[0].interaction?.candidateId, "interaction_01");
+  assert.equal(result.beats[1].interaction?.candidateId, "interaction_02");
+  assert.equal(result.adjustments.some((item) => item.code === "merged-nearby-beat"), false);
+});
+
 test("replaces a harsh departure after a hold", () => {
   const result = normalizeResolvedBeats({
     beats: [beat({ curve: { preset: "ease-out-cubic" }, position: 2600 })],

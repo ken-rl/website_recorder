@@ -34,11 +34,15 @@ Interactive prompt:
 > show its hover or local control state, then zoom out and continue scrolling.
 
 Interactive beats use the candidate's `recommendedTarget`, at least its
-`recommendedHoldMs`, and an `interaction` object with `action`, optional
-`zoomScale`, and `showCursor`. Only use actions returned for that exact
-candidate. Links, forms, destructive labels, popup navigation, downloads, and
-top-level navigation are not eligible for click interactions. Component
-interactions are intentionally unavailable for virtual-scroll pages.
+`recommendedHoldMs`, and its complete `recommendedInteraction` object. Only
+change `action` when the new action is returned for that exact candidate. The
+semantic candidate ID, label, and role let the recorder recover safely if a
+dynamic site changes the original DOM selector between inspection and capture.
+All targets are preflighted before frame capture, and separate controls are
+never merged merely because they share a scroll position. Links, forms,
+destructive labels, popup navigation, downloads, and top-level navigation are
+not eligible for click interactions. Component interactions are intentionally
+unavailable for virtual-scroll pages.
 
 For document pages, use selector targets for held sections and reserve normalized
 progress for non-held fly-through waypoints. Inspection includes safe viewport

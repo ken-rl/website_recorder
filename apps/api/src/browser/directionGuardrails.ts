@@ -28,7 +28,10 @@ export function normalizeResolvedBeats(options: {
     const distancePx = previous
       ? Math.abs(beat.position - previous.position) * scale
       : Number.POSITIVE_INFINITY;
-    if (previous && distancePx <= mergeDistance) {
+    // Nearby scroll positions can still represent separate UI controls (for
+    // example two tabs inside one fixed product mockup). Never collapse an
+    // authored interaction into another beat.
+    if (previous && distancePx <= mergeDistance && !previous.interaction && !beat.interaction) {
       const preferIncoming = targetRank(beat.target) > targetRank(previous.target);
       const requested = beat.target;
       if (preferIncoming) {
@@ -36,7 +39,6 @@ export function normalizeResolvedBeats(options: {
         previous.position = beat.position;
         previous.framing = beat.framing;
       }
-      if (!previous.interaction && beat.interaction) previous.interaction = beat.interaction;
       previous.holdMs = Math.max(previous.holdMs, beat.holdMs);
       adjustments.push({
         beatIndex: sourceIndex,

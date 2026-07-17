@@ -1,10 +1,11 @@
 import type { Page } from "playwright";
-import type { ComponentInteraction } from "../types.js";
+import type { ComponentInteraction, MotionBeat } from "../types.js";
 
 const DESTRUCTIVE = /\b(delete|remove|unsubscribe|sign out|log out|purchase|buy|pay|checkout|submit|send|publish|confirm|destroy|upload|download)\b/i;
 
 export class ComponentInteractionAnimator {
   private activeBeat = -1;
+  private activeSelector = "";
 
   constructor(private readonly page: Page) {}
 
@@ -17,7 +18,11 @@ export class ComponentInteractionAnimator {
     const progress = Math.max(0, Math.min(1, options.progress));
     if (this.activeBeat !== options.beatIndex) {
       await this.reset();
-      await this.prepare(options.beatIndex, options.selector, options.interaction);
+      this.activeSelector = await this.prepare(
+        options.beatIndex,
+        options.selector,
+        options.interaction,
+      );
       this.activeBeat = options.beatIndex;
     }
 
@@ -45,7 +50,7 @@ export class ComponentInteractionAnimator {
         return { x: targetX, y: targetY };
       },
       {
-        selector: options.selector,
+        selector: this.activeSelector,
         scale: options.interaction.zoomScale ?? 1.25,
         amount,
         showCursor: options.interaction.showCursor ?? true,
@@ -55,7 +60,7 @@ export class ComponentInteractionAnimator {
 
     await this.page.mouse.move(state.x, state.y);
     if (progress >= 0.38) {
-      await this.activateOnce(options.beatIndex, options.selector, options.interaction);
+      await this.activateOnce(options.beatIndex, this.activeSelector, options.interaction);
     }
   }
 
@@ -70,6 +75,7 @@ export class ComponentInteractionAnimator {
       delete (window as any).__deioScrollInteractionTarget;
     });
     this.activeBeat = -1;
+    this.activeSelector = "";
   }
 
   private async prepare(
@@ -77,34 +83,18 @@ export class ComponentInteractionAnimator {
     selector: string,
     interaction: ComponentInteraction,
   ) {
-    const allowed = await this.page.evaluate(
-      ({ selector, action, destructiveSource }) => {
-        const element = document.querySelector(selector) as HTMLElement | null;
-        if (!element) return false;
-        const rect = element.getBoundingClientRect();
-        if (rect.width < 1 || rect.height < 1) return false;
-        const label = (
-          element.getAttribute("aria-label")
-          || element.getAttribute("title")
-          || element.textContent
-          || ""
-        ).replace(/\s+/g, " ").trim();
-        if (new RegExp(destructiveSource, "i").test(label)) return false;
-        if (action !== "click") return true;
-        const tag = element.tagName.toLowerCase();
-        const role = element.getAttribute("role") || "";
-        const type = (element.getAttribute("type") || "").toLowerCase();
-        return tag !== "a" && (
-          ["tab", "switch", "menuitem", "option"].includes(role)
-          || element.hasAttribute("aria-expanded")
-          || tag === "summary"
-          || (tag === "button" && type === "button")
-          || (tag === "button" && !element.closest("form") && !type)
-        );
-      },
-      { selector, action: interaction.action, destructiveSource: DESTRUCTIVE.source },
+    await ensurePlaywrightEvaluationRuntime(this.page);
+    const resolved = await resolveInteractionTarget(
+      this.page,
+      selector,
+      interaction,
+      `beat-${beatIndex}`,
     );
-    if (!allowed) throw new Error(`Unsafe or unsupported ${interaction.action} interaction: ${selector}`);
+    if (resolved.recovered) {
+      console.warn(
+        `Recovered interaction ${interaction.candidateId ?? beatIndex} by semantic label “${resolved.label}”`,
+      );
+    }
 
     await this.page.evaluate((targetSelector) => {
       document.body.style.transition = "none";
@@ -137,8 +127,8 @@ export class ComponentInteractionAnimator {
         });
         document.documentElement.appendChild(cursor);
       }
-    }, selector);
-    void beatIndex;
+    }, resolved.selector);
+    return resolved.selector;
   }
 
   private async activateOnce(
@@ -161,7 +151,43 @@ export class ComponentInteractionAnimator {
   }
 }
 
+export async function preflightComponentInteractions(
+  page: Page,
+  beats: MotionBeat[],
+) {
+  await ensurePlaywrightEvaluationRuntime(page);
+  const interactive = beats.flatMap((beat, beatIndex) => {
+    if (!beat.interaction) return [];
+    if (beat.target.type !== "selector") {
+      throw new Error(`Interactive beat ${beatIndex + 1} requires a selector target`);
+    }
+    return [{
+      beatIndex,
+      beat,
+      selector: beat.target.selector,
+      interaction: beat.interaction,
+    }];
+  });
+  const results = [];
+  for (const item of interactive) {
+    const resolved = await resolveInteractionTarget(
+      page,
+      item.selector,
+      item.interaction,
+    );
+    if (resolved.recovered && item.beat.target.type === "selector") {
+      // The recovered element is tagged in this capture page. Updating the
+      // target before timeline resolution keeps zoom framing and scroll
+      // position tied to the live control rather than its old approximation.
+      item.beat.target.selector = resolved.selector;
+    }
+    results.push(resolved);
+  }
+  return results;
+}
+
 export async function installInteractionNavigationGuards(page: Page) {
+  await ensurePlaywrightEvaluationRuntime(page);
   page.on("dialog", (dialog) => dialog.dismiss().catch(() => undefined));
   page.on("download", (download) => download.cancel().catch(() => undefined));
   page.context().on("page", (popup) => {
@@ -200,4 +226,111 @@ export async function installInteractionNavigationGuards(page: Page) {
 function smoothstep(value: number) {
   const x = Math.max(0, Math.min(1, value));
   return x * x * (3 - 2 * x);
+}
+
+async function ensurePlaywrightEvaluationRuntime(page: Page) {
+  // tsx/esbuild can annotate nested functions with a global __name helper.
+  // Playwright serializes the callback but not that helper into the page.
+  await page.evaluate("window.__name = window.__name || ((target) => target)");
+}
+
+async function resolveInteractionTarget(
+  page: Page,
+  selector: string,
+  interaction: ComponentInteraction,
+  marker?: string,
+): Promise<{ selector: string; label: string; recovered: boolean }> {
+  const resolved = await page.evaluate(
+    ({ selector, interaction, destructiveSource, marker }) => {
+      const normalize = (value: string) => value.replace(/\s+/g, " ").trim().toLowerCase();
+      const labelFor = (element: Element) => (
+        element.getAttribute("aria-label")
+        || element.getAttribute("title")
+        || element.textContent
+        || (element as HTMLInputElement).value
+        || ""
+      ).replace(/\s+/g, " ").trim().slice(0, 120);
+      const roleFor = (element: Element) => (
+        element.getAttribute("role")
+        || (element.tagName.toLowerCase() === "a" ? "link" : element.tagName.toLowerCase())
+      ).toLowerCase();
+      const visible = (element: Element) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return rect.width > 0 && rect.height > 0
+          && style.display !== "none"
+          && style.visibility !== "hidden"
+          && Number(style.opacity) >= 0.05;
+      };
+      const clickSafe = (element: Element) => {
+        const tag = element.tagName.toLowerCase();
+        const role = element.getAttribute("role") || "";
+        const type = (element.getAttribute("type") || "").toLowerCase();
+        return tag !== "a" && (
+          ["tab", "switch", "menuitem", "option"].includes(role)
+          || element.hasAttribute("aria-expanded")
+          || tag === "summary"
+          || (tag === "button" && type === "button")
+          || (tag === "button" && !element.closest("form") && !type)
+        );
+      };
+      const safe = (element: Element) => {
+        const label = labelFor(element);
+        return visible(element)
+          && !new RegExp(destructiveSource, "i").test(label)
+          && (interaction.action !== "click" || clickSafe(element));
+      };
+      const expectedLabel = normalize(interaction.label || "");
+      const expectedRole = normalize(interaction.role || "");
+      let exact: Element | null = null;
+      try { exact = document.querySelector(selector); } catch {}
+      if (
+        exact
+        && safe(exact)
+        && (!expectedLabel || normalize(labelFor(exact)) === expectedLabel)
+        && (!expectedRole || roleFor(exact) === expectedRole)
+      ) {
+        if (marker) exact.setAttribute("data-deio-interaction-key", marker);
+        return {
+          selector: marker ? `[data-deio-interaction-key="${marker}"]` : selector,
+          label: labelFor(exact),
+          recovered: false,
+        };
+      }
+      if (!expectedLabel) return null;
+      const candidates = Array.from(document.querySelectorAll(
+        "button,a[href],[role='button'],[role='tab'],[role='switch'],[role='menuitem'],[aria-expanded],summary,input:not([type='hidden'])",
+      )).filter(safe);
+      const ranked = candidates.map((element) => {
+        const label = normalize(labelFor(element));
+        const role = roleFor(element);
+        let score = label === expectedLabel ? 100 : 0;
+        if (!score && (label.includes(expectedLabel) || expectedLabel.includes(label))) score = 65;
+        if (expectedRole && role === expectedRole) score += 25;
+        return { element, score };
+      }).sort((a, b) => b.score - a.score);
+      const match = ranked[0];
+      if (!match || match.score < 80) return null;
+      const key = marker || `preflight-${Math.random().toString(36).slice(2)}`;
+      match.element.setAttribute("data-deio-interaction-key", key);
+      return {
+        selector: `[data-deio-interaction-key="${key}"]`,
+        label: labelFor(match.element),
+        recovered: true,
+      };
+    },
+    {
+      selector,
+      interaction,
+      destructiveSource: DESTRUCTIVE.source,
+      marker,
+    },
+  );
+  if (!resolved) {
+    throw new Error(
+      `Interaction preflight could not safely resolve ${interaction.candidateId ?? selector}`
+      + (interaction.label ? ` (“${interaction.label}”)` : ""),
+    );
+  }
+  return resolved;
 }

@@ -21,6 +21,9 @@ const motionTargetSchema = z.discriminatedUnion("type", [
 ]);
 const interactionSchema = z.object({
   action: z.enum(["hover", "focus", "click"]),
+  candidateId: z.string().min(1).max(80).optional(),
+  label: z.string().min(1).max(120).optional(),
+  role: z.string().min(1).max(40).optional(),
   zoomScale: z.number().min(1).max(1.8).optional(),
   showCursor: z.boolean().optional(),
 });
@@ -39,7 +42,7 @@ const server = new McpServer(
   { name: "deio-scroll", version: "0.4.0" },
   {
     instructions:
-      "This MCP creates direct website recordings, not launch films. Inspect before directing. Keep smooth scrolling as the base motion. For interactive moments, use only selectors and allowed actions returned in inspection.interactions, give the beat at least the recommended hold, and let the recorder animate the pause, camera zoom, visible cursor, component state, and return to scrolling. Never invent interaction selectors. Directed recordings hold the hero for 1500ms by default. On document pages, use recommended selector targets for held beats and progress targets only for fly-through waypoints. Use recommendedTransitionMs as a floor and ease-in-out curves around holds. On virtual pages, use storyboard progress targets and omit component interactions. Start with draft quality unless the user requests a final render. Report motionPlan adjustments.",
+      "This MCP creates direct website recordings, not launch films. Inspect before directing. Keep smooth scrolling as the base motion. For interactive moments, copy the candidate's recommendedTarget and recommendedInteraction, changing only the action when that action appears in the candidate's allowed actions. Give the beat at least recommendedHoldMs. The recorder handles pause, camera zoom, visible cursor, component state, selector recovery, and return to scrolling. Never invent interaction selectors or omit the semantic fingerprint. Directed recordings hold the hero for 1500ms by default. On document pages, use recommended selector targets for held beats and progress targets only for fly-through waypoints. Use recommendedTransitionMs as a floor and ease-in-out curves around holds. On virtual pages, use storyboard progress targets and omit component interactions. Start with draft quality unless the user requests a final render. Report motionPlan adjustments.",
   },
 );
 

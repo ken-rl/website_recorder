@@ -124,8 +124,12 @@ async function collectInteractionCandidates(
         const focusable = element.tabIndex >= 0 || ["button", "a", "input", "summary"].includes(tag);
         const actions = ["hover", ...(focusable ? ["focus"] : []), ...(semanticClick && tag !== "a" ? ["click"] : [])];
         const selector = pathFor(element);
+        const id = "interaction_" + String(index + 1).padStart(2, "0");
+        const maxScroll = Math.max(0, document.documentElement.scrollHeight - innerHeight);
+        const progress = maxScroll === 0 ? 0 : Math.max(0, Math.min(1, (rect.top + scrollY - innerHeight / 2) / maxScroll));
+        const recommendedZoomScale = rect.width > innerWidth * 0.4 ? 1.12 : 1.28;
         return [{
-          id: "interaction_" + String(index + 1).padStart(2, "0"),
+          id,
           selector,
           label,
           tag,
@@ -137,9 +141,17 @@ async function collectInteractionCandidates(
             width: Math.round(rect.width),
             height: Math.round(rect.height),
           },
-          recommendedTarget: { type: "selector", selector, align: "center" },
+          recommendedTarget: { type: "selector", selector, align: "center", fallbackProgress: progress },
           recommendedHoldMs: semanticClick ? 1600 : 1300,
-          recommendedZoomScale: rect.width > innerWidth * 0.4 ? 1.12 : 1.28,
+          recommendedZoomScale,
+          recommendedInteraction: {
+            action: "hover",
+            candidateId: id,
+            label,
+            role,
+            zoomScale: recommendedZoomScale,
+            showCursor: true,
+          },
         }];
       })
       .slice(0, 30);

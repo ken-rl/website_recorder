@@ -38,6 +38,9 @@ const motionTargetSchema = z.discriminatedUnion("type", [
 
 const interactionSchema = z.object({
   action: z.enum(["hover", "focus", "click"]),
+  candidateId: z.string().min(1).max(80).optional(),
+  label: z.string().min(1).max(120).optional(),
+  role: z.string().min(1).max(40).optional(),
   zoomScale: z.number().min(1).max(1.8).optional(),
   showCursor: z.boolean().optional(),
 });

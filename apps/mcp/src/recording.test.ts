@@ -58,12 +58,22 @@ test("maps an inspected component interaction into the recorder request", () => 
         target: { type: "selector", selector: "#feature-tab", align: "center" },
         transitionMs: 1800,
         holdMs: 1400,
-        interaction: { action: "hover", zoomScale: 1.24, showCursor: true },
+        interaction: {
+          action: "hover",
+          candidateId: "interaction_03",
+          label: "Feature tab",
+          role: "tab",
+          zoomScale: 1.24,
+          showCursor: true,
+        },
       }],
     },
   });
   assert.deepEqual(request.animationConfig?.direction?.beats[0].interaction, {
     action: "hover",
+    candidateId: "interaction_03",
+    label: "Feature tab",
+    role: "tab",
     zoomScale: 1.24,
     showCursor: true,
   });

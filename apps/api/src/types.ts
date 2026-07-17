@@ -33,6 +33,12 @@ export type ComponentInteractionAction = "hover" | "focus" | "click";
 
 export interface ComponentInteraction {
   action: ComponentInteractionAction;
+  /** Inspection identity retained for diagnostics. */
+  candidateId?: string;
+  /** Semantic fallback used when a live page changes its DOM path. */
+  label?: string;
+  /** ARIA or element role used with label during selector recovery. */
+  role?: string;
   /** Maximum camera scale while the component is active. */
   zoomScale?: number;
   /** Show and animate a rendered cursor toward the component. */
@@ -236,6 +242,7 @@ export interface WebsiteInteractionCandidate {
   recommendedTarget: Extract<MotionTarget, { type: "selector" }>;
   recommendedHoldMs: number;
   recommendedZoomScale: number;
+  recommendedInteraction: ComponentInteraction;
 }
 
 export type RecordingJobStatus =
