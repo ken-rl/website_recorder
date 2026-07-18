@@ -1,13 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowRight,
   Check,
   CheckCircle2,
   Clock3,
+  Maximize2,
   MousePointerClick,
   Plus,
   SlidersHorizontal,
   Trash2,
+  X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import type { DirectorBeat, WebsiteInspection } from "../lib/productTypes";
 
@@ -39,6 +44,8 @@ export default function StoryboardDirector({
   defaultCurve,
 }: StoryboardDirectorProps) {
   const [selectedSceneId, setSelectedSceneId] = useState(beats[0]?.id ?? OPENING_ID);
+  const [preview, setPreview] = useState<{ image: string; label: string } | null>(null);
+  const [previewZoom, setPreviewZoom] = useState(1);
   const totalMs = startHoldMs + beats.reduce((sum, beat) => sum + beat.transitionMs + beat.holdMs, 0);
   const minimumMs = startHoldMs + beats.reduce((sum, beat) => sum + beat.holdMs + 250, 0);
   const minimumSeconds = Math.max(1, Math.ceil(minimumMs / 1000));
@@ -56,10 +63,24 @@ export default function StoryboardDirector({
     setSelectedSceneId(beats[0]?.id ?? OPENING_ID);
   }, [beats, selectedSceneId]);
 
+  useEffect(() => {
+    if (!preview) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPreview(null);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [preview]);
+
   const openingImage = inspection.screenshots[inspection.storyboard[0]?.imageIndex ?? 0];
   const sceneImages = useMemo(() => new Map(
     beats.map((beat) => [beat.id, findSceneImage(inspection, beat)]),
   ), [beats, inspection]);
+  const openPreview = (image: string | undefined, label: string) => {
+    if (!image) return;
+    setPreviewZoom(1);
+    setPreview({ image, label });
+  };
 
   const updateBeat = (id: string, patch: Partial<DirectorBeat>) => {
     setBeats(beats.map((beat) => beat.id === id ? { ...beat, ...patch } : beat));
@@ -144,6 +165,7 @@ export default function StoryboardDirector({
             index="Start"
             selected={selectedSceneId === OPENING_ID}
             onSelect={() => setSelectedSceneId(OPENING_ID)}
+            onPreview={() => openPreview(openingImage, "Opening frame")}
           />
           {beats.map((beat, index) => (
             <React.Fragment key={beat.id}>
@@ -155,6 +177,7 @@ export default function StoryboardDirector({
                 index={`Scene ${index + 1}`}
                 selected={selectedSceneId === beat.id}
                 onSelect={() => setSelectedSceneId(beat.id)}
+                onPreview={() => openPreview(sceneImages.get(beat.id), beat.label)}
               />
             </React.Fragment>
           ))}
@@ -239,27 +262,57 @@ export default function StoryboardDirector({
           {inspection.warnings.map((warning) => <span key={warning}>{warning}</span>)}
         </div>
       )}
+
+      {preview && createPortal(
+        <div className="scene-preview-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setPreview(null);
+        }}>
+          <section className="scene-preview-dialog" role="dialog" aria-modal="true" aria-label={`${preview.label} preview`}>
+            <div className="scene-preview-toolbar">
+              <div><span>Scene preview</span><strong>{preview.label}</strong></div>
+              <div className="scene-preview-actions">
+                <button type="button" onClick={() => setPreviewZoom((zoom) => Math.max(0.75, zoom - 0.25))} aria-label="Zoom out"><ZoomOut size={16} /></button>
+                <output>{Math.round(previewZoom * 100)}%</output>
+                <button type="button" onClick={() => setPreviewZoom((zoom) => Math.min(2.5, zoom + 0.25))} aria-label="Zoom in"><ZoomIn size={16} /></button>
+                <button type="button" className="scene-preview-close" onClick={() => setPreview(null)} aria-label="Close preview"><X size={17} /></button>
+              </div>
+            </div>
+            <div className="scene-preview-canvas">
+              <img
+                src={`data:image/jpeg;base64,${preview.image}`}
+                alt={`${preview.label} analyzed scene`}
+                style={{ width: `${previewZoom * 100}%` }}
+              />
+            </div>
+          </section>
+        </div>,
+        document.body,
+      )}
     </section>
   );
 }
 
-function SceneCard({ image, label, meta, index, selected, onSelect }: {
+function SceneCard({ image, label, meta, index, selected, onSelect, onPreview }: {
   image?: string;
   label: string;
   meta: string;
   index: string;
   selected: boolean;
   onSelect: () => void;
+  onPreview: () => void;
 }) {
   return (
-    <button type="button" role="listitem" className={`route-scene-card${selected ? " is-selected" : ""}`} onClick={onSelect} aria-pressed={selected}>
-      <span className="route-scene-image">
-        {image ? <img src={`data:image/jpeg;base64,${image}`} alt="" /> : <span className="route-scene-fallback" />}
-        <small>{index}</small>
-        {selected && <i><Check size={12} /></i>}
-      </span>
-      <span className="route-scene-copy"><strong title={label}>{label}</strong><small>{meta}</small></span>
-    </button>
+    <article role="listitem" className={`route-scene-card${selected ? " is-selected" : ""}`}>
+      <button type="button" className="route-scene-select" onClick={onSelect} aria-pressed={selected}>
+        <span className="route-scene-image">
+          {image ? <img src={`data:image/jpeg;base64,${image}`} alt="" /> : <span className="route-scene-fallback" />}
+          <small>{index}</small>
+          {selected && <i><Check size={12} /></i>}
+        </span>
+        <span className="route-scene-copy"><strong title={label}>{label}</strong><small>{meta}</small></span>
+      </button>
+      {image && <button type="button" className="route-scene-expand" onClick={onPreview} aria-label={`Enlarge ${label} preview`}><Maximize2 size={14} /></button>}
+    </article>
   );
 }
 
@@ -285,6 +338,15 @@ function SceneTimeControl({ label, description, valueMs, min, max, step, onChang
 
 function findSceneImage(inspection: WebsiteInspection, beat: DirectorBeat) {
   if (beat.imageIndex !== undefined) return inspection.screenshots[beat.imageIndex];
+  if (beat.target.type === "selector") {
+    const selector = beat.target.selector;
+    const section = inspection.sections.find(
+      (candidate) => candidate.selector === selector,
+    );
+    if (section?.imageIndex !== undefined) {
+      return inspection.screenshots[section.imageIndex];
+    }
+  }
   const closest = inspection.storyboard.reduce<typeof inspection.storyboard[number] | undefined>((best, frame) => {
     if (!best) return frame;
     return Math.abs(frame.target.value - beat.progress) < Math.abs(best.target.value - beat.progress) ? frame : best;

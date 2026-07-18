@@ -9,16 +9,12 @@ const MEDIA_CLOCK_KEY = "__websiterecorderMediaClock";
  * in the encoded sequence. This controller keeps them on the output timeline.
  */
 export async function installMediaClock(page: Page): Promise<void> {
-  await page.addInitScript((key) => {
-    type ClockState = {
-      active: boolean;
-      rate: number;
-      videos: Set<HTMLVideoElement>;
-      register: (video: HTMLVideoElement) => void;
-      sync: (rate: number) => void;
-    };
-
-    const state: ClockState = {
+  // Use source text rather than a serialized TypeScript callback. tsx/esbuild
+  // annotates nested functions with a global __name helper that is not present
+  // in a page's isolated init-script world.
+  await page.addInitScript({ content: `(() => {
+    const key = ${JSON.stringify(MEDIA_CLOCK_KEY)};
+    const state = {
       active: false,
       rate: 0.08,
       videos: new Set(),
@@ -38,12 +34,24 @@ export async function installMediaClock(page: Page): Promise<void> {
           setPlaybackRate(video, rate);
           video.play().catch(() => undefined);
         }
+        for (const animation of document.getAnimations()) {
+          if (animation.timeline && animation.timeline !== document.timeline) continue;
+          try {
+            animation.playbackRate = rate;
+          } catch {
+            try {
+              animation.updatePlaybackRate(rate);
+            } catch {
+              // Scroll-timeline or page-owned animations can reject control.
+            }
+          }
+        }
       },
     };
 
     // Chromium's supported range varies by media implementation. Keep the
     // controller from failing the whole capture when a page rejects a rate.
-    function setPlaybackRate(video: HTMLVideoElement, rate: number) {
+    function setPlaybackRate(video, rate) {
       try {
         video.playbackRate = Math.max(0.0625, Math.min(16, rate));
       } catch {
@@ -63,7 +71,7 @@ export async function installMediaClock(page: Page): Promise<void> {
     document.addEventListener("DOMContentLoaded", () => {
       document.querySelectorAll("video").forEach((video) => state.register(video));
     }, { once: true });
-  }, MEDIA_CLOCK_KEY);
+  })()` });
 }
 
 export async function createMediaClockSync(page: Page, fps: number) {

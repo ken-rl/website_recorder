@@ -11,6 +11,7 @@ export interface WebsiteSection {
   label: string;
   selector: string;
   kind: "heading" | "landmark";
+  imageIndex?: number;
   y: number;
   progress: number;
   height: number;

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeInspectionSections, type RawWebsiteSection } from "./inspect.js";
 
-test("centers heading targets inside the safe viewport", () => {
+test("frames heading targets in the upper content area", () => {
   const raw: RawWebsiteSection[] = [{
     label: "Features",
     selector: "#features-heading",
@@ -20,9 +20,10 @@ test("centers heading targets inside the safe viewport", () => {
   assert.deepEqual(section.recommendedTarget, {
     type: "selector",
     selector: "#features-heading",
-    align: "center",
+    align: "top",
+    offsetPx: -109,
   });
-  assert.equal(section.targetY, 754);
+  assert.equal(section.targetY, 995);
 });
 
 test("top-aligns landmarks without a heading below sticky navigation", () => {
@@ -42,4 +43,33 @@ test("top-aligns landmarks without a heading below sticky navigation", () => {
   );
   assert.equal(section.recommendedTarget.align, "top");
   assert.equal(section.targetY, 1504);
+});
+
+test("combines headings that share one visual row", () => {
+  const sections = normalizeInspectionSections(
+    [
+      {
+        label: "Performance",
+        selector: "#performance",
+        kind: "heading",
+        y: 1800,
+        height: 32,
+        stable: 1,
+      },
+      {
+        label: "CMS",
+        selector: "#cms",
+        kind: "heading",
+        y: 1800,
+        height: 32,
+        stable: 1,
+      },
+    ],
+    { topInsetPx: 64, bottomInsetPx: 24 },
+    900,
+    5000,
+  );
+
+  assert.equal(sections.length, 1);
+  assert.equal(sections[0].label, "Performance · CMS");
 });

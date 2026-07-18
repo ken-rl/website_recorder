@@ -53,22 +53,31 @@ export async function collectSemanticAnchors(
       if (element.id) return "#" + CSS.escape(element.id);
       const segments = [];
       let current = element;
-      while (current && current !== document.body && segments.length < 4) {
+      while (current && current !== document.body && segments.length < 12) {
         const parent = current.parentElement;
         const tag = current.tagName.toLowerCase();
         const index = parent ? Array.from(parent.children).filter((child) => child.tagName === current.tagName).indexOf(current) + 1 : 1;
         segments.unshift(tag + ":nth-of-type(" + index + ")");
         current = parent;
       }
-      return "body > " + segments.join(" > ");
+      return current === document.body
+        ? "body > " + segments.join(" > ")
+        : "body " + segments.join(" > ");
     };
     return Array.from(document.querySelectorAll("h1,h2,h3,main,section,article,footer,[role='main'],[role='region']"))
       .map((element) => {
         const tag = element.tagName.toLowerCase();
-        const heading = tag.startsWith("h") ? element : element.querySelector("h1,h2,h3");
+        const heading = /^h[1-3]$/.test(tag) ? element : element.querySelector("h1,h2,h3");
         const focus = heading || element;
         const focusRect = focus.getBoundingClientRect();
-        const label = (element.getAttribute("aria-label") || heading?.textContent || element.textContent || "").replace(/\\s+/g, " ").trim().slice(0, 120);
+        const label = (
+          element.getAttribute("aria-label")
+          || heading?.innerText
+          || heading?.textContent
+          || element.innerText
+          || element.textContent
+          || ""
+        ).replace(/\\s+/g, " ").trim().slice(0, 120);
         return {
           selector: pathFor(focus),
           label,

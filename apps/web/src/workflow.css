@@ -307,14 +307,19 @@
 .route-duration-control input { width: 100%; accent-color: var(--accent); cursor: pointer; }
 .route-duration-control span:last-child { text-align: right; }
 .capture-route { display: flex; align-items: center; gap: 8px; overflow-x: auto; padding: 2px 2px 9px; scrollbar-width: thin; scroll-snap-type: x proximity; }
-.route-scene-card { width: 172px; min-width: 172px; padding: 0; overflow: hidden; color: var(--text); text-align: left; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); cursor: pointer; scroll-snap-align: start; transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
+.route-scene-card { position: relative; width: 220px; min-width: 220px; padding: 0; overflow: hidden; color: var(--text); text-align: left; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); scroll-snap-align: start; transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
 .route-scene-card:hover { transform: translateY(-2px); border-color: var(--border-hover); }
 .route-scene-card.is-selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), 0 8px 24px rgba(0,0,0,.12); }
-.route-scene-image { position: relative; display: block; width: 100%; aspect-ratio: 16/8.8; overflow: hidden; background: #08080a; }
+.route-scene-select { width: 100%; padding: 0; display: block; color: inherit; text-align: left; border: 0; background: transparent; cursor: pointer; }
+.route-scene-image { position: relative; display: block; width: 100%; aspect-ratio: 16/9; overflow: hidden; background: #08080a; }
 .route-scene-image img { width: 100%; height: 100%; display: block; object-fit: cover; opacity: .88; }
 .route-scene-fallback { display: block; width: 100%; height: 100%; background: radial-gradient(circle at center, var(--surface-elevated), #08080a); }
 .route-scene-image > small { position: absolute; left: 7px; top: 7px; padding: 3px 6px; color: #fff; border-radius: 4px; background: rgba(0,0,0,.72); font-size: .5rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .route-scene-image > i { position: absolute; right: 7px; top: 7px; width: 21px; height: 21px; display: grid; place-items: center; color: white; border-radius: 50%; background: var(--accent); }
+.route-scene-expand { position: absolute; right: 8px; bottom: 42px; width: 29px; height: 29px; padding: 0; display: grid; place-items: center; color: white; border: 1px solid rgba(255,255,255,.18); border-radius: 7px; background: rgba(7,7,10,.72); box-shadow: 0 4px 14px rgba(0,0,0,.24); backdrop-filter: blur(10px); cursor: zoom-in; opacity: 0; transform: translateY(3px); transition: opacity .16s ease, transform .16s ease, background .16s ease; }
+.route-scene-card:hover .route-scene-expand,
+.route-scene-expand:focus-visible { opacity: 1; transform: translateY(0); }
+.route-scene-expand:hover { background: rgba(7,7,10,.94); }
 .route-scene-copy { padding: 8px 9px 9px; display: grid; min-width: 0; }
 .route-scene-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .67rem; }
 .route-scene-copy small { color: var(--muted); font-size: .54rem; }
@@ -359,6 +364,21 @@
 .inspection-warnings { display: flex; flex-wrap: wrap; gap: 6px; }
 .inspection-warnings span { padding: 5px 8px; color: var(--accent-secondary); background: var(--accent-secondary-soft); border-radius: 5px; font-size: .58rem; }
 .route-warnings { padding: 0 20px 16px; }
+.scene-preview-backdrop { position: fixed; inset: 0; z-index: 1000; padding: clamp(18px, 4vw, 56px); display: grid; place-items: center; background: rgba(4,4,6,.74); backdrop-filter: blur(12px); animation: scene-preview-fade .18s ease both; }
+@keyframes scene-preview-fade { from { opacity: 0; } }
+.scene-preview-dialog { width: min(1440px, 96vw); height: min(900px, 90vh); min-height: 0; display: grid; grid-template-rows: 58px minmax(0, 1fr); overflow: hidden; border: 1px solid color-mix(in srgb, var(--border) 74%, white 8%); border-radius: 14px; background: var(--surface); box-shadow: 0 32px 100px rgba(0,0,0,.48); animation: scene-preview-in .24s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes scene-preview-in { from { opacity: 0; transform: translateY(10px) scale(.985); } }
+.scene-preview-toolbar { padding: 0 13px 0 17px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--border); }
+.scene-preview-toolbar > div:first-child { min-width: 0; display: grid; }
+.scene-preview-toolbar span { color: var(--muted); font-size: .52rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+.scene-preview-toolbar strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .76rem; }
+.scene-preview-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+.scene-preview-actions button { width: 31px; height: 31px; padding: 0; display: grid; place-items: center; color: var(--muted); border: 1px solid transparent; border-radius: 7px; background: transparent; cursor: pointer; }
+.scene-preview-actions button:hover { color: var(--text); border-color: var(--border); background: var(--surface-elevated); }
+.scene-preview-actions output { width: 42px; color: var(--muted); text-align: center; font-size: .58rem; font-variant-numeric: tabular-nums; }
+.scene-preview-actions .scene-preview-close { margin-left: 7px; border-color: var(--border); }
+.scene-preview-canvas { min-width: 0; min-height: 0; padding: clamp(12px, 2vw, 24px); overflow: auto; background: #08080a; scrollbar-width: thin; }
+.scene-preview-canvas img { height: auto; min-width: 75%; margin: auto; display: block; border-radius: 5px; box-shadow: 0 18px 48px rgba(0,0,0,.3); transition: width .18s cubic-bezier(.2,.8,.2,1); }
 
 /* Library */
 .library-toolbar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
@@ -427,5 +447,8 @@
   .route-help { display: none; }
   .scene-control-grid { grid-template-columns: 1fr; }
   .scene-picker-list { grid-template-columns: 1fr; }
-  .route-scene-card { width: 150px; min-width: 150px; }
+  .route-scene-card { width: 184px; min-width: 184px; }
+  .route-scene-expand { opacity: 1; transform: none; }
+  .scene-preview-backdrop { padding: 8px; }
+  .scene-preview-dialog { width: 100%; height: min(88vh, 760px); }
 }

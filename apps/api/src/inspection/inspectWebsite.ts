@@ -56,6 +56,14 @@ export async function inspectWebsite(options: {
             pageHeight,
             viewport.height,
           );
+    if (scrollMode === "document") {
+      await attachSectionPreviewScreenshots(
+        page,
+        sections,
+        screenshots,
+        viewport.height,
+      );
+    }
     const warnings: string[] = [];
     if (page.url() !== target.href) warnings.push(`Redirected to ${page.url()}`);
     if (pageHeight <= viewport.height + 48 && scrollMode === "document") {
@@ -166,18 +174,20 @@ export function normalizeInspectionSections(
 ): WebsiteSection[] {
   const safeTop = safeViewport.topInsetPx + 24;
   const safeBottom = viewportHeight - safeViewport.bottomInsetPx;
+  const headingLeadPx = Math.round((safeBottom - safeTop) * 0.14);
   const scored = raw
     .map((section) => ({
       ...section,
       score: (section.kind === "heading" ? 4 : 0) + section.stable * 2,
-      recommendedAlign:
-        section.kind === "heading" ? ("center" as const) : ("top" as const),
+      recommendedAlign: "top" as const,
+      recommendedOffsetPx:
+        section.kind === "heading" ? -headingLeadPx : 0,
       targetY: Math.max(
         0,
         Math.min(
           maxScroll,
           section.kind === "heading"
-            ? section.y + section.height / 2 - (safeTop + safeBottom) / 2
+            ? section.y - safeTop - headingLeadPx
             : section.y - safeTop,
         ),
       ),
@@ -189,7 +199,24 @@ export function normalizeInspectionSections(
       (candidate) => Math.abs(candidate.y - section.y) <= 160,
     );
     if (nearby < 0) selected.push(section);
-    else if (section.score > selected[nearby].score) selected[nearby] = section;
+    else {
+      const candidate = selected[nearby];
+      const sameVisualRow =
+        candidate.kind === "heading"
+        && section.kind === "heading"
+        && Math.abs(candidate.y - section.y) <= 48;
+      const candidateLabel = candidate.label.toLowerCase();
+      const sectionLabel = section.label.toLowerCase();
+      const distinctLabels =
+        candidateLabel !== sectionLabel
+        && !candidateLabel.includes(sectionLabel)
+        && !sectionLabel.includes(candidateLabel);
+      if (sameVisualRow && distinctLabels) {
+        candidate.label = `${candidate.label} · ${section.label}`.slice(0, 120);
+      } else if (section.score > candidate.score) {
+        selected[nearby] = section;
+      }
+    }
   }
 
   let previousTarget = 0;
@@ -222,6 +249,9 @@ export function normalizeInspectionSections(
           type: "selector" as const,
           selector: section.selector,
           align: section.recommendedAlign,
+          ...(section.recommendedOffsetPx
+            ? { offsetPx: section.recommendedOffsetPx }
+            : {}),
         },
       };
     });
@@ -231,27 +261,91 @@ async function collectSections(page: Page): Promise<RawWebsiteSection[]> {
   return page.evaluate(`(() => {
     const pathFor = (element) => {
       if (element.id) return "#" + CSS.escape(element.id);
+      const framerName = element.getAttribute("data-framer-name");
+      if (framerName) {
+        const namedSelector = "[data-framer-name=\\"" + CSS.escape(framerName) + "\\"]";
+        if (document.querySelectorAll(namedSelector).length === 1) return namedSelector;
+      }
       const segments = [];
       let current = element;
-      while (current && current !== document.body && segments.length < 4) {
+      while (current && current !== document.body && segments.length < 12) {
         const parent = current.parentElement;
         const tag = current.tagName.toLowerCase();
         const index = parent ? Array.from(parent.children).filter((child) => child.tagName === current.tagName).indexOf(current) + 1 : 1;
         segments.unshift(tag + ":nth-of-type(" + index + ")");
         current = parent;
       }
-      return "body > " + segments.join(" > ");
+      return current === document.body
+        ? "body > " + segments.join(" > ")
+        : "body " + segments.join(" > ");
     };
-    return Array.from(document.querySelectorAll("h1,h2,h3,main,section,article,header,footer,[role='main'],[role='region']"))
+    const genericFramerNames = new Set([
+      "app", "background", "bg", "border", "bottom", "container", "content",
+      "default", "desktop", "footer", "header", "interface", "layout", "left",
+      "main", "mobile", "new layout", "right", "section", "shade", "tablet",
+      "top", "ui", "visual", "wrapper",
+    ]);
+    const semantic = Array.from(document.querySelectorAll("h1,h2,h3,main,section,article,footer,[role='main'],[role='region']"))
+      // A footer inside main/section/article is commonly part of a UI mockup
+      // or card. Treat only page-level footers as navigation landmarks.
+      .filter((element) => element.tagName.toLowerCase() !== "footer" || !element.closest("main,section,article"))
       .map((element) => {
         const tag = element.tagName.toLowerCase();
-        const heading = tag.startsWith("h") ? element : element.querySelector("h1,h2,h3");
+        const heading = /^h[1-3]$/.test(tag) ? element : element.querySelector("h1,h2,h3");
         const focus = heading || element;
         const rect = focus.getBoundingClientRect();
-        const text = (element.getAttribute("aria-label") || heading?.textContent || element.textContent || "").replace(/\s+/g, " ").trim();
+        const framerName = element.getAttribute("data-framer-name") || "";
+        const namedLabel = genericFramerNames.has(framerName.toLowerCase()) ? "" : framerName;
+        const text = (
+          element.getAttribute("aria-label")
+          || heading?.innerText
+          || heading?.textContent
+          || namedLabel
+          || (tag === "footer" ? "Footer" : element.innerText || element.textContent)
+          || ""
+        ).replace(/\\s+/g, " ").trim();
         return { label: text.slice(0, 120) || tag, selector: pathFor(focus), kind: heading ? "heading" : "landmark", y: Math.max(0, Math.round(rect.top + window.scrollY)), height: Math.max(1, Math.round(rect.height)), stable: focus.id ? 1 : 0, visible: rect.width > 0 && rect.height > 0 };
       })
       .filter((section) => section.visible && section.label.length > 0 && Number.isFinite(section.y));
+    const namedBands = Array.from(document.querySelectorAll("main [data-framer-name]"))
+      .flatMap((element) => {
+        const name = (element.getAttribute("data-framer-name") || "").replace(/\\s+/g, " ").trim();
+        const normalizedName = name.toLowerCase();
+        if (
+          name.length < 3
+          || name.length > 60
+          || genericFramerNames.has(normalizedName)
+          || element.querySelector("h1,h2,h3")
+        ) return [];
+        const main = element.closest("main");
+        let depth = 0;
+        let current = element;
+        while (current && current !== main) {
+          depth += 1;
+          current = current.parentElement;
+        }
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        const visible =
+          rect.width >= innerWidth * 0.65
+          && rect.height >= Math.max(280, innerHeight * 0.34)
+          && style.display !== "none"
+          && style.visibility !== "hidden"
+          && Number(style.opacity || 1) > 0
+          && style.position !== "fixed"
+          && style.position !== "sticky";
+        if (!main || depth > 2 || !visible) return [];
+        return [{
+          label: name,
+          selector: pathFor(element),
+          kind: "landmark",
+          y: Math.max(0, Math.round(rect.top + window.scrollY)),
+          height: Math.max(1, Math.round(rect.height)),
+          stable: element.id || document.querySelectorAll("[data-framer-name=\\"" + CSS.escape(name) + "\\"]").length === 1 ? 1 : 0,
+          visible: true,
+        }];
+      });
+    return [...semantic, ...namedBands];
   })()`);
 }
 
@@ -298,6 +392,58 @@ async function takeDocumentStoryboardScreenshots(
     });
   }
   return { screenshots, storyboard };
+}
+
+async function attachSectionPreviewScreenshots(
+  page: Page,
+  sections: WebsiteSection[],
+  screenshots: string[],
+  viewportHeight: number,
+) {
+  if (sections.length === 0) return;
+
+  const allPreviewPositions: number[] = [];
+  const minimumSpacing = Math.max(180, viewportHeight * 0.28);
+  for (const section of sections) {
+    const nearby = allPreviewPositions.findIndex(
+      (position) => Math.abs(position - section.targetY) < minimumSpacing,
+    );
+    if (nearby < 0) {
+      allPreviewPositions.push(section.targetY);
+    }
+  }
+  allPreviewPositions.sort((a, b) => a - b);
+  const maximumPreviewCount = 16;
+  const previewPositions = allPreviewPositions.length <= maximumPreviewCount
+    ? allPreviewPositions
+    : [...new Set(Array.from(
+        { length: maximumPreviewCount },
+        (_, index) => allPreviewPositions[
+          Math.round((index * (allPreviewPositions.length - 1)) / (maximumPreviewCount - 1))
+        ],
+      ))];
+
+  const indexes = new Map<number, number>();
+  for (const position of previewPositions) {
+    await page.evaluate(
+      `window.scrollTo({ top: ${Math.round(position)}, left: 0, behavior: "instant" })`,
+    );
+    await page.waitForTimeout(120);
+    screenshots.push(
+      (await page.screenshot({ type: "jpeg", quality: 68 })).toString("base64"),
+    );
+    indexes.set(position, screenshots.length - 1);
+  }
+
+  for (const section of sections) {
+    const closest = previewPositions.reduce<number | undefined>((best, position) => {
+      if (best === undefined) return position;
+      return Math.abs(position - section.targetY) < Math.abs(best - section.targetY)
+        ? position
+        : best;
+    }, undefined);
+    if (closest !== undefined) section.imageIndex = indexes.get(closest);
+  }
 }
 
 async function takeVirtualStoryboardScreenshots(
