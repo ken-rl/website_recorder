@@ -2,6 +2,11 @@ import type { Page } from "playwright";
 import type { ComponentInteraction, MotionBeat } from "../types.js";
 
 const DESTRUCTIVE = /\b(delete|remove|unsubscribe|sign out|log out|purchase|buy|pay|checkout|submit|send|publish|confirm|destroy|upload|download)\b/i;
+const CURSOR_ARRIVAL_PROGRESS = 0.34;
+const HOVER_ACTIVATION_PROGRESS = 0.46;
+const ACTION_ACTIVATION_PROGRESS = 0.56;
+const CURSOR_DEPART_PROGRESS = 0.78;
+const HOVER_RELEASE_PROGRESS = 0.82;
 
 export class ComponentInteractionAnimator {
   private activeBeat = -1;
@@ -26,11 +31,15 @@ export class ComponentInteractionAnimator {
       this.activeBeat = options.beatIndex;
     }
 
-    const approach = smoothstep(Math.min(1, progress / 0.34));
-    const depart = progress <= 0.78 ? 1 : 1 - smoothstep((progress - 0.78) / 0.22);
+    const approach = smoothstep(Math.min(1, progress / CURSOR_ARRIVAL_PROGRESS));
+    const depart = progress <= CURSOR_DEPART_PROGRESS
+      ? 1
+      : 1 - smoothstep((progress - CURSOR_DEPART_PROGRESS) / (1 - CURSOR_DEPART_PROGRESS));
     const amount = Math.min(approach, depart);
+    const hoverActive = progress >= HOVER_ACTIVATION_PROGRESS
+      && progress <= HOVER_RELEASE_PROGRESS;
     const state = await this.page.evaluate(
-      ({ selector, scale, amount, showCursor }) => {
+      ({ selector, scale, amount, showCursor, pointerActive }) => {
         const element = document.querySelector(selector) as HTMLElement | null;
         const cursor = document.getElementById("__deio-scroll-cursor") as HTMLElement | null;
         if (!element || !cursor) return null;
@@ -47,19 +56,33 @@ export class ComponentInteractionAnimator {
         document.body.style.transform = `scale(${zoom})`;
         cursor.style.opacity = showCursor && amount > 0.02 ? "1" : "0";
         cursor.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${0.86 + amount * 0.14})`;
-        return { x: targetX, y: targetY };
+        cursor.dataset.kind = pointerActive ? "pointer" : "arrow";
+        const arrow = cursor.querySelector("[data-deio-cursor-arrow]") as SVGElement | null;
+        const pointer = cursor.querySelector("[data-deio-cursor-pointer]") as SVGElement | null;
+        if (arrow) arrow.style.display = pointerActive ? "none" : "block";
+        if (pointer) pointer.style.display = pointerActive ? "block" : "none";
+        return { targetX, targetY, startX, startY };
       },
       {
         selector: this.activeSelector,
         scale: options.interaction.zoomScale ?? 1.25,
         amount,
         showCursor: options.interaction.showCursor ?? true,
+        pointerActive: hoverActive,
       },
     );
     if (!state) throw new Error(`Interaction selector was not found or visible: ${options.selector}`);
 
-    await this.page.mouse.move(state.x, state.y);
-    if (progress >= 0.38) {
+    // The browser's real mouse must remain away from the target until the
+    // rendered cursor has arrived and settled, otherwise :hover changes early.
+    await this.page.mouse.move(
+      hoverActive ? state.targetX : state.startX,
+      hoverActive ? state.targetY : state.startY,
+    );
+    if (
+      progress >= ACTION_ACTIVATION_PROGRESS
+      && progress <= HOVER_RELEASE_PROGRESS
+    ) {
       await this.activateOnce(options.beatIndex, this.activeSelector, options.interaction);
     }
   }
@@ -71,7 +94,14 @@ export class ComponentInteractionAnimator {
       document.body.style.transform = "none";
       document.body.style.transformOrigin = "";
       const cursor = document.getElementById("__deio-scroll-cursor");
-      if (cursor) cursor.style.opacity = "0";
+      if (cursor) {
+        cursor.style.opacity = "0";
+        cursor.dataset.kind = "arrow";
+        const arrow = cursor.querySelector("[data-deio-cursor-arrow]") as SVGElement | null;
+        const pointer = cursor.querySelector("[data-deio-cursor-pointer]") as SVGElement | null;
+        if (arrow) arrow.style.display = "block";
+        if (pointer) pointer.style.display = "none";
+      }
       delete (window as any).__deioScrollInteractionTarget;
     });
     this.activeBeat = -1;
@@ -112,12 +142,22 @@ export class ComponentInteractionAnimator {
         cursor = document.createElement("div");
         cursor.id = "__deio-scroll-cursor";
         cursor.setAttribute("aria-hidden", "true");
-        cursor.innerHTML = `<svg width="30" height="38" viewBox="0 0 30 38" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 2L27 21H16L10 35L2 2Z" fill="white" stroke="#111827" stroke-width="2.5" stroke-linejoin="round"/></svg>`;
+        cursor.dataset.kind = "arrow";
+        // Glyphs from Bootstrap Icons 1.13.1 (MIT):
+        // https://icons.getbootstrap.com/icons/cursor/
+        // https://icons.getbootstrap.com/icons/hand-index-fill/
+        cursor.innerHTML = `
+          <svg data-deio-cursor-arrow width="30" height="30" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+            <path d="M14.082 2.182a.5.5 0 0 1 .103.557L8.528 15.467a.5.5 0 0 1-.917-.007L5.57 10.694.803 8.652a.5.5 0 0 1-.006-.916l12.728-5.657a.5.5 0 0 1 .556.103zM2.25 8.184l3.897 1.67a.5.5 0 0 1 .262.263l1.67 3.897L12.743 3.52z" fill="white" stroke="#111827" stroke-width=".65" stroke-linejoin="round"/>
+          </svg>
+          <svg data-deio-cursor-pointer width="30" height="30" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" style="display:none;transform:translateX(-8px)">
+            <path d="M8.5 4.466V1.75a1.75 1.75 0 1 0-3.5 0v5.34l-1.2.24a1.5 1.5 0 0 0-1.196 1.636l.345 3.106a2.5 2.5 0 0 0 .405 1.11l1.433 2.15A1.5 1.5 0 0 0 6.035 16h6.385a1.5 1.5 0 0 0 1.302-.756l1.395-2.441a3.5 3.5 0 0 0 .444-1.389l.271-2.715a2 2 0 0 0-1.99-2.199h-.581a5 5 0 0 0-.195-.248c-.191-.229-.51-.568-.88-.716-.364-.146-.846-.132-1.158-.108l-.132.012a1.26 1.26 0 0 0-.56-.642 2.6 2.6 0 0 0-.738-.288c-.31-.062-.739-.058-1.05-.046z" fill="white" stroke="#111827" stroke-width=".65" stroke-linejoin="round"/>
+          </svg>`;
         Object.assign(cursor.style, {
           position: "fixed",
           left: "0",
           top: "0",
-          width: "30px",
+          width: "32px",
           height: "38px",
           zIndex: "2147483647",
           pointerEvents: "none",

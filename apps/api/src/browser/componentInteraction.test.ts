@@ -82,6 +82,81 @@ test("animates the semantically recovered target after preflight", async () => {
   }
 });
 
+test("settles the visible cursor before hover and delays click activation", async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
+    await page.setContent(`
+      <style>
+        button {
+          position: fixed;
+          left: 120px;
+          top: 100px;
+          width: 160px;
+          height: 48px;
+          background: rgb(20, 30, 40);
+        }
+        button:hover { background: rgb(80, 180, 120); }
+      </style>
+      <button id="target" type="button" onclick="window.__clicks = (window.__clicks || 0) + 1">
+        Show details
+      </button>
+    `);
+    const animator = new ComponentInteractionAnimator(page);
+    const interaction = {
+      action: "click" as const,
+      label: "Show details",
+      role: "button",
+      showCursor: true,
+    };
+
+    await animator.render({
+      beatIndex: 0,
+      selector: "#target",
+      interaction,
+      progress: 0.4,
+    });
+    const settled = await page.evaluate(() => ({
+      background: getComputedStyle(document.getElementById("target")!).backgroundColor,
+      clicks: (window as any).__clicks || 0,
+      cursorKind: document.getElementById("__deio-scroll-cursor")?.dataset.kind,
+    }));
+    assert.equal(settled.background, "rgb(20, 30, 40)");
+    assert.equal(settled.clicks, 0);
+    assert.equal(settled.cursorKind, "arrow");
+
+    await animator.render({
+      beatIndex: 0,
+      selector: "#target",
+      interaction,
+      progress: 0.5,
+    });
+    const hovered = await page.evaluate(() => ({
+      background: getComputedStyle(document.getElementById("target")!).backgroundColor,
+      clicks: (window as any).__clicks || 0,
+      cursorKind: document.getElementById("__deio-scroll-cursor")?.dataset.kind,
+      arrowDisplay: (document.querySelector("[data-deio-cursor-arrow]") as SVGElement).style.display,
+      pointerDisplay: (document.querySelector("[data-deio-cursor-pointer]") as SVGElement).style.display,
+    }));
+    assert.equal(hovered.background, "rgb(80, 180, 120)");
+    assert.equal(hovered.clicks, 0);
+    assert.equal(hovered.cursorKind, "pointer");
+    assert.equal(hovered.arrowDisplay, "none");
+    assert.equal(hovered.pointerDisplay, "block");
+
+    await animator.render({
+      beatIndex: 0,
+      selector: "#target",
+      interaction,
+      progress: 0.57,
+    });
+    assert.equal(await page.evaluate(() => (window as any).__clicks || 0), 1);
+    await animator.reset();
+  } finally {
+    await browser.close();
+  }
+});
+
 test("does not recover an unsafe link as a click target", async () => {
   const browser = await chromium.launch({ headless: true });
   try {
