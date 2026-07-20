@@ -103,6 +103,14 @@ export const recordRequestSchema = z.object({
       .optional(),
     layout: z.literal("side-by-side").optional(),
   }).optional(),
+  responsiveness: z.object({
+    desktopLabel: z.string().trim().min(1).max(48).optional(),
+    mobileLabel: z.string().trim().min(1).max(48).optional(),
+    desktopWidth: z.number().int().min(320).max(3840).optional(),
+    desktopHeight: z.number().int().min(240).max(2160).optional(),
+    mobileWidth: z.number().int().min(320).max(3840).optional(),
+    mobileHeight: z.number().int().min(240).max(2160).optional(),
+  }).optional(),
 }).superRefine((request, context) => {
   const direction = request.animationConfig?.direction;
   if (!direction) return;

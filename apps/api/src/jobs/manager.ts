@@ -246,7 +246,7 @@ export class RecordingJobManager {
     this.controllers.set(job.jobId, controller);
     let timedOut = false;
     let leaseLost = false;
-    const runtimeLimitMs = job.request.comparison
+    const runtimeLimitMs = (job.request.comparison || job.request.responsiveness)
       ? this.maxJobRuntimeMs * 2
       : this.maxJobRuntimeMs;
     const runtimeTimeout = setTimeout(() => {
@@ -341,6 +341,14 @@ export class RecordingJobManager {
             secondaryLogo: job.request.comparison.secondaryLogo,
             primaryLogoDataUrl: job.request.comparison.primaryLogoDataUrl,
             secondaryLogoDataUrl: job.request.comparison.secondaryLogoDataUrl,
+          } : undefined,
+          responsiveness: job.request.responsiveness ? {
+            desktopLabel: job.request.responsiveness.desktopLabel || "Desktop View",
+            mobileLabel: job.request.responsiveness.mobileLabel || "Mobile View",
+            desktopWidth: job.request.videoConfig.viewport.width,
+            desktopHeight: job.request.videoConfig.viewport.height,
+            mobileWidth: job.request.responsiveness.mobileWidth || 390,
+            mobileHeight: job.request.responsiveness.mobileHeight || 844,
           } : undefined,
         },
       });

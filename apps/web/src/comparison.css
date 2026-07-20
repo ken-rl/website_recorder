@@ -17,6 +17,11 @@
   padding: 0 10px;
 }
 
+.comparison-input-rail.is-responsive {
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+}
+
 .comparison-target {
   min-width: 0;
   padding: 6px 10px;

@@ -45,6 +45,15 @@ export interface DirectorBeat {
   imageIndex?: number;
 }
 
+export interface ResponsivenessConfig {
+  desktopLabel?: string;
+  mobileLabel?: string;
+  desktopWidth?: number;
+  desktopHeight?: number;
+  mobileWidth?: number;
+  mobileHeight?: number;
+}
+
 export interface RecordingRequest {
   targetUrl: string;
   exportFormat: "mp4";
@@ -67,6 +76,7 @@ export interface RecordingRequest {
     secondaryLogoDataUrl?: string;
     layout?: "side-by-side";
   };
+  responsiveness?: ResponsivenessConfig;
 }
 
 export interface RecordingJob {
@@ -101,6 +111,14 @@ export interface RecordingJob {
       secondaryLogo?: string;
       primaryLogoDataUrl?: string;
       secondaryLogoDataUrl?: string;
+    };
+    responsiveness?: {
+      desktopLabel: string;
+      mobileLabel: string;
+      desktopWidth: number;
+      desktopHeight: number;
+      mobileWidth: number;
+      mobileHeight: number;
     };
   };
   error?: { stage: JobStage; message: string };

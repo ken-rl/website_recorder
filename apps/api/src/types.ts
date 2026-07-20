@@ -116,6 +116,16 @@ export interface RecordRequest {
   roundedCorners?: boolean;
   /** Capture a second page with the same motion settings and export a paired video. */
   comparison?: ComparisonConfig;
+  responsiveness?: ResponsivenessConfig;
+}
+
+export interface ResponsivenessConfig {
+  desktopLabel?: string;
+  mobileLabel?: string;
+  desktopWidth?: number;
+  desktopHeight?: number;
+  mobileWidth?: number;
+  mobileHeight?: number;
 }
 
 export interface ComparisonConfig {
@@ -299,6 +309,14 @@ export interface RecordingJobResult {
     secondaryLogo?: string;
     primaryLogoDataUrl?: string;
     secondaryLogoDataUrl?: string;
+  };
+  responsiveness?: {
+    desktopLabel: string;
+    mobileLabel: string;
+    desktopWidth: number;
+    desktopHeight: number;
+    mobileWidth: number;
+    mobileHeight: number;
   };
 }
 

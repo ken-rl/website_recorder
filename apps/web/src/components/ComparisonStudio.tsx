@@ -30,6 +30,7 @@ interface ComparisonStudioProps {
 }
 
 export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: ComparisonStudioProps) {
+  const [studioMode, setStudioMode] = useState<"compare" | "responsive">("compare");
   const [primaryUrl, setPrimaryUrl] = useState("");
   const [secondaryUrl, setSecondaryUrl] = useState("");
   const [primaryLabel, setPrimaryLabel] = useState("Version A");
@@ -55,7 +56,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
   useEffect(() => onBusyChange?.(isBusy), [isBusy, onBusyChange]);
 
   useEffect(() => {
-    if (!initialJob?.request?.comparison) return;
+    if (!initialJob?.request) return;
     loadJobSettings(initialJob);
     setActiveJob(initialJob);
     if (initialJob.status === "completed" && initialJob.result) {
@@ -72,7 +73,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
     void fetch(`/api/jobs/${jobId}`, { cache: "no-store" })
       .then((response) => readJsonResponse<{ ok?: boolean; job: RecordingJob }>(response, "Restore comparison"))
       .then((data) => {
-        if (!data.job.request?.comparison) return localStorage.removeItem("active-comparison-job-id");
+        if (!data.job.request?.comparison && !data.job.request?.responsiveness) return localStorage.removeItem("active-comparison-job-id");
         loadJobSettings(data.job);
         setActiveJob(data.job);
       })
@@ -136,9 +137,9 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
 
   const request = useMemo<RecordingRequest>(() => {
     const tier = TIERS[renderTier];
-    return {
+    const base = {
       targetUrl: primaryUrl.trim(),
-      exportFormat: "mp4",
+      exportFormat: "mp4" as const,
       videoConfig: {
         framerate: tier.fps,
         qualityPreset: tier.quality,
@@ -148,11 +149,11 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
         pixelsPerFrame: tier.pixels,
         preRecordingDelayMs: tier.delay,
         removeOverlayElements: true,
-        scrollCurve: { preset: "ease-in-out" },
+        scrollCurve: { preset: "ease-in-out" as const },
         durationMs: durationSeconds * 1_000,
         virtualScrollDurationMs: durationSeconds * 1_000,
         heroHoldMs: 1_500,
-        scrollMode: "auto",
+        scrollMode: "auto" as const,
         virtualScrollCycles: 8,
         fastMode: tier.fast,
         captureMode: tier.mode,
@@ -160,22 +161,39 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
       backgroundPreset: "none",
       addShadow: false,
       roundedCorners: false,
-      comparison: {
-        targetUrl: secondaryUrl.trim(),
-        primaryLabel: primaryLabel.trim(),
-        secondaryLabel: secondaryLabel.trim(),
-        primaryLogo: primaryLogo.trim(),
-        secondaryLogo: secondaryLogo.trim(),
-        primaryLogoDataUrl: primaryLogoDataUrl || undefined,
-        secondaryLogoDataUrl: secondaryLogoDataUrl || undefined,
-        layout: "side-by-side",
-      },
     };
-  }, [primaryUrl, secondaryUrl, primaryLabel, secondaryLabel, primaryLogo, secondaryLogo, primaryLogoDataUrl, secondaryLogoDataUrl, width, height, renderTier, durationSeconds]);
+    if (studioMode === "responsive") {
+      return {
+        ...base,
+        responsiveness: {
+          desktopLabel: primaryLabel.trim(),
+          mobileLabel: secondaryLabel.trim(),
+          desktopWidth: width,
+          desktopHeight: height,
+          mobileWidth: 390,
+          mobileHeight: 844,
+        },
+      };
+    } else {
+      return {
+        ...base,
+        comparison: {
+          targetUrl: secondaryUrl.trim(),
+          primaryLabel: primaryLabel.trim(),
+          secondaryLabel: secondaryLabel.trim(),
+          primaryLogo: primaryLogo.trim(),
+          secondaryLogo: secondaryLogo.trim(),
+          primaryLogoDataUrl: primaryLogoDataUrl || undefined,
+          secondaryLogoDataUrl: secondaryLogoDataUrl || undefined,
+          layout: "side-by-side",
+        },
+      };
+    }
+  }, [studioMode, primaryUrl, secondaryUrl, primaryLabel, secondaryLabel, primaryLogo, secondaryLogo, primaryLogoDataUrl, secondaryLogoDataUrl, width, height, renderTier, durationSeconds]);
 
   const canStart =
     primaryUrl.trim() &&
-    secondaryUrl.trim() &&
+    (studioMode === "responsive" || secondaryUrl.trim()) &&
     primaryLabel.trim() &&
     secondaryLabel.trim() &&
     !isBusy;
@@ -230,6 +248,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
   };
 
   const swap = () => {
+    if (studioMode === "responsive") return;
     beginEdit();
     setPrimaryUrl(secondaryUrl);
     setSecondaryUrl(primaryUrl);
@@ -254,10 +273,106 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
 
   return (
     <section className="comparison-page">
-      <div className="capture-command-bar comparison-input-rail">
-        <ComparisonTarget side="A" accent="blue" label={primaryLabel} logo={primaryLogo} logoDataUrl={primaryLogoDataUrl} url={primaryUrl} onLabel={(value) => { beginEdit(); setPrimaryLabel(value); }} onLogo={(value) => { beginEdit(); setPrimaryLogo(value); }} onLogoDataUrl={(value) => { beginEdit(); setPrimaryLogoDataUrl(value); }} onUrl={(value) => { beginEdit(); setPrimaryUrl(value); }} disabled={isBusy} />
-        <button type="button" className="comparison-swap" onClick={swap} disabled={isBusy} title="Swap sides" aria-label="Swap sides"><ArrowLeftRight size={16} /></button>
-        <ComparisonTarget side="B" accent="cyan" label={secondaryLabel} logo={secondaryLogo} logoDataUrl={secondaryLogoDataUrl} url={secondaryUrl} onLabel={(value) => { beginEdit(); setSecondaryLabel(value); }} onLogo={(value) => { beginEdit(); setSecondaryLogo(value); }} onLogoDataUrl={(value) => { beginEdit(); setSecondaryLogoDataUrl(value); }} onUrl={(value) => { beginEdit(); setSecondaryUrl(value); }} disabled={isBusy} />
+      <div className="studio-mode-tabs" style={{ display: "flex", gap: "8px", marginBottom: "12px", borderBottom: "1px solid var(--border)", paddingBottom: "8px" }}>
+        <button
+          type="button"
+          onClick={() => {
+            setStudioMode("compare");
+            setPrimaryLabel("Version A");
+            setSecondaryLabel("Version B");
+            setPrimaryLogo("A");
+            setSecondaryLogo("B");
+          }}
+          style={{
+            background: studioMode === "compare" ? "var(--accent)" : "transparent",
+            color: studioMode === "compare" ? "var(--accent-text)" : "var(--text)",
+            border: "0",
+            padding: "6px 12px",
+            borderRadius: "6px",
+            fontWeight: 800,
+            cursor: "pointer",
+            fontSize: ".68rem",
+            textTransform: "uppercase"
+          }}
+        >
+          URL Comparison
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setStudioMode("responsive");
+            setPrimaryLabel("Desktop View");
+            setSecondaryLabel("Mobile View");
+            setPrimaryLogo("Desk");
+            setSecondaryLogo("Mob");
+            setSecondaryUrl(primaryUrl);
+          }}
+          style={{
+            background: studioMode === "responsive" ? "var(--accent)" : "transparent",
+            color: studioMode === "responsive" ? "var(--accent-text)" : "var(--text)",
+            border: "0",
+            padding: "6px 12px",
+            borderRadius: "6px",
+            fontWeight: 800,
+            cursor: "pointer",
+            fontSize: ".68rem",
+            textTransform: "uppercase"
+          }}
+        >
+          Device Responsiveness
+        </button>
+      </div>
+
+      <div className={`capture-command-bar comparison-input-rail${studioMode === "responsive" ? " is-responsive" : ""}`}>
+        {studioMode === "responsive" ? (
+          <div className="url-input-wrap capture-url-wrap" style={{ flex: 1, minWidth: 0 }}>
+            <svg
+              className="url-input-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="2" y1="12" x2="22" y2="12" />
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            </svg>
+            <input
+              type="url"
+              className="url-input recorder-url-input"
+              value={primaryUrl}
+              onChange={(event) => {
+                beginEdit();
+                setPrimaryUrl(event.target.value);
+                setSecondaryUrl(event.target.value);
+              }}
+              placeholder="https://yoursite.com"
+              aria-label="Target website URL"
+              disabled={isBusy}
+            />
+          </div>
+        ) : (
+          <>
+            <ComparisonTarget side="A" accent="blue" label={primaryLabel} logo={primaryLogo} logoDataUrl={primaryLogoDataUrl} url={primaryUrl} onLabel={(value) => { beginEdit(); setPrimaryLabel(value); }} onLogo={(value) => { beginEdit(); setPrimaryLogo(value); }} onLogoDataUrl={(value) => { beginEdit(); setPrimaryLogoDataUrl(value); }} onUrl={(value) => { beginEdit(); setPrimaryUrl(value); }} disabled={isBusy} />
+            <button type="button" className="comparison-swap" onClick={swap} disabled={isBusy} title="Swap sides" aria-label="Swap sides"><ArrowLeftRight size={16} /></button>
+            <ComparisonTarget
+              side="B"
+              accent="cyan"
+              label={secondaryLabel}
+              logo={secondaryLogo}
+              logoDataUrl={secondaryLogoDataUrl}
+              url={secondaryUrl}
+              onLabel={(value) => { beginEdit(); setSecondaryLabel(value); }}
+              onLogo={(value) => { beginEdit(); setSecondaryLogo(value); }}
+              onLogoDataUrl={(value) => { beginEdit(); setSecondaryLogoDataUrl(value); }}
+              onUrl={(value) => { beginEdit(); setSecondaryUrl(value); }}
+              disabled={isBusy}
+            />
+          </>
+        )}
         <div className="comparison-rail-actions">
           {result ? (
             <>
@@ -267,7 +382,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
           ) : (
             <button type="button" className="comparison-start" onClick={() => void start()} disabled={!canStart}>
               {isBusy ? <span className="loader-circle" /> : <Play size={15} fill="currentColor" />}
-              {isBusy ? "Capturing…" : "Compare pages"}
+              {isBusy ? "Capturing…" : studioMode === "responsive" ? "Capture Responsive" : "Compare pages"}
             </button>
           )}
         </div>
@@ -321,7 +436,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
               } as React.CSSProperties}
             >
               <BrowserMockup
-                url={`${primaryLabel} · ${secondaryLabel}`}
+                url={result.responsiveness ? `${result.responsiveness.desktopLabel} · ${result.responsiveness.mobileLabel}` : `${primaryLabel} · ${secondaryLabel}`}
                 videoUrl={result.videoUrl}
                 downloadUrl={result.videoUrl}
                 duration={`${(result.durationMs / 1_000).toFixed(1)}s`}
@@ -333,6 +448,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
             </div>
           ) : (
             <ComparisonCanvas
+              studioMode={studioMode}
               primaryLabel={primaryLabel || "Version A"}
               secondaryLabel={secondaryLabel || "Version B"}
               primaryLogo={primaryLogo || "A"}
@@ -340,7 +456,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
               primaryLogoDataUrl={primaryLogoDataUrl}
               secondaryLogoDataUrl={secondaryLogoDataUrl}
               primaryUrl={primaryUrl}
-              secondaryUrl={secondaryUrl}
+              secondaryUrl={studioMode === "responsive" ? primaryUrl : secondaryUrl}
               job={activeJob}
               elapsed={elapsed}
               width={width}
@@ -359,15 +475,28 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
 
   function loadJobSettings(job: RecordingJob) {
     const comparison = job.request?.comparison;
-    if (!comparison || !job.request) return;
-    setPrimaryUrl(job.request.targetUrl);
-    setSecondaryUrl(comparison.targetUrl);
-    setPrimaryLabel(comparison.primaryLabel);
-    setSecondaryLabel(comparison.secondaryLabel);
-    setPrimaryLogo(comparison.primaryLogo || "A");
-    setSecondaryLogo(comparison.secondaryLogo || "B");
-    setPrimaryLogoDataUrl(comparison.primaryLogoDataUrl);
-    setSecondaryLogoDataUrl(comparison.secondaryLogoDataUrl);
+    const responsiveness = job.request?.responsiveness;
+    if (responsiveness) {
+      setStudioMode("responsive");
+      setPrimaryUrl(job.request.targetUrl);
+      setSecondaryUrl(job.request.targetUrl);
+      setPrimaryLabel(responsiveness.desktopLabel || "Desktop View");
+      setSecondaryLabel(responsiveness.mobileLabel || "Mobile View");
+      setPrimaryLogo("Desk");
+      setSecondaryLogo("Mob");
+    } else if (comparison) {
+      setStudioMode("compare");
+      setPrimaryUrl(job.request.targetUrl);
+      setSecondaryUrl(comparison.targetUrl);
+      setPrimaryLabel(comparison.primaryLabel);
+      setSecondaryLabel(comparison.secondaryLabel);
+      setPrimaryLogo(comparison.primaryLogo || "A");
+      setSecondaryLogo(comparison.secondaryLogo || "B");
+      setPrimaryLogoDataUrl(comparison.primaryLogoDataUrl);
+      setSecondaryLogoDataUrl(comparison.secondaryLogoDataUrl);
+    } else {
+      return;
+    }
     const viewport = job.request.videoConfig.viewport;
     const preset = `${viewport.width}x${viewport.height}`;
     if (DEVICE_PRESETS.some((item) => item.value === preset)) setDevicePreset(preset);
@@ -411,7 +540,31 @@ function ComparisonTarget(props: {
           />
           <input className="comparison-label-input" value={props.label} onChange={(event) => props.onLabel(event.target.value)} maxLength={48} aria-label={`Side ${props.side} label`} disabled={props.disabled} style={{ flexGrow: 1 }} />
         </div>
-        <input type="url" value={props.url} onChange={(event) => props.onUrl(event.target.value)} placeholder={`https://version-${props.side.toLowerCase()}.com`} aria-label={`Side ${props.side} URL`} disabled={props.disabled} />
+        <div className="url-input-wrap capture-url-wrap">
+          <svg
+            className="url-input-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          </svg>
+          <input
+            type="url"
+            className="url-input recorder-url-input"
+            value={props.url}
+            onChange={(event) => props.onUrl(event.target.value)}
+            placeholder={`https://version-${props.side.toLowerCase()}.com`}
+            aria-label={`Side ${props.side} URL`}
+            disabled={props.disabled}
+          />
+        </div>
       </div>
     </div>
   );
@@ -447,7 +600,6 @@ function LogoUpload(props: {
   const onFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) readFile(file);
-    // reset so same file can be re-selected
     event.target.value = "";
   }, [readFile]);
 
@@ -519,6 +671,7 @@ function LogoUpload(props: {
 }
 
 function ComparisonCanvas(props: {
+  studioMode: "compare" | "responsive";
   primaryLabel: string;
   secondaryLabel: string;
   primaryLogo: string;
@@ -534,28 +687,49 @@ function ComparisonCanvas(props: {
 }) {
   const recording = props.job && ["queued", "running"].includes(props.job.status);
   const isPortrait = props.width < props.height;
-  const previewStyle = {
-    "--comparison-ratio": String(props.width / props.height),
-  } as React.CSSProperties;
+
+  // Compute live preview panel dimensions
+  const dW = props.width;
+  const dH = props.height;
+  const mW = props.studioMode === "responsive" ? 390 : props.width;
+  const mH = props.studioMode === "responsive" ? 844 : props.height;
+
   return (
-    <div className={`comparison-canvas${recording ? " is-recording" : ""}${isPortrait ? " is-portrait" : " is-landscape"}`} style={previewStyle}>
+    <div className={`comparison-canvas${recording ? " is-recording" : ""}`} style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", gap: "10px" }}>
       <div className="comparison-preview-labels">
         <span>
-          {props.primaryLogoDataUrl
-            ? <i style={{ minWidth: "22px", width: "auto", padding: 0, background: "transparent" }}><img src={props.primaryLogoDataUrl} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "4px" }} /></i>
-            : <i style={{ minWidth: "22px", width: "auto", paddingInline: "4px" }}>{props.primaryLogo}</i>}
-          <b>{props.primaryLabel}</b>
+          {props.studioMode === "responsive" ? (
+            <b>Desktop View</b>
+          ) : (
+            <>
+              {props.primaryLogoDataUrl
+                ? <i style={{ minWidth: "22px", width: "auto", padding: 0, background: "transparent" }}><img src={props.primaryLogoDataUrl} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "4px" }} /></i>
+                : <i style={{ minWidth: "22px", width: "auto", paddingInline: "4px" }}>{props.primaryLogo}</i>}
+              <b>{props.primaryLabel}</b>
+            </>
+          )}
         </span>
         <span>
-          {props.secondaryLogoDataUrl
-            ? <i style={{ minWidth: "22px", width: "auto", padding: 0, background: "transparent" }}><img src={props.secondaryLogoDataUrl} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "4px" }} /></i>
-            : <i style={{ minWidth: "22px", width: "auto", paddingInline: "4px", background: "var(--accent-secondary)", color: "#071b18" }}>{props.secondaryLogo}</i>}
-          <b>{props.secondaryLabel}</b>
+          {props.studioMode === "responsive" ? (
+            <b>Mobile View</b>
+          ) : (
+            <>
+              {props.secondaryLogoDataUrl
+                ? <i style={{ minWidth: "22px", width: "auto", padding: 0, background: "transparent" }}><img src={props.secondaryLogoDataUrl} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "4px" }} /></i>
+                : <i style={{ minWidth: "22px", width: "auto", paddingInline: "4px", background: "var(--accent-secondary)", color: "#071b18" }}>{props.secondaryLogo}</i>}
+              <b>{props.secondaryLabel}</b>
+            </>
+          )}
         </span>
       </div>
-      <div className="comparison-panels">
-        <PreviewPanel url={props.primaryUrl} width={props.width} height={props.height} recording={Boolean(recording)} />
-        <PreviewPanel url={props.secondaryUrl} width={props.width} height={props.height} recording={Boolean(recording)} />
+      <div className="comparison-panels" style={{
+        display: "grid",
+        gridTemplateColumns: props.studioMode === "responsive" ? "3fr 1fr" : "1fr 1fr",
+        alignItems: "center",
+        gap: "20px"
+      }}>
+        <PreviewPanel url={props.primaryUrl} width={dW} height={dH} recording={Boolean(recording)} />
+        <PreviewPanel url={props.secondaryUrl} width={mW} height={mH} recording={Boolean(recording)} />
       </div>
       {recording && (
         <div className="comparison-capture-state" role="status" aria-live="polite">
@@ -573,9 +747,10 @@ function PreviewPanel({ url, width, height, recording }: { url: string; width: n
     <div className="comparison-panel" style={{ aspectRatio: `${width} / ${height}` }}>
       <div className={`browser-placeholder ${recording ? "browser-placeholder-recording" : "browser-placeholder-idle"}`}>
         <span className="idle-viewport-badge">{width} × {height}</span>
-        <div className="placeholder-title">{recording ? "Capturing" : "Ready to compare"}</div>
+        <div className="placeholder-title">{recording ? "Capturing" : "Ready"}</div>
         <p className="idle-preview-url">{url || "Paste a URL above"}</p>
       </div>
     </div>
   );
 }
+
