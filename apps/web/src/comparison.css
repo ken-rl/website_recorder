@@ -252,6 +252,7 @@
   min-width: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   color: var(--text);
 }
@@ -282,10 +283,12 @@
   width: 100%;
   min-width: 0;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 10px;
   background: var(--surface-elevated);
-  box-shadow: 0 10px 30px rgba(0,0,0,.15);
+  box-shadow:
+    0 2px 6px rgba(0,0,0,.07),
+    0 6px 18px rgba(0,0,0,.09);
 }
 .comparison-panel .browser-placeholder {
   position: absolute;

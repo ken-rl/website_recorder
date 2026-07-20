@@ -62,6 +62,12 @@ export async function composeComparison(options: ComposeComparisonOptions) {
   const outputDir = path.dirname(outputPath);
   await fs.mkdir(outputDir, { recursive: true });
 
+  // Subtle drop shadow: a blurred, semi-transparent copy of each panel is placed
+  // slightly below the panel itself — mirroring the CSS box-shadow on the UI preview.
+  const shadowOffsetY = Math.max(4, Math.round(height * 0.005));
+  const shadowBlur = Math.max(8, Math.round(height * 0.012));
+  const shadowAlpha = 0.22; // opacity of the blurred shadow layer
+
   // --- Logo text fallbacks ---
   const primaryLogoText = (primaryLogo || "A").trim() || "A";
   const secondaryLogoText = (secondaryLogo || "B").trim() || "B";
@@ -221,9 +227,17 @@ export async function composeComparison(options: ComposeComparisonOptions) {
     currentStream = logoOut;
   }
 
+  // Split each panel into (original, shadow-source), blur the shadow copy, then
+  // overlay: shadow (offset) → original — giving a subtle soft drop shadow.
   filterParts.push(
-    `[${currentStream}][left]overlay=${outerMargin}:${panelTop}:shortest=1[first]`,
-    `[first][right]overlay=${secondaryX}:${panelTop}:shortest=1,setsar=1,fps=${fps},format=yuv420p[video]`,
+    `[left]split=2[left-orig][left-sh-in]`,
+    `[left-sh-in]gblur=sigma=${shadowBlur},colorchannelmixer=aa=${shadowAlpha}[left-sh]`,
+    `[right]split=2[right-orig][right-sh-in]`,
+    `[right-sh-in]gblur=sigma=${shadowBlur},colorchannelmixer=aa=${shadowAlpha}[right-sh]`,
+    `[${currentStream}][left-sh]overlay=${outerMargin}:${panelTop + shadowOffsetY}:shortest=1[with-ls]`,
+    `[with-ls][left-orig]overlay=${outerMargin}:${panelTop}:shortest=1[first]`,
+    `[first][right-sh]overlay=${secondaryX}:${panelTop + shadowOffsetY}:shortest=1[with-rs]`,
+    `[with-rs][right-orig]overlay=${secondaryX}:${panelTop}:shortest=1,setsar=1,fps=${fps},format=yuv420p[video]`,
   );
 
   const filter = filterParts.join(";");
