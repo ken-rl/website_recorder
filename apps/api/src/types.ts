@@ -123,6 +123,12 @@ export interface ComparisonConfig {
   primaryLabel: string;
   secondaryLabel: string;
   layout?: "side-by-side";
+  primaryLogo?: string;
+  secondaryLogo?: string;
+  /** Base64 data URI (PNG/JPEG/WebP/SVG) for the primary side logo image. Max 512 KB. */
+  primaryLogoDataUrl?: string;
+  /** Base64 data URI (PNG/JPEG/WebP/SVG) for the secondary side logo image. Max 512 KB. */
+  secondaryLogoDataUrl?: string;
 }
 
 export interface StyleRequest {
@@ -289,6 +295,10 @@ export interface RecordingJobResult {
     primaryLabel: string;
     secondaryLabel: string;
     layout: "side-by-side";
+    primaryLogo?: string;
+    secondaryLogo?: string;
+    primaryLogoDataUrl?: string;
+    secondaryLogoDataUrl?: string;
   };
 }
 

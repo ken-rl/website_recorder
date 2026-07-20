@@ -57,6 +57,14 @@ export async function recordComparison(
     message: "Synchronizing both captures",
   });
 
+  const viewportW = request.videoConfig.viewport.width;
+  const viewportH = request.videoConfig.viewport.height;
+  const scaleFactor = request.videoConfig.viewport.deviceScaleFactor ?? 1;
+
+  const even = (v: number) => (v % 2 === 0 ? v : v - 1);
+  const optimizedWidth = even(Math.round(viewportW * scaleFactor));
+  const optimizedHeight = even(Math.round(viewportH * scaleFactor));
+
   const durationMs = Math.max(primary.durationMs, secondary.durationMs);
   const sourcePath = path.join(outputDir, "source.mp4");
   const outputPath = path.join(outputDir, "output.mp4");
@@ -64,12 +72,16 @@ export async function recordComparison(
     primaryPath: primary.rawVideoPath,
     secondaryPath: secondary.rawVideoPath,
     outputPath: sourcePath,
-    width: request.videoConfig.viewport.width * (request.videoConfig.viewport.deviceScaleFactor ?? 1),
-    height: request.videoConfig.viewport.height * (request.videoConfig.viewport.deviceScaleFactor ?? 1),
+    width: optimizedWidth,
+    height: optimizedHeight,
     fps: request.videoConfig.framerate ?? 30,
     durationMs,
     primaryLabel: request.comparison.primaryLabel,
     secondaryLabel: request.comparison.secondaryLabel,
+    primaryLogo: request.comparison.primaryLogo,
+    secondaryLogo: request.comparison.secondaryLogo,
+    primaryLogoDataUrl: request.comparison.primaryLogoDataUrl,
+    secondaryLogoDataUrl: request.comparison.secondaryLogoDataUrl,
     signal: runtime.signal,
   });
   await fs.copyFile(sourcePath, outputPath);
@@ -88,8 +100,8 @@ export async function recordComparison(
     renderTimeMs: Date.now() - startedAt,
     viewport: {
       ...request.videoConfig.viewport,
-      width: request.videoConfig.viewport.width,
-      height: request.videoConfig.viewport.height,
+      width: optimizedWidth,
+      height: optimizedHeight,
     },
     scrollStrategy:
       primary.scrollStrategy === "virtual" || secondary.scrollStrategy === "virtual"

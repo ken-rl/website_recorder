@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeftRight,
@@ -34,6 +34,10 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
   const [secondaryUrl, setSecondaryUrl] = useState("");
   const [primaryLabel, setPrimaryLabel] = useState("Version A");
   const [secondaryLabel, setSecondaryLabel] = useState("Version B");
+  const [primaryLogo, setPrimaryLogo] = useState("A");
+  const [secondaryLogo, setSecondaryLogo] = useState("B");
+  const [primaryLogoDataUrl, setPrimaryLogoDataUrl] = useState<string | undefined>(undefined);
+  const [secondaryLogoDataUrl, setSecondaryLogoDataUrl] = useState<string | undefined>(undefined);
   const [devicePreset, setDevicePreset] = useState("1920x1080");
   const [renderTier, setRenderTier] = useState<RenderTier>("draft");
   const [durationSeconds, setDurationSeconds] = useState(18);
@@ -160,10 +164,14 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
         targetUrl: secondaryUrl.trim(),
         primaryLabel: primaryLabel.trim(),
         secondaryLabel: secondaryLabel.trim(),
+        primaryLogo: primaryLogo.trim(),
+        secondaryLogo: secondaryLogo.trim(),
+        primaryLogoDataUrl: primaryLogoDataUrl || undefined,
+        secondaryLogoDataUrl: secondaryLogoDataUrl || undefined,
         layout: "side-by-side",
       },
     };
-  }, [primaryUrl, secondaryUrl, primaryLabel, secondaryLabel, width, height, renderTier, durationSeconds]);
+  }, [primaryUrl, secondaryUrl, primaryLabel, secondaryLabel, primaryLogo, secondaryLogo, primaryLogoDataUrl, secondaryLogoDataUrl, width, height, renderTier, durationSeconds]);
 
   const canStart =
     primaryUrl.trim() &&
@@ -227,6 +235,10 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
     setSecondaryUrl(primaryUrl);
     setPrimaryLabel(secondaryLabel);
     setSecondaryLabel(primaryLabel);
+    setPrimaryLogo(secondaryLogo);
+    setSecondaryLogo(primaryLogo);
+    setPrimaryLogoDataUrl(secondaryLogoDataUrl);
+    setSecondaryLogoDataUrl(primaryLogoDataUrl);
   };
 
   const clearResult = () => {
@@ -243,9 +255,9 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
   return (
     <section className="comparison-page">
       <div className="capture-command-bar comparison-input-rail">
-        <ComparisonTarget side="A" accent="blue" label={primaryLabel} url={primaryUrl} onLabel={(value) => { beginEdit(); setPrimaryLabel(value); }} onUrl={(value) => { beginEdit(); setPrimaryUrl(value); }} disabled={isBusy} />
+        <ComparisonTarget side="A" accent="blue" label={primaryLabel} logo={primaryLogo} logoDataUrl={primaryLogoDataUrl} url={primaryUrl} onLabel={(value) => { beginEdit(); setPrimaryLabel(value); }} onLogo={(value) => { beginEdit(); setPrimaryLogo(value); }} onLogoDataUrl={(value) => { beginEdit(); setPrimaryLogoDataUrl(value); }} onUrl={(value) => { beginEdit(); setPrimaryUrl(value); }} disabled={isBusy} />
         <button type="button" className="comparison-swap" onClick={swap} disabled={isBusy} title="Swap sides" aria-label="Swap sides"><ArrowLeftRight size={16} /></button>
-        <ComparisonTarget side="B" accent="cyan" label={secondaryLabel} url={secondaryUrl} onLabel={(value) => { beginEdit(); setSecondaryLabel(value); }} onUrl={(value) => { beginEdit(); setSecondaryUrl(value); }} disabled={isBusy} />
+        <ComparisonTarget side="B" accent="cyan" label={secondaryLabel} logo={secondaryLogo} logoDataUrl={secondaryLogoDataUrl} url={secondaryUrl} onLabel={(value) => { beginEdit(); setSecondaryLabel(value); }} onLogo={(value) => { beginEdit(); setSecondaryLogo(value); }} onLogoDataUrl={(value) => { beginEdit(); setSecondaryLogoDataUrl(value); }} onUrl={(value) => { beginEdit(); setSecondaryUrl(value); }} disabled={isBusy} />
         <div className="comparison-rail-actions">
           {result ? (
             <>
@@ -301,20 +313,32 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
         <div className="studio-stage">
           <div className="recording-stage comparison-stage">
           {result ? (
-            <BrowserMockup
-              url={`${primaryLabel} · ${secondaryLabel}`}
-              videoUrl={result.videoUrl}
-              downloadUrl={result.videoUrl}
-              duration={`${(result.durationMs / 1_000).toFixed(1)}s`}
-              scrollStrategy={result.scrollStrategy}
-              width={result.viewport.width}
-              height={result.viewport.height}
-              isSubmitting={false}
-            />
+            <div
+              className="recorder-preview"
+              style={{
+                "--preview-w": String(result.viewport.width),
+                "--preview-h": String(result.viewport.height),
+              } as React.CSSProperties}
+            >
+              <BrowserMockup
+                url={`${primaryLabel} · ${secondaryLabel}`}
+                videoUrl={result.videoUrl}
+                downloadUrl={result.videoUrl}
+                duration={`${(result.durationMs / 1_000).toFixed(1)}s`}
+                scrollStrategy={result.scrollStrategy}
+                width={result.viewport.width}
+                height={result.viewport.height}
+                isSubmitting={false}
+              />
+            </div>
           ) : (
             <ComparisonCanvas
               primaryLabel={primaryLabel || "Version A"}
               secondaryLabel={secondaryLabel || "Version B"}
+              primaryLogo={primaryLogo || "A"}
+              secondaryLogo={secondaryLogo || "B"}
+              primaryLogoDataUrl={primaryLogoDataUrl}
+              secondaryLogoDataUrl={secondaryLogoDataUrl}
               primaryUrl={primaryUrl}
               secondaryUrl={secondaryUrl}
               job={activeJob}
@@ -340,6 +364,10 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
     setSecondaryUrl(comparison.targetUrl);
     setPrimaryLabel(comparison.primaryLabel);
     setSecondaryLabel(comparison.secondaryLabel);
+    setPrimaryLogo(comparison.primaryLogo || "A");
+    setSecondaryLogo(comparison.secondaryLogo || "B");
+    setPrimaryLogoDataUrl(comparison.primaryLogoDataUrl);
+    setSecondaryLogoDataUrl(comparison.secondaryLogoDataUrl);
     const viewport = job.request.videoConfig.viewport;
     const preset = `${viewport.width}x${viewport.height}`;
     if (DEVICE_PRESETS.some((item) => item.value === preset)) setDevicePreset(preset);
@@ -359,18 +387,133 @@ function ComparisonTarget(props: {
   side: string;
   accent: "blue" | "cyan";
   label: string;
+  logo: string;
+  logoDataUrl?: string;
   url: string;
   onLabel: (value: string) => void;
+  onLogo: (value: string) => void;
+  onLogoDataUrl: (value: string | undefined) => void;
   onUrl: (value: string) => void;
   disabled: boolean;
 }) {
   return (
     <div className={`comparison-target is-${props.accent}`}>
-      <span className="comparison-side">{props.side}</span>
       <div>
-        <input className="comparison-label-input" value={props.label} onChange={(event) => props.onLabel(event.target.value)} maxLength={48} aria-label={`Side ${props.side} label`} disabled={props.disabled} />
+        <div style={{ display: "flex", gap: "6px", marginBottom: "4px", alignItems: "center" }}>
+          <LogoUpload
+            accent={props.accent}
+            logoDataUrl={props.logoDataUrl}
+            logoText={props.logo}
+            disabled={props.disabled}
+            side={props.side}
+            onLogoDataUrl={props.onLogoDataUrl}
+            onLogoText={props.onLogo}
+          />
+          <input className="comparison-label-input" value={props.label} onChange={(event) => props.onLabel(event.target.value)} maxLength={48} aria-label={`Side ${props.side} label`} disabled={props.disabled} style={{ flexGrow: 1 }} />
+        </div>
         <input type="url" value={props.url} onChange={(event) => props.onUrl(event.target.value)} placeholder={`https://version-${props.side.toLowerCase()}.com`} aria-label={`Side ${props.side} URL`} disabled={props.disabled} />
       </div>
+    </div>
+  );
+}
+
+function LogoUpload(props: {
+  accent: "blue" | "cyan";
+  logoDataUrl?: string;
+  logoText: string;
+  disabled: boolean;
+  side: string;
+  onLogoDataUrl: (value: string | undefined) => void;
+  onLogoText: (value: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = React.useState(false);
+
+  const readFile = useCallback((file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > 512_000) {
+      alert("Logo image must be smaller than 512 KB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        props.onLogoDataUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  }, [props]);
+
+  const onFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) readFile(file);
+    // reset so same file can be re-selected
+    event.target.value = "";
+  }, [readFile]);
+
+  const onDrop = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    setDragOver(false);
+    const file = event.dataTransfer.files[0];
+    if (file) readFile(file);
+  }, [readFile]);
+
+  const clear = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    props.onLogoDataUrl(undefined);
+  }, [props]);
+
+  const badgeColor = props.accent === "blue" ? "#3158c9" : "#087e72";
+
+  return (
+    <div
+      className={`comparison-logo-upload${dragOver ? " is-drag-over" : ""}${props.disabled ? " is-disabled" : ""}`}
+      title={props.logoDataUrl ? "Click to replace logo image" : "Click or drop an image to use as logo"}
+      onClick={() => !props.disabled && inputRef.current?.click()}
+      onDragOver={(e) => { e.preventDefault(); if (!props.disabled) setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={!props.disabled ? onDrop : undefined}
+      role="button"
+      tabIndex={props.disabled ? -1 : 0}
+      onKeyDown={(e) => e.key === "Enter" && !props.disabled && inputRef.current?.click()}
+      aria-label={`Side ${props.side} logo image upload`}
+    >
+      {props.logoDataUrl ? (
+        <>
+          <img src={props.logoDataUrl} alt="logo" className="comparison-logo-img" />
+          {!props.disabled && (
+            <button
+              type="button"
+              className="comparison-logo-clear"
+              onClick={clear}
+              aria-label="Remove logo image"
+            >×</button>
+          )}
+        </>
+      ) : (
+        <span className="comparison-logo-text" style={{ background: badgeColor }}>
+          <input
+            className="comparison-logo-input-inline"
+            value={props.logoText}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => props.onLogoText(e.target.value)}
+            maxLength={8}
+            placeholder={props.side}
+            disabled={props.disabled}
+            aria-label={`Side ${props.side} badge text`}
+            style={{ background: badgeColor }}
+          />
+        </span>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        style={{ display: "none" }}
+        onChange={onFileChange}
+        disabled={props.disabled}
+        aria-hidden="true"
+      />
     </div>
   );
 }
@@ -378,6 +521,10 @@ function ComparisonTarget(props: {
 function ComparisonCanvas(props: {
   primaryLabel: string;
   secondaryLabel: string;
+  primaryLogo: string;
+  secondaryLogo: string;
+  primaryLogoDataUrl?: string;
+  secondaryLogoDataUrl?: string;
   primaryUrl: string;
   secondaryUrl: string;
   job: RecordingJob | null;
@@ -388,13 +535,23 @@ function ComparisonCanvas(props: {
   const recording = props.job && ["queued", "running"].includes(props.job.status);
   const isPortrait = props.width < props.height;
   const previewStyle = {
-    "--comparison-ratio": String((props.width / props.height) * 2),
+    "--comparison-ratio": String(props.width / props.height),
   } as React.CSSProperties;
   return (
     <div className={`comparison-canvas${recording ? " is-recording" : ""}${isPortrait ? " is-portrait" : " is-landscape"}`} style={previewStyle}>
       <div className="comparison-preview-labels">
-        <span><i>A</i><b>{props.primaryLabel}</b></span>
-        <span><i>B</i><b>{props.secondaryLabel}</b></span>
+        <span>
+          {props.primaryLogoDataUrl
+            ? <i style={{ minWidth: "22px", width: "auto", padding: 0, background: "transparent" }}><img src={props.primaryLogoDataUrl} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "4px" }} /></i>
+            : <i style={{ minWidth: "22px", width: "auto", paddingInline: "4px" }}>{props.primaryLogo}</i>}
+          <b>{props.primaryLabel}</b>
+        </span>
+        <span>
+          {props.secondaryLogoDataUrl
+            ? <i style={{ minWidth: "22px", width: "auto", padding: 0, background: "transparent" }}><img src={props.secondaryLogoDataUrl} alt="" style={{ width: "22px", height: "22px", objectFit: "contain", borderRadius: "4px" }} /></i>
+            : <i style={{ minWidth: "22px", width: "auto", paddingInline: "4px", background: "var(--accent-secondary)", color: "#071b18" }}>{props.secondaryLogo}</i>}
+          <b>{props.secondaryLabel}</b>
+        </span>
       </div>
       <div className="comparison-panels">
         <PreviewPanel url={props.primaryUrl} width={props.width} height={props.height} recording={Boolean(recording)} />

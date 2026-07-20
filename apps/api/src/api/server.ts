@@ -354,7 +354,7 @@ function readJsonBody(req: http.IncomingMessage): Promise<unknown> {
     let tooLarge = false;
     req.on("data", (chunk: Buffer) => {
       size += chunk.length;
-      if (size > 1_048_576) {
+      if (size > 2_097_152) {
         tooLarge = true;
         chunks.length = 0;
         return;
@@ -362,7 +362,7 @@ function readJsonBody(req: http.IncomingMessage): Promise<unknown> {
       if (!tooLarge) chunks.push(chunk);
     });
     req.on("end", () => {
-      if (tooLarge) return reject(new Error("JSON body cannot exceed 1 MB"));
+      if (tooLarge) return reject(new Error("JSON body cannot exceed 2 MB"));
       try {
         const raw = Buffer.concat(chunks).toString("utf8");
         resolve(JSON.parse(raw) as unknown);

@@ -61,6 +61,10 @@ export interface RecordingRequest {
     targetUrl: string;
     primaryLabel: string;
     secondaryLabel: string;
+    primaryLogo?: string;
+    secondaryLogo?: string;
+    primaryLogoDataUrl?: string;
+    secondaryLogoDataUrl?: string;
     layout?: "side-by-side";
   };
 }
@@ -93,6 +97,10 @@ export interface RecordingJob {
       primaryLabel: string;
       secondaryLabel: string;
       layout: "side-by-side";
+      primaryLogo?: string;
+      secondaryLogo?: string;
+      primaryLogoDataUrl?: string;
+      secondaryLogoDataUrl?: string;
     };
   };
   error?: { stage: JobStage; message: string };

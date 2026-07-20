@@ -337,6 +337,10 @@ export class RecordingJobManager {
             primaryLabel: job.request.comparison.primaryLabel,
             secondaryLabel: job.request.comparison.secondaryLabel,
             layout: job.request.comparison.layout ?? "side-by-side",
+            primaryLogo: job.request.comparison.primaryLogo,
+            secondaryLogo: job.request.comparison.secondaryLogo,
+            primaryLogoDataUrl: job.request.comparison.primaryLogoDataUrl,
+            secondaryLogoDataUrl: job.request.comparison.secondaryLogoDataUrl,
           } : undefined,
         },
       });

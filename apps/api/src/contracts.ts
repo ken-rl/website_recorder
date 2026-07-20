@@ -91,6 +91,16 @@ export const recordRequestSchema = z.object({
     targetUrl: httpUrl,
     primaryLabel: z.string().trim().min(1).max(48),
     secondaryLabel: z.string().trim().min(1).max(48),
+    primaryLogo: z.string().trim().max(8).optional(),
+    secondaryLogo: z.string().trim().max(8).optional(),
+    primaryLogoDataUrl: z.string()
+      .refine((v) => /^data:image\/(png|jpeg|webp|svg\+xml);base64,/.test(v), "primaryLogoDataUrl must be a base64 image data URI (PNG, JPEG, WebP, or SVG)")
+      .refine((v) => v.length <= 700_000, "primaryLogoDataUrl must be smaller than 512 KB")
+      .optional(),
+    secondaryLogoDataUrl: z.string()
+      .refine((v) => /^data:image\/(png|jpeg|webp|svg\+xml);base64,/.test(v), "secondaryLogoDataUrl must be a base64 image data URI (PNG, JPEG, WebP, or SVG)")
+      .refine((v) => v.length <= 700_000, "secondaryLogoDataUrl must be smaller than 512 KB")
+      .optional(),
     layout: z.literal("side-by-side").optional(),
   }).optional(),
 }).superRefine((request, context) => {
