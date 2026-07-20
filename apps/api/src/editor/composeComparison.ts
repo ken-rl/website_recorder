@@ -172,29 +172,45 @@ export async function composeComparison(options: ComposeComparisonOptions) {
   // (no coloured rectangle behind it) so logos appear without any background colour.
   const headerParts: string[] = [];
 
+  const gap = Math.round(width * 0.012);
+
+  // Primary Side Centering
+  const primaryTextW = estimateTextWidth(primaryLabel, fontSize);
+  const primaryLogoW = primaryLogoPath ? logoImgSize : primaryBadgeW;
+  const primaryTotalW = primaryLogoW + gap + primaryTextW;
+  const primaryCenter = outerMargin + Math.round(panelWidth / 2);
+  const primaryLogoX = primaryCenter - Math.round(primaryTotalW / 2);
+  const primaryLabelX = primaryLogoX + primaryLogoW + gap;
+
   if (!primaryLogoPath) {
     headerParts.push(
-      `drawbox=x=${outerMargin}:y=${labelY}:w=${primaryBadgeW}:h=${sideBadgeSize}:color=0x3158c9:t=fill`,
+      `drawbox=x=${primaryLogoX}:y=${labelY}:w=${primaryBadgeW}:h=${sideBadgeSize}:color=0x3158c9:t=fill`,
       `drawtext=text='${cleanPrimaryLogo}':expansion=none:fontcolor=white:` +
-        `fontsize=${Math.round(sideBadgeSize * 0.52)}:x=${outerMargin}+(${primaryBadgeW}-text_w)/2:` +
+        `fontsize=${Math.round(sideBadgeSize * 0.52)}:x=${primaryLogoX}+(${primaryBadgeW}-text_w)/2:` +
         `y=${labelY}+(${sideBadgeSize}-text_h)/2`,
     );
   }
-  const primaryLabelX = outerMargin + (primaryLogoPath ? logoImgSize : primaryBadgeW) + Math.round(width * 0.012);
   headerParts.push(
     `drawtext=textfile='${primaryText}':expansion=none:fontcolor=0x171914:fontsize=${fontSize}:` +
       `x=${primaryLabelX}:y=${labelY}+(${sideBadgeSize}-text_h)/2`,
   );
 
+  // Secondary Side Centering
+  const secondaryTextW = estimateTextWidth(secondaryLabel, fontSize);
+  const secondaryLogoW = secondaryLogoPath ? logoImgSize : secondaryBadgeW;
+  const secondaryTotalW = secondaryLogoW + gap + secondaryTextW;
+  const secondaryCenter = secondaryX + Math.round(panelWidth / 2);
+  const secondaryLogoX = secondaryCenter - Math.round(secondaryTotalW / 2);
+  const secondaryLabelX = secondaryLogoX + secondaryLogoW + gap;
+
   if (!secondaryLogoPath) {
     headerParts.push(
-      `drawbox=x=${secondaryX}:y=${labelY}:w=${secondaryBadgeW}:h=${sideBadgeSize}:color=0x087e72:t=fill`,
+      `drawbox=x=${secondaryLogoX}:y=${labelY}:w=${secondaryBadgeW}:h=${sideBadgeSize}:color=0x087e72:t=fill`,
       `drawtext=text='${cleanSecondaryLogo}':expansion=none:fontcolor=white:` +
         `fontsize=${Math.round(sideBadgeSize * 0.52)}:` +
-        `x=${secondaryX}+(${secondaryBadgeW}-text_w)/2:y=${labelY}+(${sideBadgeSize}-text_h)/2`,
+        `x=${secondaryLogoX}+(${secondaryBadgeW}-text_w)/2:y=${labelY}+(${sideBadgeSize}-text_h)/2`,
     );
   }
-  const secondaryLabelX = secondaryX + (secondaryLogoPath ? logoImgSize : secondaryBadgeW) + Math.round(width * 0.012);
   headerParts.push(
     `drawtext=textfile='${secondaryText}':expansion=none:fontcolor=0x171914:fontsize=${fontSize}:` +
       `x=${secondaryLabelX}:y=${labelY}+(${sideBadgeSize}-text_h)/2`,
@@ -212,7 +228,7 @@ export async function composeComparison(options: ComposeComparisonOptions) {
     filterParts.push(
       `[${primaryLogoInputIdx}:v]scale=${logoImgSize}:${logoImgSize}:force_original_aspect_ratio=decrease,` +
         `pad=${logoImgSize}:${logoImgSize}:(ow-iw)/2:(oh-ih)/2:color=0x00000000,format=rgba,setsar=1[logo-p]`,
-      `[${currentStream}][logo-p]overlay=${outerMargin}:${labelY}:shortest=1[${logoOut}]`,
+      `[${currentStream}][logo-p]overlay=${primaryLogoX}:${labelY}:shortest=1[${logoOut}]`,
     );
     currentStream = logoOut;
   }
@@ -222,7 +238,7 @@ export async function composeComparison(options: ComposeComparisonOptions) {
     filterParts.push(
       `[${secondaryLogoInputIdx}:v]scale=${logoImgSize}:${logoImgSize}:force_original_aspect_ratio=decrease,` +
         `pad=${logoImgSize}:${logoImgSize}:(ow-iw)/2:(oh-ih)/2:color=0x00000000,format=rgba,setsar=1[logo-s]`,
-      `[${currentStream}][logo-s]overlay=${secondaryX}:${labelY}:shortest=1[${logoOut}]`,
+      `[${currentStream}][logo-s]overlay=${secondaryLogoX}:${labelY}:shortest=1[${logoOut}]`,
     );
     currentStream = logoOut;
   }
@@ -360,3 +376,26 @@ function runFfmpeg(args: string[], signal?: AbortSignal) {
     });
   });
 }
+
+function estimateTextWidth(text: string, fontSize: number): number {
+  let width = 0;
+  for (const char of text) {
+    if (/[A-Z]/.test(char)) {
+      width += 0.65;
+    } else if (/[mw]/.test(char)) {
+      width += 0.75;
+    } else if (/[iltfjr]/.test(char)) {
+      width += 0.25;
+    } else if (/[a-z]/.test(char)) {
+      width += 0.50;
+    } else if (/[0-9]/.test(char)) {
+      width += 0.55;
+    } else if (char === " ") {
+      width += 0.28;
+    } else {
+      width += 0.40;
+    }
+  }
+  return Math.round(width * fontSize);
+}
+
