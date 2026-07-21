@@ -74,7 +74,7 @@ export async function recordResponsiveness(
   runtime.signal?.throwIfAborted();
   const isDocumentA = primary.scrollStrategy === "document" && primary.motionPlan?.mode === "document";
   const maxScrollA = primary.motionPlan?.beats?.[primary.motionPlan.beats.length - 1]?.position ?? 0;
-  const durationA = primary.durationMs;
+  const durationA = request.animationConfig?.durationMs ?? primary.durationMs;
   const secondaryRequest = {
     ...mobileRequest,
   };
