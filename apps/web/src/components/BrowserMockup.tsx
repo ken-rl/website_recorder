@@ -25,6 +25,7 @@ interface BrowserMockupProps {
   shadowBlur?: number;
   shadowSpread?: number;
   cornerRadiusOverride?: number;
+  onScrollHeightDetected?: (height: number) => void;
 }
 
 const CURVES: Record<string, [number, number, number, number]> = {
@@ -68,6 +69,7 @@ export default function BrowserMockup({
   shadowBlur,
   shadowSpread,
   cornerRadiusOverride,
+  onScrollHeightDetected,
 }: BrowserMockupProps) {
   const isPortrait = width < height;
   const displayUrl = url || "https://example.com";
@@ -112,6 +114,7 @@ export default function BrowserMockup({
     let active = true;
     let animationFrameId: number;
     let lastPos = 0;
+    let reportedHeight = -1;
     const startTime = Date.now();
     const duration = durationMs ?? 18_000;
     const curve = scrollCurveBezier ?? CURVES[scrollCurvePreset ?? "ease-in-out"] ?? CURVES["ease-in-out"];
@@ -180,6 +183,10 @@ export default function BrowserMockup({
 
           const docEl = iframe.contentDocument.documentElement;
           const maxWinScroll = Math.max(0, docEl.scrollHeight - iframe.clientHeight);
+          if (maxWinScroll > 0 && maxWinScroll !== reportedHeight) {
+            reportedHeight = maxWinScroll;
+            onScrollHeightDetected?.(maxWinScroll);
+          }
           const totalTravel = maxWinScroll > 0 ? maxWinScroll : 6000;
           const targetPos = totalTravel * progress;
           const deltaY = targetPos - lastPos;

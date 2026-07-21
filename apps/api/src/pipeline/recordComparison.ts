@@ -43,8 +43,24 @@ export async function recordComparison(
   );
 
   runtime.signal?.throwIfAborted();
+  const maxScrollA = primary.motionPlan?.beats?.[primary.motionPlan.beats.length - 1]?.position ?? 0;
+  const durationA = primary.durationMs;
+  const secondaryRequest = {
+    ...baseRequest,
+    targetUrl: request.comparison.targetUrl,
+  };
+  if (maxScrollA > 0 && durationA > 0) {
+    secondaryRequest.animationConfig = {
+      ...secondaryRequest.animationConfig,
+      scrollSync: {
+        refMaxScroll: maxScrollA,
+        refDurationMs: durationA,
+      },
+    };
+  }
+
   const secondary = await recordWebsite(
-    { ...baseRequest, targetUrl: request.comparison.targetUrl },
+    secondaryRequest,
     outputDir,
     "side-b",
     { signal: runtime.signal, onProgress: mapProgress("B", 46, 43) },

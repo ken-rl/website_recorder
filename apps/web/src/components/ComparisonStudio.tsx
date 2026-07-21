@@ -389,7 +389,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
           </section>
 
           <section className="control-deck comparison-timing">
-            <div className="control-deck-title"><span>Synchronized timeline</span><small>{durationSeconds}s</small></div>
+            <div className="control-deck-title"><span>Scroll duration (longer page)</span><small>{durationSeconds}s</small></div>
             <input type="range" min={8} max={45} value={durationSeconds} onChange={(event) => { beginEdit(); setDurationSeconds(Number(event.target.value)); }} disabled={isBusy} aria-label="Comparison duration" />
             <div className="comparison-duration-scale"><span>8s</span><span>45s</span></div>
             <label className="quality-field-horizontal" style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -409,7 +409,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
                 <option value="ease-in-out-cubic">Smooth cubic</option>
               </select>
             </label>
-            <p style={{ marginTop: "12px" }}>Both pages use the same viewport, animation curve, and scroll duration. Popups are removed, the shorter ending is held, and the final MP4 is composed automatically.</p>
+            <p style={{ marginTop: "12px" }}>Both pages scroll at the same speed. The longer page scrolls for the full duration, while the shorter page finishes early and freezes at the bottom.</p>
           </section>
         </aside>
 
@@ -701,6 +701,15 @@ function ComparisonCanvas(props: {
   scrollCurvePreset: string;
   scrollCurveBezier?: [number, number, number, number];
 }) {
+  const [primaryHeight, setPrimaryHeight] = useState<number | null>(null);
+  const [secondaryHeight, setSecondaryHeight] = useState<number | null>(null);
+
+  // When url or studioMode changes, we reset the detected heights so we recalculate
+  useEffect(() => {
+    setPrimaryHeight(null);
+    setSecondaryHeight(null);
+  }, [props.primaryUrl, props.secondaryUrl, props.studioMode]);
+
   const recording = props.job && ["queued", "running"].includes(props.job.status);
   const isPortrait = props.width < props.height;
 
@@ -710,6 +719,14 @@ function ComparisonCanvas(props: {
   const dH = props.height;
   const mW = props.studioMode === "responsive" ? (isPrimaryMobile ? 1920 : 390) : props.width;
   const mH = props.studioMode === "responsive" ? (isPrimaryMobile ? 1080 : 844) : props.height;
+
+  const maxH = Math.max(primaryHeight || 0, secondaryHeight || 0);
+  const primaryDurationMs = primaryHeight && secondaryHeight && maxH > 0
+    ? props.durationSeconds * 1000 * (primaryHeight / maxH)
+    : props.durationSeconds * 1000;
+  const secondaryDurationMs = primaryHeight && secondaryHeight && maxH > 0
+    ? props.durationSeconds * 1000 * (secondaryHeight / maxH)
+    : props.durationSeconds * 1000;
 
   return (
     <div className={`comparison-canvas${recording ? " is-recording" : ""}`} style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -756,6 +773,8 @@ function ComparisonCanvas(props: {
           durationSeconds={props.durationSeconds}
           scrollCurvePreset={props.scrollCurvePreset}
           scrollCurveBezier={props.scrollCurveBezier}
+          durationMs={primaryDurationMs}
+          onScrollHeightDetected={setPrimaryHeight}
         />
         <PreviewPanel
           url={props.secondaryUrl}
@@ -768,6 +787,8 @@ function ComparisonCanvas(props: {
           durationSeconds={props.durationSeconds}
           scrollCurvePreset={props.scrollCurvePreset}
           scrollCurveBezier={props.scrollCurveBezier}
+          durationMs={secondaryDurationMs}
+          onScrollHeightDetected={setSecondaryHeight}
         />
       </div>
       {recording && (
@@ -792,6 +813,8 @@ function PreviewPanel({
   durationSeconds,
   scrollCurvePreset,
   scrollCurveBezier,
+  durationMs,
+  onScrollHeightDetected,
 }: {
   url: string;
   width: number;
@@ -803,6 +826,8 @@ function PreviewPanel({
   durationSeconds: number;
   scrollCurvePreset: string;
   scrollCurveBezier?: [number, number, number, number];
+  durationMs: number;
+  onScrollHeightDetected?: (height: number) => void;
 }) {
   return (
     <div className="comparison-panel" style={{ aspectRatio: `${width} / ${height}` }}>
@@ -818,7 +843,8 @@ function PreviewPanel({
         recordingStatus={status}
         scrollCurvePreset={scrollCurvePreset}
         scrollCurveBezier={scrollCurveBezier}
-        durationMs={durationSeconds * 1000}
+        durationMs={durationMs}
+        onScrollHeightDetected={onScrollHeightDetected}
       />
     </div>
   );

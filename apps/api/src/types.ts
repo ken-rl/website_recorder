@@ -101,6 +101,10 @@ export interface AnimationConfig {
   captureMode?: "preview" | "export";
   /** Ordered, section-level direction. Takes precedence over legacy global motion settings. */
   direction?: MotionDirection;
+  scrollSync?: {
+    refMaxScroll: number;
+    refDurationMs: number;
+  };
 }
 
 export interface RecordRequest {

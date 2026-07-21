@@ -415,7 +415,14 @@ async function resolveLegacyDocumentBeats(
     { target: { type: "page-end" } as MotionTarget, position: maxScroll, holdMs: 0 },
   ].filter((target, index, all) => index === 0 || target.position > all[index - 1].position + 1 || target.holdMs > 0);
   const defaultMovementMs = Math.max(1000, (Math.ceil(maxScroll / Math.max(1, options.pixelsPerFrame)) / (options.frameRecorder?.getFps() ?? 30)) * 1000);
-  const movementMs = options.animationConfig?.durationMs ?? defaultMovementMs;
+  let movementMs = options.animationConfig?.durationMs ?? defaultMovementMs;
+  const scrollSync = (options.animationConfig as any)?.scrollSync;
+  if (scrollSync && scrollSync.refMaxScroll > 0 && scrollSync.refDurationMs > 0) {
+    const refSpeed = scrollSync.refMaxScroll / scrollSync.refDurationMs;
+    if (refSpeed > 0) {
+      movementMs = Math.max(1, Math.round(maxScroll / refSpeed));
+    }
+  }
   const curve: ScrollCurve = options.animationConfig?.scrollCurve ?? { preset: "linear" };
   const resolved: ResolvedMotionBeat[] = [];
   const timeline: TimelineBeat[] = [];
