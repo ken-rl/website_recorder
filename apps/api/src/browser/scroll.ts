@@ -420,7 +420,9 @@ async function resolveLegacyDocumentBeats(
   if (scrollSync && scrollSync.refMaxScroll > 0 && scrollSync.refDurationMs > 0) {
     const refSpeed = scrollSync.refMaxScroll / scrollSync.refDurationMs;
     if (refSpeed > 0) {
-      movementMs = Math.max(1, Math.round(maxScroll / refSpeed));
+      const calculatedMs = Math.round(maxScroll / refSpeed);
+      const maxAllowedMs = Math.min(90000, (options.animationConfig?.durationMs ?? 18000) * 5);
+      movementMs = Math.max(1000, Math.min(maxAllowedMs, calculatedMs));
     }
   }
   const curve: ScrollCurve = options.animationConfig?.scrollCurve ?? { preset: "linear" };
