@@ -728,9 +728,13 @@ function ComparisonCanvas(props: {
     ? props.durationSeconds * 1000 * (secondaryHeight / maxH)
     : props.durationSeconds * 1000;
 
+  const gridColumns = props.studioMode === "responsive"
+    ? (isPrimaryMobile ? "1fr 3fr" : "3fr 1fr")
+    : "1fr 1fr";
+
   return (
     <div className={`comparison-canvas${recording ? " is-recording" : ""}`} style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", gap: "10px" }}>
-      <div className="comparison-preview-labels">
+      <div className="comparison-preview-labels" style={{ display: "grid", gridTemplateColumns: gridColumns, gap: "20px" }}>
         <span>
           {props.studioMode === "responsive" ? (
             <b>{isPrimaryMobile ? "Mobile View" : "Desktop View"}</b>
@@ -758,8 +762,8 @@ function ComparisonCanvas(props: {
       </div>
       <div className="comparison-panels" style={{
         display: "grid",
-        gridTemplateColumns: props.studioMode === "responsive" ? (isPrimaryMobile ? "1fr 3fr" : "3fr 1fr") : "1fr 1fr",
-        alignItems: "center",
+        gridTemplateColumns: gridColumns,
+        alignItems: "flex-start",
         gap: "20px"
       }}>
         <PreviewPanel
