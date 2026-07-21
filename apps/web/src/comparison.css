@@ -14,7 +14,7 @@
   display: grid;
   grid-template-columns: minmax(230px, 1fr) 38px minmax(230px, 1fr) auto;
   align-items: center;
-  padding: 0 10px;
+  padding: 12px 14px;
 }
 
 .comparison-input-rail.is-responsive {
@@ -42,7 +42,7 @@
 }
 .comparison-target.is-cyan .comparison-side { color: #071b18; background: var(--accent-secondary); }
 .comparison-target > div { flex: 1; min-width: 0; display: grid; }
-.comparison-target input {
+.comparison-target input:not(.recorder-url-input) {
   min-width: 0;
   height: 25px;
   color: var(--text);
@@ -140,6 +140,26 @@
   transition: opacity .14s ease;
 }
 .comparison-logo-upload:hover .comparison-logo-clear { opacity: 1; }
+
+.comparison-logo-upload-btn {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: rgba(0,0,0,.55);
+  border: 0;
+  border-radius: 3px;
+  font-size: .65rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .14s ease;
+}
+.comparison-logo-upload:hover .comparison-logo-upload-btn { opacity: 1; }
 
 
 .comparison-swap {

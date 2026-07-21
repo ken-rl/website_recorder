@@ -88,6 +88,8 @@ export default function App() {
   const [duplicatedRequest, setDuplicatedRequest] = useState<RecordingRequest | null>(null);
   const [comparisonJob, setComparisonJob] = useState<RecordingJob | null>(null);
   const [comparisonBusy, setComparisonBusy] = useState(false);
+  const [responsiveJob, setResponsiveJob] = useState<RecordingJob | null>(null);
+  const [responsiveBusy, setResponsiveBusy] = useState(false);
   const activeJobId = activeJob?.jobId;
   const activeJobStatus = activeJob?.status;
   const activeJobCreatedAt = activeJob?.createdAt;
@@ -358,6 +360,11 @@ export default function App() {
       navigate("/compare");
       return;
     }
+    if (job.request?.responsiveness) {
+      setResponsiveJob(job);
+      navigate("/responsive");
+      return;
+    }
     setActiveJob(job);
     setInspection(null);
     setBeats([]);
@@ -385,6 +392,17 @@ export default function App() {
       navigate("/compare");
       return;
     }
+    if (job.request.responsiveness) {
+      setResponsiveJob({
+        ...job,
+        jobId: `${job.jobId}-draft`,
+        result: undefined,
+        status: "completed",
+        progress: { stage: "completed", percent: 100, message: "Responsiveness settings copied" },
+      });
+      navigate("/responsive");
+      return;
+    }
     const viewport = job.request.videoConfig.viewport;
     setUrl(job.request.targetUrl);
     setWidth(viewport.width);
@@ -407,12 +425,14 @@ export default function App() {
 
   return (
     <main className={`app-shell workflow-shell${navCollapsed ? " is-nav-collapsed" : ""}`}>
-      <AppSidebar currentPath={currentPath} onNavigate={navigate} isRecording={isBusy || comparisonBusy} theme={theme} onToggleTheme={() => setTheme(theme === "light" ? "dark" : "light")} collapsed={navCollapsed} onToggleCollapsed={() => setNavCollapsed(!navCollapsed)} />
+      <AppSidebar currentPath={currentPath} onNavigate={navigate} isRecording={isBusy || comparisonBusy || responsiveBusy} theme={theme} onToggleTheme={() => setTheme(theme === "light" ? "dark" : "light")} collapsed={navCollapsed} onToggleCollapsed={() => setNavCollapsed(!navCollapsed)} />
       <div className="app-content workflow-content">
         {currentPath === "/library" ? (
           <RecordingLibrary onOpen={openJob} onDuplicate={duplicateJob} />
         ) : currentPath === "/compare" ? (
-          <ComparisonStudio initialJob={comparisonJob} onBusyChange={setComparisonBusy} onReset={() => setComparisonJob(null)} />
+          <ComparisonStudio initialJob={comparisonJob} onBusyChange={setComparisonBusy} onReset={() => setComparisonJob(null)} mode="compare" />
+        ) : currentPath === "/responsive" ? (
+          <ComparisonStudio initialJob={responsiveJob} onBusyChange={setResponsiveBusy} onReset={() => setResponsiveJob(null)} mode="responsive" />
         ) : (
           <div className="studio-page">
             <section className="capture-command-bar">
@@ -532,6 +552,7 @@ export default function App() {
 function resolveAppPath() {
   if (window.location.pathname === "/library") return "/library";
   if (window.location.pathname === "/compare") return "/compare";
+  if (window.location.pathname === "/responsive") return "/responsive";
   return "/";
 }
 

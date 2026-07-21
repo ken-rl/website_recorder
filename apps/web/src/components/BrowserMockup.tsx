@@ -88,6 +88,22 @@ export default function BrowserMockup({
   const [showControls, setShowControls] = useState(true);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const iframeContainerRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(1);
+
+  // ResizeObserver to calculate scale ratio for viewport simulation
+  useEffect(() => {
+    if (videoUrl || isSubmitting || !url) return;
+    const container = iframeContainerRef.current;
+    if (!container) return;
+    const handleResize = () => {
+      setScale(container.clientWidth / width);
+    };
+    handleResize();
+    const observer = new ResizeObserver(handleResize);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [videoUrl, isSubmitting, url, width]);
 
   // Real-time iframe scroll preview loop
   useEffect(() => {
@@ -563,6 +579,7 @@ export default function BrowserMockup({
         }}
       >
         <div
+          ref={iframeContainerRef}
           className={`browser-content${isPortrait ? " is-portrait-preview" : " is-landscape-preview"}`}
           style={{ paddingBottom: `${(height / width) * 100}%`, position: "relative" }}
         >
@@ -616,8 +633,10 @@ export default function BrowserMockup({
                 position: "absolute",
                 top: 0,
                 left: 0,
-                width: "100%",
-                height: "100%",
+                width: `${width}px`,
+                height: `${height}px`,
+                transform: `scale(${scale})`,
+                transformOrigin: "top left",
                 border: 0,
                 background: "var(--surface-variant)",
                 pointerEvents: "none",

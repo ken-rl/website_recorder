@@ -1,5 +1,5 @@
 import React from "react";
-import { Archive, ChevronLeft, ChevronRight, Columns2, Moon, ScanLine, Sun } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, Columns2, Moon, ScanLine, Sun, MonitorSmartphone } from "lucide-react";
 
 interface AppSidebarProps {
   currentPath: string;
@@ -23,6 +23,7 @@ export default function AppSidebar({
   const isRecorder = currentPath === "/" || currentPath === "";
   const isLibrary = currentPath === "/library";
   const isCompare = currentPath === "/compare";
+  const isResponsive = currentPath === "/responsive";
 
   return (
     <aside
@@ -78,6 +79,15 @@ export default function AppSidebar({
           >
             <Columns2 size={18} strokeWidth={1.8} />
             {!collapsed && <span>Compare</span>}
+          </button>
+          <button
+            type="button"
+            className={`app-nav-link${isResponsive ? " is-active" : ""}`}
+            onClick={() => onNavigate("/responsive")}
+            title="Responsive"
+          >
+            <MonitorSmartphone size={18} strokeWidth={1.8} />
+            {!collapsed && <span>Responsive</span>}
           </button>
           <button
             type="button"

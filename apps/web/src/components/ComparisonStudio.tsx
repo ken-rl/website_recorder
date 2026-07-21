@@ -27,21 +27,24 @@ interface ComparisonStudioProps {
   initialJob?: RecordingJob | null;
   onBusyChange?: (busy: boolean) => void;
   onReset?: () => void;
+  mode: "compare" | "responsive";
 }
 
-export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: ComparisonStudioProps) {
-  const [studioMode, setStudioMode] = useState<"compare" | "responsive">("compare");
+export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mode }: ComparisonStudioProps) {
+  const [studioMode, setStudioMode] = useState<"compare" | "responsive">(mode);
   const [primaryUrl, setPrimaryUrl] = useState("");
   const [secondaryUrl, setSecondaryUrl] = useState("");
-  const [primaryLabel, setPrimaryLabel] = useState("Version A");
-  const [secondaryLabel, setSecondaryLabel] = useState("Version B");
-  const [primaryLogo, setPrimaryLogo] = useState("A");
+  const [primaryLabel, setPrimaryLabel] = useState(mode === "responsive" ? "Desktop View" : "Version A");
+  const [secondaryLabel, setSecondaryLabel] = useState(mode === "responsive" ? "Mobile View" : "Version B");
+  const [primaryLogo, setPrimaryLogo] = useState(mode === "responsive" ? "Desk" : "A");
   const [secondaryLogo, setSecondaryLogo] = useState("B");
   const [primaryLogoDataUrl, setPrimaryLogoDataUrl] = useState<string | undefined>(undefined);
   const [secondaryLogoDataUrl, setSecondaryLogoDataUrl] = useState<string | undefined>(undefined);
   const [devicePreset, setDevicePreset] = useState("1920x1080");
   const [renderTier, setRenderTier] = useState<RenderTier>("draft");
   const [durationSeconds, setDurationSeconds] = useState(18);
+  const [scrollCurvePreset, setScrollCurvePreset] = useState("ease-in-out");
+  const [scrollCurveBezier, setScrollCurveBezier] = useState<[number, number, number, number]>([0.42, 0, 0.58, 1]);
   const [activeJob, setActiveJob] = useState<RecordingJob | null>(null);
   const [error, setError] = useState("");
   const [elapsed, setElapsed] = useState("0.0s");
@@ -54,6 +57,21 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
   const result = activeJob?.result;
 
   useEffect(() => onBusyChange?.(isBusy), [isBusy, onBusyChange]);
+
+  useEffect(() => {
+    setStudioMode(mode);
+    setPrimaryLabel(mode === "responsive" ? "Desktop View" : "Version A");
+    setSecondaryLabel(mode === "responsive" ? "Mobile View" : "Version B");
+    setPrimaryLogo(mode === "responsive" ? "Desk" : "A");
+    setSecondaryLogo(mode === "responsive" ? "Mob" : "B");
+    setPrimaryUrl("");
+    setSecondaryUrl("");
+    setPrimaryLogoDataUrl(undefined);
+    setSecondaryLogoDataUrl(undefined);
+    setError("");
+    setScrollCurvePreset("ease-in-out");
+    setScrollCurveBezier([0.42, 0, 0.58, 1]);
+  }, [mode]);
 
   useEffect(() => {
     if (!initialJob?.request) return;
@@ -149,7 +167,9 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
         pixelsPerFrame: tier.pixels,
         preRecordingDelayMs: tier.delay,
         removeOverlayElements: true,
-        scrollCurve: { preset: "ease-in-out" as const },
+        scrollCurve: scrollCurvePreset === "custom"
+          ? { preset: "custom" as const, customPoints: { x1: scrollCurveBezier[0], y1: scrollCurveBezier[1], x2: scrollCurveBezier[2], y2: scrollCurveBezier[3] } }
+          : { preset: scrollCurvePreset as any },
         durationMs: durationSeconds * 1_000,
         virtualScrollDurationMs: durationSeconds * 1_000,
         heroHoldMs: 1_500,
@@ -163,15 +183,16 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
       roundedCorners: false,
     };
     if (studioMode === "responsive") {
+      const isPrimaryMobile = width < 1024;
       return {
         ...base,
         responsiveness: {
-          desktopLabel: primaryLabel.trim(),
-          mobileLabel: secondaryLabel.trim(),
-          desktopWidth: width,
-          desktopHeight: height,
-          mobileWidth: 390,
-          mobileHeight: 844,
+          desktopLabel: isPrimaryMobile ? secondaryLabel.trim() : primaryLabel.trim(),
+          mobileLabel: isPrimaryMobile ? primaryLabel.trim() : secondaryLabel.trim(),
+          desktopWidth: isPrimaryMobile ? 1920 : width,
+          desktopHeight: isPrimaryMobile ? 1080 : height,
+          mobileWidth: isPrimaryMobile ? width : 390,
+          mobileHeight: isPrimaryMobile ? height : 844,
         },
       };
     } else {
@@ -189,7 +210,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
         },
       };
     }
-  }, [studioMode, primaryUrl, secondaryUrl, primaryLabel, secondaryLabel, primaryLogo, secondaryLogo, primaryLogoDataUrl, secondaryLogoDataUrl, width, height, renderTier, durationSeconds]);
+  }, [studioMode, primaryUrl, secondaryUrl, primaryLabel, secondaryLabel, primaryLogo, secondaryLogo, primaryLogoDataUrl, secondaryLogoDataUrl, width, height, renderTier, durationSeconds, scrollCurvePreset, JSON.stringify(scrollCurveBezier)]);
 
   const canStart =
     primaryUrl.trim() &&
@@ -273,56 +294,6 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
 
   return (
     <section className="comparison-page">
-      <div className="studio-mode-tabs" style={{ display: "flex", gap: "8px", marginBottom: "12px", borderBottom: "1px solid var(--border)", paddingBottom: "8px" }}>
-        <button
-          type="button"
-          onClick={() => {
-            setStudioMode("compare");
-            setPrimaryLabel("Version A");
-            setSecondaryLabel("Version B");
-            setPrimaryLogo("A");
-            setSecondaryLogo("B");
-          }}
-          style={{
-            background: studioMode === "compare" ? "var(--accent)" : "transparent",
-            color: studioMode === "compare" ? "var(--accent-text)" : "var(--text)",
-            border: "0",
-            padding: "6px 12px",
-            borderRadius: "6px",
-            fontWeight: 800,
-            cursor: "pointer",
-            fontSize: ".68rem",
-            textTransform: "uppercase"
-          }}
-        >
-          URL Comparison
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setStudioMode("responsive");
-            setPrimaryLabel("Desktop View");
-            setSecondaryLabel("Mobile View");
-            setPrimaryLogo("Desk");
-            setSecondaryLogo("Mob");
-            setSecondaryUrl(primaryUrl);
-          }}
-          style={{
-            background: studioMode === "responsive" ? "var(--accent)" : "transparent",
-            color: studioMode === "responsive" ? "var(--accent-text)" : "var(--text)",
-            border: "0",
-            padding: "6px 12px",
-            borderRadius: "6px",
-            fontWeight: 800,
-            cursor: "pointer",
-            fontSize: ".68rem",
-            textTransform: "uppercase"
-          }}
-        >
-          Device Responsiveness
-        </button>
-      </div>
-
       <div className={`capture-command-bar comparison-input-rail${studioMode === "responsive" ? " is-responsive" : ""}`}>
         {studioMode === "responsive" ? (
           <div className="url-input-wrap capture-url-wrap" style={{ flex: 1, minWidth: 0 }}>
@@ -421,7 +392,24 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
             <div className="control-deck-title"><span>Synchronized timeline</span><small>{durationSeconds}s</small></div>
             <input type="range" min={8} max={45} value={durationSeconds} onChange={(event) => { beginEdit(); setDurationSeconds(Number(event.target.value)); }} disabled={isBusy} aria-label="Comparison duration" />
             <div className="comparison-duration-scale"><span>8s</span><span>45s</span></div>
-            <p>Both pages use the same viewport and scroll duration. Popups are removed, the shorter ending is held, and the final MP4 is composed automatically.</p>
+            <label className="quality-field-horizontal" style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "4px" }}>
+              <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Animation Curve</span>
+              <select
+                value={scrollCurvePreset}
+                onChange={(e) => { beginEdit(); setScrollCurvePreset(e.target.value); }}
+                disabled={isBusy}
+                style={{ width: "100%" }}
+              >
+                <option value="linear">Linear</option>
+                <option value="ease-in">Ease in</option>
+                <option value="ease-out">Ease out</option>
+                <option value="ease-in-out">Smooth</option>
+                <option value="ease-in-cubic">In cubic</option>
+                <option value="ease-out-cubic">Out cubic</option>
+                <option value="ease-in-out-cubic">Smooth cubic</option>
+              </select>
+            </label>
+            <p style={{ marginTop: "12px" }}>Both pages use the same viewport, animation curve, and scroll duration. Popups are removed, the shorter ending is held, and the final MP4 is composed automatically.</p>
           </section>
         </aside>
 
@@ -462,6 +450,8 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
               width={width}
               height={height}
               durationSeconds={durationSeconds}
+              scrollCurvePreset={scrollCurvePreset}
+              scrollCurveBezier={scrollCurvePreset === "custom" ? scrollCurveBezier : undefined}
             />
           )}
           {isBusy && <button type="button" className="cancel-capture" onClick={() => void cancel()}><Square size={12} fill="currentColor" /> Cancel comparison</button>}
@@ -502,15 +492,23 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
     const viewport = job.request.videoConfig.viewport;
     const preset = `${viewport.width}x${viewport.height}`;
     if (DEVICE_PRESETS.some((item) => item.value === preset)) setDevicePreset(preset);
+    const animConfig = job.request.animationConfig as any;
     setRenderTier(
-      job.request.animationConfig.fastMode === true
+      animConfig.fastMode === true
         ? "draft"
         : viewport.deviceScaleFactor === 2
           ? "cinematic"
           : "standard",
     );
-    const duration = Number(job.request.animationConfig.durationMs);
+    const duration = Number(animConfig.durationMs);
     if (duration) setDurationSeconds(Math.round(duration / 1_000));
+    const curve = animConfig.scrollCurve;
+    if (curve) {
+      setScrollCurvePreset(curve.preset || "ease-in-out");
+      if (curve.preset === "custom" && curve.customPoints) {
+        setScrollCurveBezier([curve.customPoints.x1, curve.customPoints.y1, curve.customPoints.x2, curve.customPoints.y2]);
+      }
+    }
   }
 }
 
@@ -657,6 +655,19 @@ function LogoUpload(props: {
             aria-label={`Side ${props.side} badge text`}
             style={{ background: badgeColor }}
           />
+          {!props.disabled && (
+            <button
+              type="button"
+              className="comparison-logo-upload-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                inputRef.current?.click();
+              }}
+              title="Upload logo image"
+            >
+              ↑
+            </button>
+          )}
         </span>
       )}
       <input
@@ -687,22 +698,25 @@ function ComparisonCanvas(props: {
   width: number;
   height: number;
   durationSeconds: number;
+  scrollCurvePreset: string;
+  scrollCurveBezier?: [number, number, number, number];
 }) {
   const recording = props.job && ["queued", "running"].includes(props.job.status);
   const isPortrait = props.width < props.height;
 
   // Compute live preview panel dimensions
+  const isPrimaryMobile = props.width < 1024;
   const dW = props.width;
   const dH = props.height;
-  const mW = props.studioMode === "responsive" ? 390 : props.width;
-  const mH = props.studioMode === "responsive" ? 844 : props.height;
+  const mW = props.studioMode === "responsive" ? (isPrimaryMobile ? 1920 : 390) : props.width;
+  const mH = props.studioMode === "responsive" ? (isPrimaryMobile ? 1080 : 844) : props.height;
 
   return (
     <div className={`comparison-canvas${recording ? " is-recording" : ""}`} style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", gap: "10px" }}>
       <div className="comparison-preview-labels">
         <span>
           {props.studioMode === "responsive" ? (
-            <b>Desktop View</b>
+            <b>{isPrimaryMobile ? "Mobile View" : "Desktop View"}</b>
           ) : (
             <>
               {props.primaryLogoDataUrl
@@ -714,7 +728,7 @@ function ComparisonCanvas(props: {
         </span>
         <span>
           {props.studioMode === "responsive" ? (
-            <b>Mobile View</b>
+            <b>{isPrimaryMobile ? "Desktop View" : "Mobile View"}</b>
           ) : (
             <>
               {props.secondaryLogoDataUrl
@@ -727,7 +741,7 @@ function ComparisonCanvas(props: {
       </div>
       <div className="comparison-panels" style={{
         display: "grid",
-        gridTemplateColumns: props.studioMode === "responsive" ? "3fr 1fr" : "1fr 1fr",
+        gridTemplateColumns: props.studioMode === "responsive" ? (isPrimaryMobile ? "1fr 3fr" : "3fr 1fr") : "1fr 1fr",
         alignItems: "center",
         gap: "20px"
       }}>
@@ -740,6 +754,8 @@ function ComparisonCanvas(props: {
           percent={props.job?.progress.percent ?? 0}
           status={props.job?.progress.message ?? ""}
           durationSeconds={props.durationSeconds}
+          scrollCurvePreset={props.scrollCurvePreset}
+          scrollCurveBezier={props.scrollCurveBezier}
         />
         <PreviewPanel
           url={props.secondaryUrl}
@@ -750,6 +766,8 @@ function ComparisonCanvas(props: {
           percent={props.job?.progress.percent ?? 0}
           status={props.job?.progress.message ?? ""}
           durationSeconds={props.durationSeconds}
+          scrollCurvePreset={props.scrollCurvePreset}
+          scrollCurveBezier={props.scrollCurveBezier}
         />
       </div>
       {recording && (
@@ -772,6 +790,8 @@ function PreviewPanel({
   percent,
   status,
   durationSeconds,
+  scrollCurvePreset,
+  scrollCurveBezier,
 }: {
   url: string;
   width: number;
@@ -781,6 +801,8 @@ function PreviewPanel({
   percent: number;
   status: string;
   durationSeconds: number;
+  scrollCurvePreset: string;
+  scrollCurveBezier?: [number, number, number, number];
 }) {
   return (
     <div className="comparison-panel" style={{ aspectRatio: `${width} / ${height}` }}>
@@ -794,7 +816,8 @@ function PreviewPanel({
         recordingElapsed={elapsed}
         recordingPercent={percent}
         recordingStatus={status}
-        scrollCurvePreset="ease-in-out"
+        scrollCurvePreset={scrollCurvePreset}
+        scrollCurveBezier={scrollCurveBezier}
         durationMs={durationSeconds * 1000}
       />
     </div>
