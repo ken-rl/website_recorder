@@ -10,6 +10,8 @@ import {
   Square,
   Zap,
 } from "lucide-react";
+import { DialRoot, useDialKit } from "dialkit";
+import "dialkit/styles.css";
 import AppSidebar from "./components/AppSidebar";
 import BackgroundCanvasForm, { type BackgroundPreset } from "./components/BackgroundCanvasForm";
 import BrowserMockup from "./components/BrowserMockup";
@@ -89,6 +91,18 @@ export default function App() {
   const activeJobId = activeJob?.jobId;
   const activeJobStatus = activeJob?.status;
   const activeJobCreatedAt = activeJob?.createdAt;
+
+  // DialKit Real-time parameters tuning dashboard
+  const dialParams = useDialKit("Capture Sandbox Dials", {
+    scrollDurationMs: [30_000, 3_000, 120_000],
+    shadowBlur: [10, 0, 50],
+    shadowSpread: [30, 0, 100],
+    borderRadius: [12, 0, 48],
+  });
+
+  useEffect(() => {
+    setVirtualDurationMs(dialParams.scrollDurationMs);
+  }, [dialParams.scrollDurationMs]);
 
   const navigate = (path: string) => {
     window.history.pushState({}, "", path);
@@ -481,7 +495,26 @@ export default function App() {
                   <StoryboardDirector inspection={inspection} beats={beats} setBeats={setBeats} startHoldMs={heroHoldMs} setStartHoldMs={setHeroHoldMs} defaultCurve={selectedCurve} />
                 ) : (
                   <div className={`recording-stage${backgroundPreset !== "none" && !result ? " has-canvas-background" : ""}`} style={backgroundPreset !== "none" && !result ? { backgroundImage: `url(/background_presets/${backgroundPreset}.png)` } : undefined}>
-                    <BrowserMockup url={url} videoUrl={result?.videoUrl || null} downloadUrl={result?.videoUrl || null} duration={result ? `${(result.durationMs / 1000).toFixed(1)}s` : null} scrollStrategy={result?.scrollStrategy} width={previewWidth} height={previewHeight} isSubmitting={isBusy} isRenderingStyle={isApplyingStyle} recordingElapsed={elapsed} recordingPercent={activeJob?.progress.percent || 0} recordingStatus={activeJob?.progress.message} />
+                    <BrowserMockup
+                      url={url}
+                      videoUrl={result?.videoUrl || null}
+                      downloadUrl={result?.videoUrl || null}
+                      duration={result ? `${(result.durationMs / 1000).toFixed(1)}s` : null}
+                      scrollStrategy={result?.scrollStrategy}
+                      width={previewWidth}
+                      height={previewHeight}
+                      isSubmitting={isBusy}
+                      isRenderingStyle={isApplyingStyle}
+                      recordingElapsed={elapsed}
+                      recordingPercent={activeJob?.progress.percent || 0}
+                      recordingStatus={activeJob?.progress.message}
+                      scrollCurvePreset={selectedCurve}
+                      scrollCurveBezier={selectedCurve === "custom" ? customBezier : undefined}
+                      durationMs={useFixedDuration ? virtualDurationMs : undefined}
+                      shadowBlur={dialParams.shadowBlur}
+                      shadowSpread={dialParams.shadowSpread}
+                      cornerRadiusOverride={dialParams.borderRadius}
+                    />
                     {isBusy && <button type="button" className="cancel-capture" onClick={() => void cancel()}><Square size={12} fill="currentColor" /> Cancel capture</button>}
                     {activeJob && ["failed", "cancelled", "interrupted"].includes(activeJob.status) && <div className="failed-capture"><AlertTriangle size={18} /><div><strong>{activeJob.status}</strong><span>{activeJob.error?.message || activeJob.progress.message}</span></div><button type="button" onClick={() => void retryActiveJob()}><RefreshCcw size={13} /> Retry</button></div>}
                   </div>
@@ -491,6 +524,7 @@ export default function App() {
           </div>
         )}
       </div>
+      {import.meta.env.DEV && <DialRoot />}
     </main>
   );
 }

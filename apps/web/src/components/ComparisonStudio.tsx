@@ -461,6 +461,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
               elapsed={elapsed}
               width={width}
               height={height}
+              durationSeconds={durationSeconds}
             />
           )}
           {isBusy && <button type="button" className="cancel-capture" onClick={() => void cancel()}><Square size={12} fill="currentColor" /> Cancel comparison</button>}
@@ -474,8 +475,9 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset }: 
   );
 
   function loadJobSettings(job: RecordingJob) {
-    const comparison = job.request?.comparison;
-    const responsiveness = job.request?.responsiveness;
+    if (!job.request) return;
+    const comparison = job.request.comparison;
+    const responsiveness = job.request.responsiveness;
     if (responsiveness) {
       setStudioMode("responsive");
       setPrimaryUrl(job.request.targetUrl);
@@ -684,6 +686,7 @@ function ComparisonCanvas(props: {
   elapsed: string;
   width: number;
   height: number;
+  durationSeconds: number;
 }) {
   const recording = props.job && ["queued", "running"].includes(props.job.status);
   const isPortrait = props.width < props.height;
@@ -728,8 +731,26 @@ function ComparisonCanvas(props: {
         alignItems: "center",
         gap: "20px"
       }}>
-        <PreviewPanel url={props.primaryUrl} width={dW} height={dH} recording={Boolean(recording)} />
-        <PreviewPanel url={props.secondaryUrl} width={mW} height={mH} recording={Boolean(recording)} />
+        <PreviewPanel
+          url={props.primaryUrl}
+          width={dW}
+          height={dH}
+          recording={Boolean(recording)}
+          elapsed={props.elapsed}
+          percent={props.job?.progress.percent ?? 0}
+          status={props.job?.progress.message ?? ""}
+          durationSeconds={props.durationSeconds}
+        />
+        <PreviewPanel
+          url={props.secondaryUrl}
+          width={mW}
+          height={mH}
+          recording={Boolean(recording)}
+          elapsed={props.elapsed}
+          percent={props.job?.progress.percent ?? 0}
+          status={props.job?.progress.message ?? ""}
+          durationSeconds={props.durationSeconds}
+        />
       </div>
       {recording && (
         <div className="comparison-capture-state" role="status" aria-live="polite">
@@ -742,14 +763,40 @@ function ComparisonCanvas(props: {
   );
 }
 
-function PreviewPanel({ url, width, height, recording }: { url: string; width: number; height: number; recording: boolean }) {
+function PreviewPanel({
+  url,
+  width,
+  height,
+  recording,
+  elapsed,
+  percent,
+  status,
+  durationSeconds,
+}: {
+  url: string;
+  width: number;
+  height: number;
+  recording: boolean;
+  elapsed: string;
+  percent: number;
+  status: string;
+  durationSeconds: number;
+}) {
   return (
     <div className="comparison-panel" style={{ aspectRatio: `${width} / ${height}` }}>
-      <div className={`browser-placeholder ${recording ? "browser-placeholder-recording" : "browser-placeholder-idle"}`}>
-        <span className="idle-viewport-badge">{width} × {height}</span>
-        <div className="placeholder-title">{recording ? "Capturing" : "Ready"}</div>
-        <p className="idle-preview-url">{url || "Paste a URL above"}</p>
-      </div>
+      <BrowserMockup
+        url={url}
+        videoUrl={null}
+        duration={null}
+        width={width}
+        height={height}
+        isSubmitting={recording}
+        recordingElapsed={elapsed}
+        recordingPercent={percent}
+        recordingStatus={status}
+        scrollCurvePreset="ease-in-out"
+        durationMs={durationSeconds * 1000}
+      />
     </div>
   );
 }

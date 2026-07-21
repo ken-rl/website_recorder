@@ -15,6 +15,38 @@ interface BrowserMockupProps {
   recordingElapsed?: string;
   recordingPercent?: number;
   recordingStatus?: string;
+  
+  // Real-time animation props
+  scrollCurvePreset?: string;
+  scrollCurveBezier?: [number, number, number, number];
+  durationMs?: number;
+  
+  // Real-time styling overrides
+  shadowBlur?: number;
+  shadowSpread?: number;
+  cornerRadiusOverride?: number;
+}
+
+const CURVES: Record<string, [number, number, number, number]> = {
+  "linear": [0, 0, 1, 1],
+  "ease-in": [0.42, 0, 1, 1],
+  "ease-out": [0, 0, 0.58, 1],
+  "ease-in-out": [0.42, 0, 0.58, 1],
+  "ease-in-cubic": [0.55, 0.055, 0.675, 0.19],
+  "ease-out-cubic": [0.215, 0.61, 0.355, 1],
+  "ease-in-out-cubic": [0.645, 0.045, 0.355, 1]
+};
+
+function solveCubicBezier(t: number, p1x: number, p1y: number, p2x: number, p2y: number): number {
+  if (p1x === p1y && p2x === p2y) return t; // linear shortcut
+  let x = t;
+  for (let i = 0; i < 8; i++) {
+    const currentX = 3 * (1 - x) * (1 - x) * x * p1x + 3 * (1 - x) * x * x * p2x + x * x * x;
+    const derivative = 3 * (1 - x) * (1 - x) * p1x + 6 * (1 - x) * x * (p2x - p1x) + 3 * x * x * (1 - p2x);
+    if (Math.abs(derivative) < 1e-6) break;
+    x -= (currentX - t) / derivative;
+  }
+  return 3 * (1 - x) * (1 - x) * x * p1y + 3 * (1 - x) * x * x * p2y + x * x * x;
 }
 
 export default function BrowserMockup({
@@ -30,6 +62,12 @@ export default function BrowserMockup({
   recordingElapsed,
   recordingPercent = 0,
   recordingStatus,
+  scrollCurvePreset,
+  scrollCurveBezier,
+  durationMs,
+  shadowBlur,
+  shadowSpread,
+  cornerRadiusOverride,
 }: BrowserMockupProps) {
   const isPortrait = width < height;
   const displayUrl = url || "https://example.com";
@@ -49,6 +87,102 @@ export default function BrowserMockup({
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [isScrubbing, setIsScrubbing] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  // Real-time iframe scroll preview loop
+  useEffect(() => {
+    if (videoUrl || isSubmitting || !url) return;
+
+    let active = true;
+    let animationFrameId: number;
+    let lastPos = 0;
+    const startTime = Date.now();
+    const duration = durationMs ?? 18_000;
+    const curve = scrollCurveBezier ?? CURVES[scrollCurvePreset ?? "ease-in-out"] ?? CURVES["ease-in-out"];
+
+    const performScrollPreview = (iframe: HTMLIFrameElement, progress: number, deltaY: number) => {
+      const doc = iframe.contentDocument;
+      const win = iframe.contentWindow;
+      if (!doc || !win) return;
+
+      // 1. Scroll native window
+      const docEl = doc.documentElement;
+      const maxWinScroll = Math.max(0, docEl.scrollHeight - iframe.clientHeight);
+      if (maxWinScroll > 0) {
+        win.scrollTo({ top: maxWinScroll * progress, behavior: "instant" });
+      }
+
+      // 2. Deep walk scrollable elements (e.g. custom scroll containers)
+      const walk = (node: Element) => {
+        if (node instanceof HTMLElement && node !== docEl && node !== doc.body) {
+          const style = win.getComputedStyle(node);
+          const overflow = style.overflowY || style.overflow || "";
+          if ((overflow.includes("auto") || overflow.includes("scroll")) && node.scrollHeight > node.clientHeight) {
+            const maxElScroll = node.scrollHeight - node.clientHeight;
+            node.scrollTo({ top: maxElScroll * progress, behavior: "instant" });
+          }
+        }
+        for (let i = 0; i < node.children.length; i++) {
+          walk(node.children[i]);
+        }
+      };
+      if (doc.body) {
+        walk(doc.body);
+      }
+
+      // 3. Dispatch synthetic wheel event (for virtual scroll frameworks)
+      if (Math.abs(deltaY) > 0.05 && doc.body) {
+        const wheelEvent = new WheelEvent("wheel", {
+          deltaX: 0,
+          deltaY: deltaY,
+          deltaMode: 0,
+          bubbles: true,
+          cancelable: true,
+        });
+        doc.body.dispatchEvent(wheelEvent);
+      }
+    };
+
+    const loop = () => {
+      if (!active) return;
+      const iframe = iframeRef.current;
+      if (iframe && iframe.contentWindow && iframe.contentDocument) {
+        try {
+          const elapsed = (Date.now() - startTime) % (duration + 2000); // add 2s hold at bottom
+          let progress = 0;
+          if (elapsed < duration) {
+            const t = elapsed / duration;
+            progress = solveCubicBezier(t, curve[0], curve[1], curve[2], curve[3]);
+          } else {
+            progress = 1; // hold at bottom
+          }
+
+          // Reset delta tracking when loop wraps around to top
+          if (elapsed < 50) {
+            lastPos = 0;
+          }
+
+          const docEl = iframe.contentDocument.documentElement;
+          const maxWinScroll = Math.max(0, docEl.scrollHeight - iframe.clientHeight);
+          const totalTravel = maxWinScroll > 0 ? maxWinScroll : 6000;
+          const targetPos = totalTravel * progress;
+          const deltaY = targetPos - lastPos;
+          lastPos = targetPos;
+
+          performScrollPreview(iframe, progress, deltaY);
+        } catch {
+          // Ignore cross-origin security issues if proxy fails
+        }
+      }
+      animationFrameId = requestAnimationFrame(loop);
+    };
+
+    animationFrameId = requestAnimationFrame(loop);
+    return () => {
+      active = false;
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [videoUrl, isSubmitting, url, scrollCurvePreset, JSON.stringify(scrollCurveBezier), durationMs]);
 
   // Auto-hide controls during playback
   useEffect(() => {
@@ -155,11 +289,19 @@ export default function BrowserMockup({
         style={previewVars}
       >
         {/* Outer shell holds drop-shadow (must not use overflow/clip-path). */}
-        <div className="video-card-shell">
+        <div
+          className="video-card-shell"
+          style={shadowBlur !== undefined && shadowSpread !== undefined ? {
+            boxShadow: `0 ${shadowBlur}px ${shadowSpread}px rgba(0, 0, 0, 0.15)`
+          } : undefined}
+        >
         <div
           ref={containerRef}
           onClick={() => handlePlayPause()}
           className="custom-video-player-container"
+          style={cornerRadiusOverride !== undefined ? {
+            borderRadius: `${cornerRadiusOverride}px`
+          } : undefined}
         >
           <video
             ref={videoRef}
@@ -175,6 +317,7 @@ export default function BrowserMockup({
             style={{
               width: "100%",
               height: "auto",
+              objectFit: "cover",
               display: "block",
               background: "#000000",
             }}
@@ -410,11 +553,13 @@ export default function BrowserMockup({
           position: "relative",
           width: "100%",
           maxWidth: "100%",
-          borderRadius: "12px",
+          borderRadius: `${cornerRadiusOverride !== undefined ? cornerRadiusOverride : 12}px`,
           overflow: "hidden",
           border: "1px solid var(--border)",
           background: "var(--surface-variant)",
-          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.15)",
+          boxShadow: shadowBlur !== undefined && shadowSpread !== undefined
+            ? `0 ${shadowBlur}px ${shadowSpread}px rgba(0, 0, 0, 0.15)`
+            : "0 10px 30px rgba(0, 0, 0, 0.15)",
         }}
       >
         <div
@@ -462,6 +607,23 @@ export default function BrowserMockup({
                 </div>
               </div>
             </div>
+          ) : url ? (
+            <iframe
+              ref={iframeRef}
+              src={`/api/proxy?url=${encodeURIComponent(url)}`}
+              className="preview-iframe"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                border: 0,
+                background: "var(--surface-variant)",
+                pointerEvents: "none",
+              }}
+              title="Real-time Scroll Preview"
+            />
           ) : (
             <div className="browser-placeholder browser-placeholder-idle">
               <span className="idle-viewport-badge">

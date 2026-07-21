@@ -2664,8 +2664,7 @@ button[type="submit"]:disabled .loader-circle {
     overflow: hidden;
 }
 .browser-content.is-landscape-preview {
-    width: min(100%, var(--monitor-max-width));
-    margin-inline: auto;
+    width: 100%;
 }
 .browser-content.is-portrait-preview {
     width: 100%;
@@ -3487,6 +3486,7 @@ input[type="number"]:disabled {
     display: block;
     width: 100%;
     height: auto;
+    object-fit: cover;
     border-radius: 0;
 }
 /* Framed canvas preview: soft bottom-weighted drop shadow + clean radius */

@@ -77,6 +77,40 @@ async function handleRequest(
     }
   }
 
+  if (req.method === "GET" && url.pathname === "/api/proxy") {
+    const target = url.searchParams.get("url");
+    if (!target) {
+      res.writeHead(400);
+      return res.end("Missing url parameter");
+    }
+    try {
+      await assertSafeTargetUrl(target);
+      const response = await fetch(target);
+      const html = await response.text();
+      const targetUrlObj = new URL(target);
+      const baseUrl = targetUrlObj.origin + targetUrlObj.pathname;
+      
+      let rewritten = html;
+      const baseTag = `<base href="${baseUrl}">`;
+      if (/<head[^>]*>/i.test(rewritten)) {
+        rewritten = rewritten.replace(/<head[^>]*>/i, (m) => `${m}\n${baseTag}`);
+      } else {
+        rewritten = baseTag + rewritten;
+      }
+
+      res.writeHead(200, {
+        "Content-Type": "text/html; charset=utf-8",
+        "Access-Control-Allow-Origin": "*",
+        "X-Frame-Options": "ALLOWALL",
+        "Content-Security-Policy": "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; frame-ancestors *",
+      });
+      return res.end(rewritten);
+    } catch (error) {
+      res.writeHead(500);
+      return res.end(error instanceof Error ? error.message : "Proxy failed");
+    }
+  }
+
   if (req.method === "POST" && url.pathname === "/api/jobs") {
     try {
       const body = parseRecordRequest(await readJsonBody(req));
