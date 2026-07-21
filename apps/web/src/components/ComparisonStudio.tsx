@@ -799,7 +799,7 @@ function ComparisonCanvas(props: {
         <div className="comparison-capture-state" role="status" aria-live="polite">
           <span>{props.job?.progress.message}</span>
           <div><i style={{ width: `${props.job?.progress.percent ?? 0}%` }} /></div>
-          <small>{props.elapsed} · {props.job?.progress.percent ?? 0}%</small>
+          <small>({props.elapsed} · {props.job?.progress.percent ?? 0}%)</small>
         </div>
       )}
     </div>
