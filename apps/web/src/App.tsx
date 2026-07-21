@@ -10,8 +10,7 @@ import {
   Square,
   Zap,
 } from "lucide-react";
-import { DialRoot, useDialKit } from "dialkit";
-import "dialkit/styles.css";
+
 import AppSidebar from "./components/AppSidebar";
 import BackgroundCanvasForm, { type BackgroundPreset } from "./components/BackgroundCanvasForm";
 import BrowserMockup from "./components/BrowserMockup";
@@ -94,17 +93,7 @@ export default function App() {
   const activeJobStatus = activeJob?.status;
   const activeJobCreatedAt = activeJob?.createdAt;
 
-  // DialKit Real-time parameters tuning dashboard
-  const dialParams = useDialKit("Capture Sandbox Dials", {
-    scrollDurationMs: [30_000, 3_000, 120_000],
-    shadowBlur: [10, 0, 50],
-    shadowSpread: [30, 0, 100],
-    borderRadius: [12, 0, 48],
-  });
 
-  useEffect(() => {
-    setVirtualDurationMs(dialParams.scrollDurationMs);
-  }, [dialParams.scrollDurationMs]);
 
   const navigate = (path: string) => {
     window.history.pushState({}, "", path);
@@ -531,9 +520,6 @@ export default function App() {
                       scrollCurvePreset={selectedCurve}
                       scrollCurveBezier={selectedCurve === "custom" ? customBezier : undefined}
                       durationMs={useFixedDuration ? virtualDurationMs : undefined}
-                      shadowBlur={dialParams.shadowBlur}
-                      shadowSpread={dialParams.shadowSpread}
-                      cornerRadiusOverride={dialParams.borderRadius}
                     />
                     {isBusy && <button type="button" className="cancel-capture" onClick={() => void cancel()}><Square size={12} fill="currentColor" /> Cancel capture</button>}
                     {activeJob && ["failed", "cancelled", "interrupted"].includes(activeJob.status) && <div className="failed-capture"><AlertTriangle size={18} /><div><strong>{activeJob.status}</strong><span>{activeJob.error?.message || activeJob.progress.message}</span></div><button type="button" onClick={() => void retryActiveJob()}><RefreshCcw size={13} /> Retry</button></div>}
@@ -544,7 +530,7 @@ export default function App() {
           </div>
         )}
       </div>
-      {import.meta.env.DEV && <DialRoot />}
+
     </main>
   );
 }

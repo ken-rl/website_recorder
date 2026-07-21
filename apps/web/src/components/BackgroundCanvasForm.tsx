@@ -62,7 +62,6 @@ export default function BackgroundCanvasForm({
             {canStyle ? "Style" : "Canvas"}
           </h3>
         </div>
-        <span>{canStyle ? (isFramed ? "Post · Card" : "Post · Bleed") : isFramed ? "Card" : "Bleed"}</span>
       </div>
 
       <div className="recorder-background-grid" role="radiogroup" aria-label="Background preset">
