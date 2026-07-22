@@ -1,0 +1,62 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish deio-scroll
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - name: Update npm for trusted publishing
+        run: npm install --global npm@latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate release version
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION=$(node -p "require('./apps/api/package.json').version")
+
+          if [[ "$EVENT_NAME" == "release" && "$RELEASE_TAG" != "v$VERSION" ]]; then
+            echo "Release tag must be v$VERSION, not $RELEASE_TAG"
+            exit 1
+          fi
+
+          if npm view "deio-scroll@$VERSION" version >/dev/null 2>&1; then
+            echo "deio-scroll@$VERSION is already published"
+            exit 1
+          fi
+
+      - name: Typecheck
+        run: pnpm --filter deio-scroll typecheck
+
+      - name: Publish with provenance
+        working-directory: apps/api
+        run: npm publish --access public --provenance
