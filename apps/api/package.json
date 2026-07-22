@@ -1,6 +1,6 @@
 {
   "name": "deio-scroll",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Deio Scroll API and worker for directed website scroll videos",
   "license": "MIT",
   "author": "ken-rl (https://github.com/ken-rl)",

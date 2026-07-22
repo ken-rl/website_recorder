@@ -125,37 +125,33 @@ async function createStaticLayers(options: {
   const dir = path.dirname(outputPath);
   const maskPath = path.join(dir, `.style-mask-${id}.png`);
   const shadowPath = addShadow ? path.join(dir, `.style-shadow-${id}.png`) : undefined;
-  const maskFilter = cornerRadius ? roundedMaskFilter(cornerRadius) : "format=gray";
+  const maskScale = cornerRadius ? 2 : 1;
+  const maskFilter = cornerRadius
+    ? roundedMaskFilter(cornerRadius * maskScale, contentWidth, contentHeight)
+    : "format=gray";
 
   await runFfmpeg([
-    "-y", "-f", "lavfi", "-i", `color=c=white:s=${contentWidth}x${contentHeight}:r=1`,
+    "-y", "-f", "lavfi", "-i", `color=c=white:s=${contentWidth * maskScale}x${contentHeight * maskScale}:r=1`,
     "-vf", maskFilter,
     "-frames:v", "1", "-c:v", "png", maskPath,
   ]);
 
   if (shadowPath) {
-    // Soft bottom drop-shadow: mainly below the card so it reads on light and busy
-    // backgrounds. Slight X inset + wider blur keeps it natural without a hard halo.
-    const shadowOffsetY = Math.max(22, Math.round(height * 0.032));
+    // Use a black masked silhouette, not a translucent copy of the video. The
+    // card covers the shadow's solid center, leaving only a natural soft falloff.
+    const shadowOffsetY = Math.max(8, Math.round(height * 0.014));
     const shadowY = y + shadowOffsetY;
-    const shadowBlur = Math.max(28, Math.round(Math.min(width, height) * 0.034));
-    const shadowAlpha = 0.38;
-    // Grow the shadow plate a touch so blur doesn't thin out at the sides.
-    const shadowPadX = Math.max(8, Math.round(contentWidth * 0.012));
-    const shadowW = even(contentWidth + shadowPadX * 2);
-    const shadowH = even(contentHeight + Math.round(shadowOffsetY * 0.35));
-    const shadowX = Math.max(0, x - shadowPadX);
+    const shadowBlur = Math.max(14, Math.round(Math.min(width, height) * 0.02));
+    const shadowAlpha = 0.24;
     await runFfmpeg([
       "-y", "-i", maskPath,
       "-f", "lavfi", "-i", `color=c=black:s=${contentWidth}x${contentHeight}:r=1`,
       "-filter_complex",
-      // Soft plate → pad into full frame (offset down) → opacity → blur
-      `[0:v]format=gray,scale=${shadowW}:${shadowH}:flags=bilinear[mask];` +
-        `[1:v]format=rgba,scale=${shadowW}:${shadowH}:flags=bilinear[black];` +
+      `[0:v]format=gray[mask];[1:v]format=rgba[black];` +
         `[black][mask]alphamerge,` +
-        `pad=${width}:${height}:${shadowX}:${shadowY}:color=black@0,` +
-        `format=rgba,colorchannelmixer=aa=${shadowAlpha},` +
-        `gblur=sigma=${shadowBlur}:steps=3[output]`,
+        `pad=${width}:${height}:${x}:${shadowY}:color=black@0,` +
+        `colorchannelmixer=aa=${shadowAlpha},` +
+        `gblur=sigma=${shadowBlur}:steps=2[output]`,
       "-map", "[output]", "-frames:v", "1", "-c:v", "png", shadowPath,
     ]);
   }
@@ -167,7 +163,7 @@ async function createStaticLayers(options: {
   };
 }
 
-function roundedMaskFilter(radius: number) {
+function roundedMaskFilter(radius: number, outputWidth: number, outputHeight: number) {
 
   const right = `W-${radius}`;
   const bottom = `H-${radius}`;
@@ -178,7 +174,7 @@ function roundedMaskFilter(radius: number) {
     `gt(X,${right})*gt(Y,${bottom})*gt(hypot(X-(${right}),Y-(${bottom})),${radius})`,
   ].join("+");
 
-  return `format=gray,geq=lum='if(gt(${outsideCorner},0),0,255)'`;
+  return `format=gray,geq=lum='if(gt(${outsideCorner},0),0,255)',scale=${outputWidth}:${outputHeight}:flags=lanczos`;
 }
 
 async function resolvePresetPath(filename: string) {

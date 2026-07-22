@@ -259,12 +259,11 @@ async function chooseProjectPages(options: CliOptions, detected: string[]) {
   if (detected.length <= 1 || !process.stdin.isTTY || !process.stdout.isTTY) return ["/"];
 
   return checkbox({
-    message: "Select pages to record (space to select, enter to record)",
+    message: "Select pages to record (space toggles selection, enter confirms)",
     required: true,
     choices: detected.map((route) => ({
       name: route,
       value: route,
-      checked: route === "/",
     })),
   });
 }

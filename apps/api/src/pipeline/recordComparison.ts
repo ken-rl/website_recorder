@@ -15,9 +15,13 @@ export async function recordComparison(
   const outputDir = path.resolve(outputRoot, jobId);
   await fs.mkdir(outputDir, { recursive: true });
 
+  const syncMode = request.comparison.syncMode ?? "match-speed";
   const baseRequest: RecordRequest = {
     ...request,
     comparison: undefined,
+    animationConfig: syncMode === "independent"
+      ? { ...request.animationConfig, durationMs: undefined, virtualScrollDurationMs: undefined }
+      : request.animationConfig,
     backgroundPreset: "none",
     addShadow: false,
     roundedCorners: false,
@@ -50,7 +54,7 @@ export async function recordComparison(
     ...baseRequest,
     targetUrl: request.comparison.targetUrl,
   };
-  if (isDocumentA && maxScrollA >= 200 && durationA > 0) {
+  if (syncMode === "match-speed" && isDocumentA && maxScrollA >= 200 && durationA > 0) {
     secondaryRequest.animationConfig = {
       ...secondaryRequest.animationConfig,
       scrollSync: {

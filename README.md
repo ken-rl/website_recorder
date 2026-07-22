@@ -29,7 +29,8 @@ Product identity, palette, and logo usage are documented in [BRAND.md](BRAND.md)
 - **Canvas framing** — backgrounds, drop shadow, rounded corners; re-style without re-recording
 - **Overlay cleanup** — strips cookie banners, modals, and popups by default
 - **Analyze + direct** — inspect a page, review storyboard frames, and time section-level motion before rendering
-- **Side-by-side comparisons** — capture two URLs with one shared viewport and synchronized timeline, then export a labeled comparison MP4
+- **Side-by-side comparisons** — capture two URLs with matched progress, matched speed, or natural timing, then export a labeled comparison MP4
+- **Responsive device films** — capture one URL across explicit desktop/mobile or desktop/tablet breakpoint pairs
 - **Durable capture jobs** — real pipeline progress, cancellation, retry, refresh recovery, and a local recording library
 - **Web UI, CLI, and HTTP API**
 
@@ -149,6 +150,13 @@ Left nav: Capture (collapsible brand sidebar).
    local performance, aligns both recordings, and holds the shorter ending frame.
 4. Preview or download the combined MP4. Comparisons remain available in
    **Library** and can be retried or duplicated like regular captures.
+
+**Responsive workflow**
+
+1. Open **Responsive** and enter one URL.
+2. Choose a desktop/mobile, laptop/mobile, desktop/tablet, or custom device pair.
+3. Select matched progress, matched speed, or natural timing.
+4. Capture and export the combined breakpoint film.
 
 ### CLI
 

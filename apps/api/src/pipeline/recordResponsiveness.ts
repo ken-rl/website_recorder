@@ -17,6 +17,7 @@ export async function recordResponsiveness(
 
   const desktopLabel = request.responsiveness.desktopLabel || "Desktop View";
   const mobileLabel = request.responsiveness.mobileLabel || "Mobile View";
+  const syncMode = request.responsiveness.syncMode ?? "match-speed";
 
   // Desktop configuration (uses primary videoConfig)
   const desktopWidth = request.videoConfig.viewport.width;
@@ -25,11 +26,14 @@ export async function recordResponsiveness(
   // Mobile configuration (overrides viewport to standard mobile: e.g. 390x844)
   const mobileWidth = request.responsiveness.mobileWidth || 390;
   const mobileHeight = request.responsiveness.mobileHeight || 844;
-  const mobileScaleFactor = 2; // standard high-res mobile scale
+  const mobileScaleFactor = request.videoConfig.viewport.deviceScaleFactor ?? 1;
 
   const desktopRequest: RecordRequest = {
     ...request,
     responsiveness: undefined,
+    animationConfig: syncMode === "independent"
+      ? { ...request.animationConfig, durationMs: undefined, virtualScrollDurationMs: undefined }
+      : request.animationConfig,
     backgroundPreset: "none",
     addShadow: false,
     roundedCorners: false,
@@ -78,7 +82,7 @@ export async function recordResponsiveness(
   const secondaryRequest = {
     ...mobileRequest,
   };
-  if (isDocumentA && maxScrollA >= 200 && durationA > 0) {
+  if (syncMode === "match-speed" && isDocumentA && maxScrollA >= 200 && durationA > 0) {
     secondaryRequest.animationConfig = {
       ...secondaryRequest.animationConfig,
       scrollSync: {

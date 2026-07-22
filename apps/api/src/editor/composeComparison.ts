@@ -50,23 +50,28 @@ export async function composeComparison(options: ComposeComparisonOptions) {
   const height = even(options.height);
   const outerMargin = even(Math.round(width * 0.05));
   const panelGap = even(Math.round(width * 0.022));
-  const panelTop = even(Math.round(height * 0.145));
-  const bottomMargin = even(Math.round(height * 0.045));
   const panelWidth = even(Math.floor((width - outerMargin * 2 - panelGap) / 2));
-  const panelHeight = even(height - panelTop - bottomMargin);
+  const fontSize = Math.max(20, Math.round(height * 0.034));
+  const sideBadgeSize = Math.max(22, Math.round(height * 0.038));
+  const headerGap = Math.max(10, Math.round(height * 0.014));
+  const preferredPanelHeight = even(Math.round(panelWidth * height / width));
+  const maxPanelHeight = even(height - outerMargin * 2 - Math.max(fontSize, sideBadgeSize) - headerGap);
+  const panelHeight = Math.max(2, Math.min(preferredPanelHeight, maxPanelHeight));
+  const groupHeight = Math.max(fontSize, sideBadgeSize) + headerGap + panelHeight;
+  const labelY = Math.max(8, Math.round((height - groupHeight) / 2));
+  const panelTop = labelY + Math.max(fontSize, sideBadgeSize) + headerGap;
   const secondaryX = outerMargin + panelWidth + panelGap;
-  const fontSize = Math.max(20, Math.round(height * 0.047));
-  const sideBadgeSize = Math.max(22, Math.round(height * 0.045));
   const cornerRadius = Math.max(12, Math.round(Math.min(panelWidth, panelHeight) * 0.035));
   const durationSeconds = Math.max(0.1, durationMs / 1_000).toFixed(3);
   const outputDir = path.dirname(outputPath);
   await fs.mkdir(outputDir, { recursive: true });
 
-  // Subtle drop shadow: a blurred, semi-transparent copy of each panel is placed
-  // slightly below the panel itself — mirroring the CSS box-shadow on the UI preview.
-  const shadowOffsetY = Math.max(4, Math.round(height * 0.005));
-  const shadowBlur = Math.max(8, Math.round(height * 0.012));
-  const shadowAlpha = 0.22; // opacity of the blurred shadow layer
+  // Shadows and corner masks are static. Render them once instead of blurring
+  // every video frame, which produces a cleaner silhouette and lowers CPU cost.
+  const shadowOffsetY = Math.max(5, Math.round(height * 0.007));
+  const shadowBlur = Math.max(10, Math.round(height * 0.014));
+  const shadowAlpha = 0.24;
+  const shadowPad = Math.ceil(shadowBlur * 3);
 
   // --- Logo text fallbacks ---
   const primaryLogoText = (primaryLogo || "A").trim() || "A";
@@ -85,6 +90,7 @@ export async function composeComparison(options: ComposeComparisonOptions) {
   const primaryLabelPath = path.join(outputDir, ".comparison-primary.txt");
   const secondaryLabelPath = path.join(outputDir, ".comparison-secondary.txt");
   const maskPath = path.join(outputDir, ".comparison-mask.png");
+  const shadowPath = path.join(outputDir, ".comparison-shadow.png");
 
   // Logo images: write raw bytes with the correct extension, then convert to PNG via ffmpeg.
   // This handles PNG, JPEG, WebP, and SVG (if librsvg is available) uniformly since ffmpeg
@@ -125,6 +131,7 @@ export async function composeComparison(options: ComposeComparisonOptions) {
   ]);
 
   await createRoundedMask(maskPath, panelWidth, panelHeight, cornerRadius, signal);
+  await createShadowFromMask(maskPath, shadowPath, panelWidth, panelHeight, shadowPad, shadowBlur, shadowAlpha, signal);
 
   // --- Build ffmpeg inputs & filter ---
   const primaryText = escapeFilterPath(primaryLabelPath);
@@ -139,13 +146,13 @@ export async function composeComparison(options: ComposeComparisonOptions) {
     `setsar=1,format=rgba[${output}-base];` +
     `[${output}-base][${mask}]alphamerge[${output}]`;
 
-  const labelY = Math.max(8, Math.round((panelTop - fontSize) / 2));
   // Logo image is scaled to a square that fits within sideBadgeSize, preserving aspect ratio.
   const logoImgSize = sideBadgeSize;
 
-  // Build static input list: 0=primary video, 1=secondary video, 2=mask, then optional logos.
+  // Build static input list: 0=primary video, 1=secondary video, 2=mask,
+  // 3=pre-rendered shadow, then optional logos.
   const extraInputs: string[] = [];
-  let nextInput = 3; // 0,1,2 are already used
+  let nextInput = 4;
 
   let primaryLogoInputIdx: number | undefined;
   if (primaryLogoPath) {
@@ -243,17 +250,12 @@ export async function composeComparison(options: ComposeComparisonOptions) {
     currentStream = logoOut;
   }
 
-  // Split each panel into (original, shadow-source), blur the shadow copy, then
-  // overlay: shadow (offset) → original — giving a subtle soft drop shadow.
   filterParts.push(
-    `[left]split=2[left-orig][left-sh-in]`,
-    `[left-sh-in]gblur=sigma=${shadowBlur},colorchannelmixer=aa=${shadowAlpha}[left-sh]`,
-    `[right]split=2[right-orig][right-sh-in]`,
-    `[right-sh-in]gblur=sigma=${shadowBlur},colorchannelmixer=aa=${shadowAlpha}[right-sh]`,
-    `[${currentStream}][left-sh]overlay=${outerMargin}:${panelTop + shadowOffsetY}:shortest=1[with-ls]`,
-    `[with-ls][left-orig]overlay=${outerMargin}:${panelTop}:shortest=1[first]`,
-    `[first][right-sh]overlay=${secondaryX}:${panelTop + shadowOffsetY}:shortest=1[with-rs]`,
-    `[with-rs][right-orig]overlay=${secondaryX}:${panelTop}:shortest=1,setsar=1,fps=${fps},format=yuv420p[video]`,
+    `[3:v]format=rgba,split=2[left-shadow][right-shadow]`,
+    `[${currentStream}][left-shadow]overlay=${outerMargin - shadowPad}:${panelTop + shadowOffsetY - shadowPad}:shortest=1[with-ls]`,
+    `[with-ls][left]overlay=${outerMargin}:${panelTop}:shortest=1[first]`,
+    `[first][right-shadow]overlay=${secondaryX - shadowPad}:${panelTop + shadowOffsetY - shadowPad}:shortest=1[with-rs]`,
+    `[with-rs][right]overlay=${secondaryX}:${panelTop}:shortest=1,setsar=1,fps=${fps},format=yuv420p[video]`,
   );
 
   const filter = filterParts.join(";");
@@ -266,6 +268,9 @@ export async function composeComparison(options: ComposeComparisonOptions) {
       "-loop", "1",
       "-framerate", String(fps),
       "-i", maskPath,
+      "-loop", "1",
+      "-framerate", String(fps),
+      "-i", shadowPath,
       ...extraInputs,
       "-filter_complex", filter,
       "-map", "[video]",
@@ -283,6 +288,7 @@ export async function composeComparison(options: ComposeComparisonOptions) {
       fs.rm(primaryLabelPath, { force: true }),
       fs.rm(secondaryLabelPath, { force: true }),
       fs.rm(maskPath, { force: true }),
+      fs.rm(shadowPath, { force: true }),
       primaryLogoPath ? fs.rm(primaryLogoPath, { force: true }) : Promise.resolve(),
       secondaryLogoPath ? fs.rm(secondaryLogoPath, { force: true }) : Promise.resolve(),
       primaryLogoRaw ? fs.rm(primaryLogoRaw, { force: true }) : Promise.resolve(),
@@ -330,22 +336,47 @@ async function createRoundedMask(
   radius: number,
   signal?: AbortSignal,
 ) {
-  const right = `W-${radius}`;
-  const bottom = `H-${radius}`;
+  const supersample = 2;
+  const scaledWidth = width * supersample;
+  const scaledHeight = height * supersample;
+  const scaledRadius = radius * supersample;
+  const right = `W-${scaledRadius}`;
+  const bottom = `H-${scaledRadius}`;
   const outsideCorner = [
-    `lt(X,${radius})*lt(Y,${radius})*gt(hypot(X-${radius},Y-${radius}),${radius})`,
-    `gt(X,${right})*lt(Y,${radius})*gt(hypot(X-(${right}),Y-${radius}),${radius})`,
-    `lt(X,${radius})*gt(Y,${bottom})*gt(hypot(X-${radius},Y-(${bottom})),${radius})`,
-    `gt(X,${right})*gt(Y,${bottom})*gt(hypot(X-(${right}),Y-(${bottom})),${radius})`,
+    `lt(X,${scaledRadius})*lt(Y,${scaledRadius})*gt(hypot(X-${scaledRadius},Y-${scaledRadius}),${scaledRadius})`,
+    `gt(X,${right})*lt(Y,${scaledRadius})*gt(hypot(X-(${right}),Y-${scaledRadius}),${scaledRadius})`,
+    `lt(X,${scaledRadius})*gt(Y,${bottom})*gt(hypot(X-${scaledRadius},Y-(${bottom})),${scaledRadius})`,
+    `gt(X,${right})*gt(Y,${bottom})*gt(hypot(X-(${right}),Y-(${bottom})),${scaledRadius})`,
   ].join("+");
   await runFfmpeg([
     "-y",
     "-f", "lavfi",
-    "-i", `color=c=white:s=${width}x${height}:r=1`,
-    "-vf", `format=gray,geq=lum='if(gt(${outsideCorner},0),0,255)'`,
+    "-i", `color=c=white:s=${scaledWidth}x${scaledHeight}:r=1`,
+    "-vf", `format=gray,geq=lum='if(gt(${outsideCorner},0),0,255)',scale=${width}:${height}:flags=lanczos`,
     "-frames:v", "1",
     "-c:v", "png",
     outputPath,
+  ], signal);
+}
+
+async function createShadowFromMask(
+  maskPath: string,
+  outputPath: string,
+  width: number,
+  height: number,
+  pad: number,
+  blur: number,
+  alpha: number,
+  signal?: AbortSignal,
+) {
+  await runFfmpeg([
+    "-y", "-i", maskPath,
+    "-f", "lavfi", "-i", `color=c=black:s=${width}x${height}:r=1`,
+    "-filter_complex",
+    `[1:v]format=rgba[black];[0:v]format=gray[mask];` +
+      `[black][mask]alphamerge,pad=${width + pad * 2}:${height + pad * 2}:${pad}:${pad}:color=black@0,` +
+      `colorchannelmixer=aa=${alpha},gblur=sigma=${blur}:steps=2[shadow]`,
+    "-map", "[shadow]", "-frames:v", "1", "-c:v", "png", outputPath,
   ], signal);
 }
 

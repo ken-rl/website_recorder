@@ -65,12 +65,14 @@ test("accepts a labeled side-by-side comparison", () => {
       targetUrl: "https://beta.example.com",
       primaryLabel: "Model Alpha",
       secondaryLabel: "Model Beta",
+      syncMode: "match-progress",
       layout: "side-by-side",
     },
   });
 
   assert.equal(request.comparison?.targetUrl, "https://beta.example.com");
   assert.equal(request.comparison?.secondaryLabel, "Model Beta");
+  assert.equal(request.comparison?.syncMode, "match-progress");
 });
 
 test("rejects unsafe comparison contracts before they reach the worker", () => {

@@ -82,22 +82,29 @@ export async function composeResponsiveness(options: ComposeResponsivenessOption
   const outputDir = path.dirname(outputPath);
   await fs.mkdir(outputDir, { recursive: true });
 
-  // Subtle drop shadow settings
-  const shadowOffsetY = Math.max(4, Math.round(height * 0.005));
-  const shadowBlur = Math.max(8, Math.round(height * 0.012));
-  const shadowAlpha = 0.22;
+  // Pre-render shadows once: cleaner edges and no per-frame blur cost.
+  const shadowOffsetY = Math.max(5, Math.round(height * 0.007));
+  const shadowBlur = Math.max(10, Math.round(height * 0.014));
+  const shadowAlpha = 0.24;
+  const shadowPad = Math.ceil(shadowBlur * 3);
 
   // --- Temp files ---
   const desktopLabelPath = path.join(outputDir, ".responsiveness-desktop.txt");
   const mobileLabelPath = path.join(outputDir, ".responsiveness-mobile.txt");
   const desktopMaskPath = path.join(outputDir, ".responsiveness-mask-desktop.png");
   const mobileMaskPath = path.join(outputDir, ".responsiveness-mask-mobile.png");
+  const desktopShadowPath = path.join(outputDir, ".responsiveness-shadow-desktop.png");
+  const mobileShadowPath = path.join(outputDir, ".responsiveness-shadow-mobile.png");
 
   await Promise.all([
     fs.writeFile(desktopLabelPath, desktopLabel.replace(/\s+/g, " "), "utf8"),
     fs.writeFile(mobileLabelPath, mobileLabel.replace(/\s+/g, " "), "utf8"),
     createRoundedMask(desktopMaskPath, dW, dH, dCornerRadius, signal),
     createRoundedMask(mobileMaskPath, mW, mH, mCornerRadius, signal),
+  ]);
+  await Promise.all([
+    createShadowFromMask(desktopMaskPath, desktopShadowPath, dW, dH, shadowPad, shadowBlur, shadowAlpha, signal),
+    createShadowFromMask(mobileMaskPath, mobileShadowPath, mW, mH, shadowPad, shadowBlur, shadowAlpha, signal),
   ]);
 
   // --- Build ffmpeg inputs & filter ---
@@ -143,17 +150,13 @@ export async function composeResponsiveness(options: ComposeResponsivenessOption
 
   let currentStream = "headed";
 
-  // Split each panel into (original, shadow-source), blur the shadow copy, then
-  // overlay: shadow (offset) → original — giving a subtle soft drop shadow.
   filterParts.push(
-    `[desktop-in]split=2[desktop-orig][desktop-sh-in]`,
-    `[desktop-sh-in]gblur=sigma=${shadowBlur},colorchannelmixer=aa=${shadowAlpha}[desktop-sh]`,
-    `[mobile-in]split=2[mobile-orig][mobile-sh-in]`,
-    `[mobile-sh-in]gblur=sigma=${shadowBlur},colorchannelmixer=aa=${shadowAlpha}[mobile-sh]`,
-    `[${currentStream}][desktop-sh]overlay=${desktopX}:${desktopY + shadowOffsetY}:shortest=1[with-ds]`,
-    `[with-ds][desktop-orig]overlay=${desktopX}:${desktopY}:shortest=1[first]`,
-    `[first][mobile-sh]overlay=${mobileX}:${mobileY + shadowOffsetY}:shortest=1[with-ms]`,
-    `[with-ms][mobile-orig]overlay=${mobileX}:${mobileY}:shortest=1,setsar=1,fps=${fps},format=yuv420p[video]`,
+    `[4:v]format=rgba[desktop-shadow]`,
+    `[5:v]format=rgba[mobile-shadow]`,
+    `[${currentStream}][desktop-shadow]overlay=${desktopX - shadowPad}:${desktopY + shadowOffsetY - shadowPad}:shortest=1[with-ds]`,
+    `[with-ds][desktop-in]overlay=${desktopX}:${desktopY}:shortest=1[first]`,
+    `[first][mobile-shadow]overlay=${mobileX - shadowPad}:${mobileY + shadowOffsetY - shadowPad}:shortest=1[with-ms]`,
+    `[with-ms][mobile-in]overlay=${mobileX}:${mobileY}:shortest=1,setsar=1,fps=${fps},format=yuv420p[video]`,
   );
 
   const filter = filterParts.join(";");
@@ -169,6 +172,12 @@ export async function composeResponsiveness(options: ComposeResponsivenessOption
       "-loop", "1",
       "-framerate", String(fps),
       "-i", mobileMaskPath,
+      "-loop", "1",
+      "-framerate", String(fps),
+      "-i", desktopShadowPath,
+      "-loop", "1",
+      "-framerate", String(fps),
+      "-i", mobileShadowPath,
       "-filter_complex", filter,
       "-map", "[video]",
       "-an",
@@ -186,6 +195,8 @@ export async function composeResponsiveness(options: ComposeResponsivenessOption
       fs.rm(mobileLabelPath, { force: true }),
       fs.rm(desktopMaskPath, { force: true }),
       fs.rm(mobileMaskPath, { force: true }),
+      fs.rm(desktopShadowPath, { force: true }),
+      fs.rm(mobileShadowPath, { force: true }),
     ]);
   }
 }
@@ -197,22 +208,47 @@ async function createRoundedMask(
   radius: number,
   signal?: AbortSignal,
 ) {
-  const right = `W-${radius}`;
-  const bottom = `H-${radius}`;
+  const supersample = 2;
+  const scaledWidth = width * supersample;
+  const scaledHeight = height * supersample;
+  const scaledRadius = radius * supersample;
+  const right = `W-${scaledRadius}`;
+  const bottom = `H-${scaledRadius}`;
   const outsideCorner = [
-    `lt(X,${radius})*lt(Y,${radius})*gt(hypot(X-${radius},Y-${radius}),${radius})`,
-    `gt(X,${right})*lt(Y,${radius})*gt(hypot(X-(${right}),Y-${radius}),${radius})`,
-    `lt(X,${radius})*gt(Y,${bottom})*gt(hypot(X-${radius},Y-(${bottom})),${radius})`,
-    `gt(X,${right})*gt(Y,${bottom})*gt(hypot(X-(${right}),Y-(${bottom})),${radius})`,
+    `lt(X,${scaledRadius})*lt(Y,${scaledRadius})*gt(hypot(X-${scaledRadius},Y-${scaledRadius}),${scaledRadius})`,
+    `gt(X,${right})*lt(Y,${scaledRadius})*gt(hypot(X-(${right}),Y-${scaledRadius}),${scaledRadius})`,
+    `lt(X,${scaledRadius})*gt(Y,${bottom})*gt(hypot(X-${scaledRadius},Y-(${bottom})),${scaledRadius})`,
+    `gt(X,${right})*gt(Y,${bottom})*gt(hypot(X-(${right}),Y-(${bottom})),${scaledRadius})`,
   ].join("+");
   await runFfmpeg([
     "-y",
     "-f", "lavfi",
-    "-i", `color=c=white:s=${width}x${height}:r=1`,
-    "-vf", `format=gray,geq=lum='if(gt(${outsideCorner},0),0,255)'`,
+    "-i", `color=c=white:s=${scaledWidth}x${scaledHeight}:r=1`,
+    "-vf", `format=gray,geq=lum='if(gt(${outsideCorner},0),0,255)',scale=${width}:${height}:flags=lanczos`,
     "-frames:v", "1",
     "-c:v", "png",
     outputPath,
+  ], signal);
+}
+
+async function createShadowFromMask(
+  maskPath: string,
+  outputPath: string,
+  width: number,
+  height: number,
+  pad: number,
+  blur: number,
+  alpha: number,
+  signal?: AbortSignal,
+) {
+  await runFfmpeg([
+    "-y", "-i", maskPath,
+    "-f", "lavfi", "-i", `color=c=black:s=${width}x${height}:r=1`,
+    "-filter_complex",
+    `[1:v]format=rgba[black];[0:v]format=gray[mask];` +
+      `[black][mask]alphamerge,pad=${width + pad * 2}:${height + pad * 2}:${pad}:${pad}:color=black@0,` +
+      `colorchannelmixer=aa=${alpha},gblur=sigma=${blur}:steps=2[shadow]`,
+    "-map", "[shadow]", "-frames:v", "1", "-c:v", "png", outputPath,
   ], signal);
 }
 

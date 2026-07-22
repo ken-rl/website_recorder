@@ -239,7 +239,8 @@ async function handleRequest(
     (url.pathname === "/" ||
       url.pathname === "/upcoming" ||
       url.pathname === "/library" ||
-      url.pathname === "/compare")
+      url.pathname === "/compare" ||
+      url.pathname === "/responsive")
   ) {
     return serveFile(
       res,

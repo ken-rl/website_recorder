@@ -45,7 +45,10 @@ export interface DirectorBeat {
   imageIndex?: number;
 }
 
+export type ComparisonSyncMode = "match-progress" | "match-speed" | "independent";
+
 export interface ResponsivenessConfig {
+  syncMode?: ComparisonSyncMode;
   desktopLabel?: string;
   mobileLabel?: string;
   desktopWidth?: number;
@@ -68,6 +71,7 @@ export interface RecordingRequest {
   roundedCorners?: boolean;
   comparison?: {
     targetUrl: string;
+    syncMode?: ComparisonSyncMode;
     primaryLabel: string;
     secondaryLabel: string;
     primaryLogo?: string;

@@ -2,20 +2,37 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   AlertTriangle,
   ArrowLeftRight,
+  Check,
   Clapperboard,
   Download,
+  Monitor,
   Play,
   RefreshCcw,
+  Smartphone,
   Sparkles,
   Square,
+  Tablet,
+  Upload,
   Zap,
 } from "lucide-react";
 import { readJsonResponse } from "../lib/http";
-import type { RecordingJob, RecordingRequest } from "../lib/productTypes";
+import type { ComparisonSyncMode, RecordingJob, RecordingRequest } from "../lib/productTypes";
 import { DEVICE_PRESETS } from "./TargetPageForm";
 import BrowserMockup from "./BrowserMockup";
 
 type RenderTier = "draft" | "standard" | "cinematic";
+
+const DEVICE_PAIRS = [
+  { id: "desktop-mobile", label: "Desktop + mobile", detail: "1440×900 · 390×844", desktop: [1440, 900], mobile: [390, 844], mobileLabel: "Mobile" },
+  { id: "laptop-mobile", label: "Laptop + mobile", detail: "1366×768 · 390×844", desktop: [1366, 768], mobile: [390, 844], mobileLabel: "Mobile" },
+  { id: "desktop-tablet", label: "Desktop + tablet", detail: "1440×900 · 768×1024", desktop: [1440, 900], mobile: [768, 1024], mobileLabel: "Tablet" },
+] as const;
+
+const SYNC_OPTIONS: Array<{ value: ComparisonSyncMode; label: string; detail: string }> = [
+  { value: "match-progress", label: "Match progress", detail: "Both views reach the bottom together." },
+  { value: "match-speed", label: "Match speed", detail: "The shorter page finishes and holds." },
+  { value: "independent", label: "Natural timing", detail: "Each page uses its own scroll length." },
+];
 
 const TIERS = {
   draft: { label: "Draft", detail: "30 fps · quick", fps: 30, scale: 1, quality: "medium", fast: true, mode: "preview", delay: 500, pixels: 12 },
@@ -41,6 +58,10 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
   const [primaryLogoDataUrl, setPrimaryLogoDataUrl] = useState<string | undefined>(undefined);
   const [secondaryLogoDataUrl, setSecondaryLogoDataUrl] = useState<string | undefined>(undefined);
   const [devicePreset, setDevicePreset] = useState("1920x1080");
+  const [devicePairId, setDevicePairId] = useState("desktop-mobile");
+  const [desktopSize, setDesktopSize] = useState<[number, number]>([1440, 900]);
+  const [mobileSize, setMobileSize] = useState<[number, number]>([390, 844]);
+  const [syncMode, setSyncMode] = useState<ComparisonSyncMode>(mode === "responsive" ? "match-progress" : "match-speed");
   const [renderTier, setRenderTier] = useState<RenderTier>("draft");
   const [durationSeconds, setDurationSeconds] = useState(18);
   const [scrollCurvePreset, setScrollCurvePreset] = useState("ease-in-out");
@@ -48,13 +69,28 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
   const [activeJob, setActiveJob] = useState<RecordingJob | null>(null);
   const [error, setError] = useState("");
   const [elapsed, setElapsed] = useState("0.0s");
+  const [isDirty, setIsDirty] = useState(false);
 
+  const activeStorageKey = `active-${mode}-job-id`;
+  const lastStorageKey = `last-${mode}-job-id`;
   const isBusy = Boolean(activeJob && ["queued", "running"].includes(activeJob.status));
   const activeJobId = activeJob?.jobId;
   const activeJobStatus = activeJob?.status;
   const activeJobCreatedAt = activeJob?.createdAt;
   const [width, height] = devicePreset.split("x").map(Number);
+  const selectedPair = DEVICE_PAIRS.find((pair) => pair.id === devicePairId);
+  const devicePair = selectedPair ?? { mobileLabel: mobileSize[0] >= 600 ? "Tablet" : "Mobile" };
+  const [desktopWidth, desktopHeight] = desktopSize;
+  const [mobileWidth, mobileHeight] = mobileSize;
   const result = activeJob?.result;
+  const primaryUrlError = primaryUrl.trim() && !isHttpUrl(primaryUrl) ? "Enter a complete http:// or https:// URL" : "";
+  const secondaryUrlError = secondaryUrl.trim() && !isHttpUrl(secondaryUrl) ? "Enter a complete http:// or https:// URL" : "";
+  const dimensionError = studioMode === "responsive" && !(
+    [desktopWidth, mobileWidth].every((value) => Number.isInteger(value) && value >= 320 && value <= 3840) &&
+    [desktopHeight, mobileHeight].every((value) => Number.isInteger(value) && value >= 240 && value <= 2160)
+  )
+    ? "Widths must be 320–3840 and heights 240–2160"
+    : "";
 
   useEffect(() => onBusyChange?.(isBusy), [isBusy, onBusyChange]);
 
@@ -68,7 +104,13 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
     setSecondaryUrl("");
     setPrimaryLogoDataUrl(undefined);
     setSecondaryLogoDataUrl(undefined);
+    setActiveJob(null);
     setError("");
+    setIsDirty(false);
+    setSyncMode(mode === "responsive" ? "match-progress" : "match-speed");
+    setDevicePairId("desktop-mobile");
+    setDesktopSize([1440, 900]);
+    setMobileSize([390, 844]);
     setScrollCurvePreset("ease-in-out");
     setScrollCurveBezier([0.42, 0, 0.58, 1]);
   }, [mode]);
@@ -78,29 +120,34 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
     loadJobSettings(initialJob);
     setActiveJob(initialJob);
     if (initialJob.status === "completed" && initialJob.result) {
-      localStorage.setItem("last-comparison-job-id", initialJob.jobId);
+      localStorage.setItem(lastStorageKey, initialJob.jobId);
     }
-  }, [initialJob]);
+  }, [initialJob, lastStorageKey]);
 
   useEffect(() => {
     if (initialJob) return;
-    const jobId =
-      localStorage.getItem("active-comparison-job-id") ??
-      localStorage.getItem("last-comparison-job-id");
+    const jobId = localStorage.getItem(activeStorageKey) ?? localStorage.getItem(lastStorageKey);
     if (!jobId) return;
     void fetch(`/api/jobs/${jobId}`, { cache: "no-store" })
-      .then((response) => readJsonResponse<{ ok?: boolean; job: RecordingJob }>(response, "Restore comparison"))
+      .then((response) => readJsonResponse<{ ok?: boolean; job: RecordingJob }>(response, `Restore ${mode}`))
       .then((data) => {
-        if (!data.job.request?.comparison && !data.job.request?.responsiveness) return localStorage.removeItem("active-comparison-job-id");
+        const matchesMode = mode === "compare"
+          ? Boolean(data.job.request?.comparison)
+          : Boolean(data.job.request?.responsiveness);
+        if (!matchesMode) {
+          localStorage.removeItem(activeStorageKey);
+          localStorage.removeItem(lastStorageKey);
+          return;
+        }
         loadJobSettings(data.job);
         setActiveJob(data.job);
       })
-      .catch(() => localStorage.removeItem("active-comparison-job-id"));
-  }, [initialJob]);
+      .catch(() => localStorage.removeItem(activeStorageKey));
+  }, [initialJob, mode, activeStorageKey, lastStorageKey]);
 
   useEffect(() => {
     if (!activeJobId || !activeJobStatus || !["queued", "running"].includes(activeJobStatus)) return;
-    localStorage.setItem("active-comparison-job-id", activeJobId);
+    localStorage.setItem(activeStorageKey, activeJobId);
     const events = new EventSource(`/api/jobs/${activeJobId}/events`);
     let pollTimer: number | undefined;
     let stopped = false;
@@ -109,9 +156,9 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
       if (stopped || job.jobId !== activeJobId) return;
       setActiveJob(job);
       if (!["queued", "running"].includes(job.status)) {
-        localStorage.removeItem("active-comparison-job-id");
+        localStorage.removeItem(activeStorageKey);
         if (job.status === "completed") {
-          localStorage.setItem("last-comparison-job-id", job.jobId);
+          localStorage.setItem(lastStorageKey, job.jobId);
         }
         stopped = true;
         events.close();
@@ -141,7 +188,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
       events.close();
       if (pollTimer !== undefined) window.clearInterval(pollTimer);
     };
-  }, [activeJobId, activeJobStatus]);
+  }, [activeJobId, activeJobStatus, activeStorageKey, lastStorageKey]);
 
   useEffect(() => {
     if (!activeJobId || !activeJobStatus || !activeJobCreatedAt || !["queued", "running"].includes(activeJobStatus)) return;
@@ -161,7 +208,11 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
       videoConfig: {
         framerate: tier.fps,
         qualityPreset: tier.quality,
-        viewport: { width, height, deviceScaleFactor: tier.scale },
+        viewport: {
+          width: studioMode === "responsive" ? desktopWidth : width,
+          height: studioMode === "responsive" ? desktopHeight : height,
+          deviceScaleFactor: tier.scale,
+        },
       },
       animationConfig: {
         pixelsPerFrame: tier.pixels,
@@ -183,16 +234,16 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
       roundedCorners: false,
     };
     if (studioMode === "responsive") {
-      const isPrimaryMobile = width < 1024;
       return {
         ...base,
         responsiveness: {
-          desktopLabel: isPrimaryMobile ? secondaryLabel.trim() : primaryLabel.trim(),
-          mobileLabel: isPrimaryMobile ? primaryLabel.trim() : secondaryLabel.trim(),
-          desktopWidth: isPrimaryMobile ? 1920 : width,
-          desktopHeight: isPrimaryMobile ? 1080 : height,
-          mobileWidth: isPrimaryMobile ? width : 390,
-          mobileHeight: isPrimaryMobile ? height : 844,
+          syncMode,
+          desktopLabel: "Desktop View",
+          mobileLabel: `${devicePair.mobileLabel} View`,
+          desktopWidth,
+          desktopHeight,
+          mobileWidth,
+          mobileHeight,
         },
       };
     } else {
@@ -200,6 +251,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
         ...base,
         comparison: {
           targetUrl: secondaryUrl.trim(),
+          syncMode,
           primaryLabel: primaryLabel.trim(),
           secondaryLabel: secondaryLabel.trim(),
           primaryLogo: primaryLogo.trim(),
@@ -210,14 +262,16 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
         },
       };
     }
-  }, [studioMode, primaryUrl, secondaryUrl, primaryLabel, secondaryLabel, primaryLogo, secondaryLogo, primaryLogoDataUrl, secondaryLogoDataUrl, width, height, renderTier, durationSeconds, scrollCurvePreset, JSON.stringify(scrollCurveBezier)]);
+  }, [studioMode, primaryUrl, secondaryUrl, primaryLabel, secondaryLabel, primaryLogo, secondaryLogo, primaryLogoDataUrl, secondaryLogoDataUrl, width, height, desktopWidth, desktopHeight, mobileWidth, mobileHeight, devicePair.mobileLabel, syncMode, renderTier, durationSeconds, scrollCurvePreset, JSON.stringify(scrollCurveBezier)]);
 
-  const canStart =
+  const canStart = Boolean(
     primaryUrl.trim() &&
-    (studioMode === "responsive" || secondaryUrl.trim()) &&
-    primaryLabel.trim() &&
-    secondaryLabel.trim() &&
-    !isBusy;
+    !primaryUrlError &&
+    !dimensionError &&
+    (studioMode === "responsive" || (secondaryUrl.trim() && !secondaryUrlError)) &&
+    (studioMode === "responsive" || (primaryLabel.trim() && secondaryLabel.trim())) &&
+    !isBusy
+  );
 
   const start = async () => {
     if (!canStart) return;
@@ -231,11 +285,12 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
       });
       const data = await readJsonResponse<{ ok?: boolean; jobId: string; statusUrl: string; error?: string }>(response, "Queue comparison");
       if (!response.ok || !data.ok) throw new Error(data.error || "Could not queue comparison");
-      localStorage.setItem("active-comparison-job-id", data.jobId);
+      localStorage.setItem(activeStorageKey, data.jobId);
       const jobResponse = await fetch(data.statusUrl, { cache: "no-store" });
       const jobData = await readJsonResponse<{ ok?: boolean; job: RecordingJob; error?: string }>(jobResponse, "Load comparison");
       if (!jobResponse.ok || !jobData.ok) throw new Error(jobData.error || "Could not load comparison");
       setActiveJob(jobData.job);
+      setIsDirty(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not queue comparison");
     }
@@ -261,7 +316,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
       if (!response.ok || !data.ok) throw new Error(data.error || "Could not retry comparison");
       const freshResponse = await fetch(`/api/jobs/${data.jobId}`);
       const fresh = await readJsonResponse<{ ok?: boolean; job: RecordingJob }>(freshResponse, "Load comparison");
-      localStorage.setItem("active-comparison-job-id", data.jobId);
+      localStorage.setItem(activeStorageKey, data.jobId);
       setActiveJob(fresh.job);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not retry comparison");
@@ -282,18 +337,19 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
   };
 
   const clearResult = () => {
-    beginEdit();
-  };
-
-  const beginEdit = () => {
     setActiveJob(null);
-    localStorage.removeItem("active-comparison-job-id");
-    localStorage.removeItem("last-comparison-job-id");
+    setIsDirty(false);
+    localStorage.removeItem(activeStorageKey);
+    localStorage.removeItem(lastStorageKey);
     onReset?.();
   };
 
+  const beginEdit = () => {
+    setIsDirty(true);
+  };
+
   return (
-    <section className="comparison-page">
+    <section className={`comparison-page is-${studioMode}`} onKeyDown={(event) => { if (event.key === "Enter" && canStart && (event.target as HTMLElement).tagName === "INPUT") void start(); }}>
       <div className={`capture-command-bar comparison-input-rail${studioMode === "responsive" ? " is-responsive" : ""}`}>
         {studioMode === "responsive" ? (
           <div className="url-input-wrap capture-url-wrap" style={{ flex: 1, minWidth: 0 }}>
@@ -345,26 +401,36 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
           </>
         )}
         <div className="comparison-rail-actions">
-          {result ? (
+          {result && !isDirty ? (
             <>
-              <button type="button" className="comparison-new" onClick={clearResult} title="New comparison"><RefreshCcw size={15} /><span>New</span></button>
-              <a className="comparison-export" href={result.videoUrl} download="comparison.mp4"><Download size={15} /> Export MP4</a>
+              <button type="button" className="comparison-new" onClick={clearResult} title="Start over"><RefreshCcw size={15} /><span>New</span></button>
+              <a className="comparison-export" href={result.videoUrl} download={studioMode === "responsive" ? "responsive.mp4" : "comparison.mp4"}><Download size={15} /> Export MP4</a>
             </>
           ) : (
-            <button type="button" className="comparison-start" onClick={() => void start()} disabled={!canStart}>
-              {isBusy ? <span className="loader-circle" /> : <Play size={15} fill="currentColor" />}
-              {isBusy ? "Capturing…" : studioMode === "responsive" ? "Capture Responsive" : "Compare pages"}
-            </button>
+            <>
+              {result && isDirty && <a className="comparison-previous" href={result.videoUrl} download title="Download previous MP4" aria-label="Download previous MP4"><Download size={15} /><span>Previous MP4</span></a>}
+              <button type="button" className="comparison-start" onClick={() => void start()} disabled={!canStart}>
+                {isBusy ? <span className="loader-circle" /> : <Play size={15} fill="currentColor" />}
+                {isBusy ? "Capturing…" : isDirty && result ? "Update capture" : studioMode === "responsive" ? "Capture device pair" : "Create comparison"}
+              </button>
+            </>
           )}
         </div>
       </div>
 
+      {(primaryUrlError || (studioMode === "compare" && secondaryUrlError) || dimensionError) && <p className="comparison-validation"><AlertTriangle size={14} /> {primaryUrlError || secondaryUrlError || dimensionError}</p>}
+      {!primaryUrl.trim() ? (
+        <p className="comparison-hint">Enter {studioMode === "responsive" ? "a website URL" : "both website URLs"} to activate live previews and capture.</p>
+      ) : studioMode === "compare" && !secondaryUrl.trim() ? (
+        <p className="comparison-hint">Add the Version B URL to create the comparison.</p>
+      ) : null}
+      {result && isDirty && <p className="comparison-dirty"><RefreshCcw size={14} /> Settings changed. Your previous result is still available until you capture again.</p>}
       {error && <p className="workflow-error"><AlertTriangle size={15} /> {error}</p>}
 
       <div className="studio-layout comparison-workspace">
         <aside className="studio-controls comparison-settings" aria-label="Comparison settings">
           <section className="control-deck">
-            <div className="control-deck-title"><span>Output quality</span><small>Applies to both pages</small></div>
+            <div className="control-deck-title"><span>Output quality</span><small>{studioMode === "responsive" ? "One combined device film" : "Shared export quality"}</small></div>
             <div className="quality-stack">
               {(Object.keys(TIERS) as RenderTier[]).map((tier) => {
                 const Icon = tier === "draft" ? Zap : tier === "standard" ? Clapperboard : Sparkles;
@@ -378,20 +444,52 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
           </section>
 
           <section className="control-deck">
-            <div className="control-deck-title"><span>Viewport</span><small>Matched breakpoint</small></div>
-            <div className="recorder-device-row comparison-device-grid" role="radiogroup" aria-label="Shared viewport">
-              {DEVICE_PRESETS.map(({ value, label, Icon }) => (
-                <button type="button" role="radio" aria-checked={devicePreset === value} key={value} className={`recorder-device-btn${devicePreset === value ? " is-active" : ""}`} onClick={() => { beginEdit(); setDevicePreset(value); }} disabled={isBusy} title={value.replace("x", " × ")}>
-                  <Icon size={15} /><span>{label}</span>
+            <div className="control-deck-title"><span>{studioMode === "responsive" ? "Device pair" : "Shared viewport"}</span><small>{studioMode === "responsive" ? "Two explicit breakpoints" : width + " × " + height}</small></div>
+            {studioMode === "responsive" ? (
+              <div className="device-pair-list" role="radiogroup" aria-label="Responsive device pair">
+                {DEVICE_PAIRS.map((pair) => (
+                  <button type="button" role="radio" aria-checked={devicePairId === pair.id} key={pair.id} className={devicePairId === pair.id ? "is-active" : ""} onClick={() => { beginEdit(); setDevicePairId(pair.id); setDesktopSize([pair.desktop[0], pair.desktop[1]]); setMobileSize([pair.mobile[0], pair.mobile[1]]); }} disabled={isBusy}>
+                    <span>{pair.id === "desktop-tablet" ? <Tablet size={16} /> : <><Monitor size={16} /><Smartphone size={14} /></>}</span>
+                    <b>{pair.label}</b><small>{pair.detail}</small>
+                  </button>
+                ))}
+                <div className="responsive-dimensions">
+                  <span>Desktop <label><input type="number" min="320" max="3840" value={desktopWidth} onChange={(event) => { beginEdit(); setDevicePairId("custom"); setDesktopSize([Number(event.target.value), desktopHeight]); }} /> × <input type="number" min="240" max="2160" value={desktopHeight} onChange={(event) => { beginEdit(); setDevicePairId("custom"); setDesktopSize([desktopWidth, Number(event.target.value)]); }} /></label></span>
+                  <span>{devicePair.mobileLabel} <label><input type="number" min="320" max="3840" value={mobileWidth} onChange={(event) => { beginEdit(); setDevicePairId("custom"); setMobileSize([Number(event.target.value), mobileHeight]); }} /> × <input type="number" min="240" max="2160" value={mobileHeight} onChange={(event) => { beginEdit(); setDevicePairId("custom"); setMobileSize([mobileWidth, Number(event.target.value)]); }} /></label></span>
+                </div>
+              </div>
+            ) : (
+              <div className="recorder-device-row comparison-device-grid" role="radiogroup" aria-label="Shared viewport">
+                {DEVICE_PRESETS.map(({ value, label, Icon }) => (
+                  <button type="button" role="radio" aria-checked={devicePreset === value} key={value} className={`recorder-device-btn${devicePreset === value ? " is-active" : ""}`} onClick={() => { beginEdit(); setDevicePreset(value); }} disabled={isBusy} title={value.replace("x", " × ")}>
+                    <Icon size={15} /><span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {studioMode === "compare" && <details className="control-deck comparison-branding-deck" open>
+            <summary><span>Labels & branding</span><small>Optional</small></summary>
+            <div className="comparison-branding-body">
+              <BrandingRow side="A" accent="blue" label={primaryLabel} logo={primaryLogo} logoDataUrl={primaryLogoDataUrl} disabled={isBusy} onLabel={(value) => { beginEdit(); setPrimaryLabel(value); }} onLogo={(value) => { beginEdit(); setPrimaryLogo(value); }} onLogoDataUrl={(value) => { beginEdit(); setPrimaryLogoDataUrl(value); }} />
+              <BrandingRow side="B" accent="cyan" label={secondaryLabel} logo={secondaryLogo} logoDataUrl={secondaryLogoDataUrl} disabled={isBusy} onLabel={(value) => { beginEdit(); setSecondaryLabel(value); }} onLogo={(value) => { beginEdit(); setSecondaryLogo(value); }} onLogoDataUrl={(value) => { beginEdit(); setSecondaryLogoDataUrl(value); }} />
+            </div>
+          </details>}
+
+          <section className="control-deck comparison-timing">
+            <div className="control-deck-title"><span>Timeline</span><small>{syncMode === "independent" ? "Natural length" : durationSeconds + "s target"}</small></div>
+            <div className="sync-mode-list" role="radiogroup" aria-label="Timeline synchronization">
+              {SYNC_OPTIONS.map((option) => (
+                <button type="button" role="radio" aria-checked={syncMode === option.value} key={option.value} className={syncMode === option.value ? "is-active" : ""} onClick={() => { beginEdit(); setSyncMode(option.value); }} disabled={isBusy}>
+                  <span>{syncMode === option.value ? <Check size={13} /> : null}</span><b>{option.label}</b><small>{option.detail}</small>
                 </button>
               ))}
             </div>
-          </section>
-
-          <section className="control-deck comparison-timing">
-            <div className="control-deck-title"><span>Scroll duration (longer page)</span><small>{durationSeconds}s</small></div>
+            {syncMode !== "independent" && <>
             <input type="range" min={8} max={45} value={durationSeconds} onChange={(event) => { beginEdit(); setDurationSeconds(Number(event.target.value)); }} disabled={isBusy} aria-label="Comparison duration" />
             <div className="comparison-duration-scale"><span>8s</span><span>45s</span></div>
+            </>}
             <label className="quality-field-horizontal" style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "4px" }}>
               <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Animation Curve</span>
               <select
@@ -409,7 +507,6 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
                 <option value="ease-in-out-cubic">Smooth cubic</option>
               </select>
             </label>
-            <p style={{ marginTop: "12px" }}>Both pages scroll at the same speed. The longer page scrolls for the full duration, while the shorter page finishes early and freezes at the bottom.</p>
           </section>
         </aside>
 
@@ -449,6 +546,8 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
               elapsed={elapsed}
               width={width}
               height={height}
+              responsiveDesktop={{ width: desktopWidth, height: desktopHeight }}
+              responsiveMobile={{ width: mobileWidth, height: mobileHeight, label: devicePair.mobileLabel }}
               durationSeconds={durationSeconds}
               scrollCurvePreset={scrollCurvePreset}
               scrollCurveBezier={scrollCurvePreset === "custom" ? scrollCurveBezier : undefined}
@@ -476,6 +575,17 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
       setSecondaryLabel(responsiveness.mobileLabel || "Mobile View");
       setPrimaryLogo("Desk");
       setSecondaryLogo("Mob");
+      setSyncMode(responsiveness.syncMode || "match-speed");
+      const matchingPair = DEVICE_PAIRS.find((pair) =>
+        pair.desktop[0] === responsiveness.desktopWidth &&
+        pair.desktop[1] === responsiveness.desktopHeight &&
+        pair.mobile[0] === responsiveness.mobileWidth &&
+        pair.mobile[1] === responsiveness.mobileHeight
+      );
+      if (matchingPair) setDevicePairId(matchingPair.id);
+      else setDevicePairId("custom");
+      setDesktopSize([responsiveness.desktopWidth || job.request.videoConfig.viewport.width, responsiveness.desktopHeight || job.request.videoConfig.viewport.height]);
+      setMobileSize([responsiveness.mobileWidth || 390, responsiveness.mobileHeight || 844]);
     } else if (comparison) {
       setStudioMode("compare");
       setPrimaryUrl(job.request.targetUrl);
@@ -486,6 +596,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
       setSecondaryLogo(comparison.secondaryLogo || "B");
       setPrimaryLogoDataUrl(comparison.primaryLogoDataUrl);
       setSecondaryLogoDataUrl(comparison.secondaryLogoDataUrl);
+      setSyncMode(comparison.syncMode || "match-speed");
     } else {
       return;
     }
@@ -509,6 +620,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
         setScrollCurveBezier([curve.customPoints.x1, curve.customPoints.y1, curve.customPoints.x2, curve.customPoints.y2]);
       }
     }
+    setIsDirty(false);
   }
 }
 
@@ -527,19 +639,9 @@ function ComparisonTarget(props: {
 }) {
   return (
     <div className={`comparison-target is-${props.accent}`}>
-      <div>
-        <div style={{ display: "flex", gap: "6px", marginBottom: "4px", alignItems: "center" }}>
-          <LogoUpload
-            accent={props.accent}
-            logoDataUrl={props.logoDataUrl}
-            logoText={props.logo}
-            disabled={props.disabled}
-            side={props.side}
-            onLogoDataUrl={props.onLogoDataUrl}
-            onLogoText={props.onLogo}
-          />
-          <input className="comparison-label-input" value={props.label} onChange={(event) => props.onLabel(event.target.value)} maxLength={48} aria-label={`Side ${props.side} label`} disabled={props.disabled} style={{ flexGrow: 1 }} />
-        </div>
+      <span className="comparison-side">{props.side}</span>
+      <div className="comparison-target-compact">
+        <strong>{props.label || `Version ${props.side}`}</strong>
         <div className="url-input-wrap capture-url-wrap">
           <svg
             className="url-input-icon"
@@ -568,6 +670,24 @@ function ComparisonTarget(props: {
       </div>
     </div>
   );
+}
+
+function BrandingRow(props: {
+  side: string;
+  accent: "blue" | "cyan";
+  label: string;
+  logo: string;
+  logoDataUrl?: string;
+  disabled: boolean;
+  onLabel: (value: string) => void;
+  onLogo: (value: string) => void;
+  onLogoDataUrl: (value: string | undefined) => void;
+}) {
+  return <div className="comparison-branding-row">
+    <span className={`comparison-side is-${props.accent}`}>{props.side}</span>
+    <label><span>Label</span><input value={props.label} maxLength={48} disabled={props.disabled} onChange={(event) => props.onLabel(event.target.value)} /></label>
+    <div><span>Logo</span><LogoUpload side={props.side} accent={props.accent} logoText={props.logo} logoDataUrl={props.logoDataUrl} disabled={props.disabled} onLogoText={props.onLogo} onLogoDataUrl={props.onLogoDataUrl} /></div>
+  </div>;
 }
 
 function LogoUpload(props: {
@@ -643,31 +763,9 @@ function LogoUpload(props: {
           )}
         </>
       ) : (
-        <span className="comparison-logo-text" style={{ background: badgeColor }}>
-          <input
-            className="comparison-logo-input-inline"
-            value={props.logoText}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => props.onLogoText(e.target.value)}
-            maxLength={8}
-            placeholder={props.side}
-            disabled={props.disabled}
-            aria-label={`Side ${props.side} badge text`}
-            style={{ background: badgeColor }}
-          />
-          {!props.disabled && (
-            <button
-              type="button"
-              className="comparison-logo-upload-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                inputRef.current?.click();
-              }}
-              title="Upload logo image"
-            >
-              ↑
-            </button>
-          )}
+        <span className="comparison-logo-empty" style={{ borderColor: badgeColor }}>
+          <Upload size={13} />
+          <span><b>Upload logo</b><small>PNG, JPG, WebP or SVG</small></span>
         </span>
       )}
       <input
@@ -697,6 +795,8 @@ function ComparisonCanvas(props: {
   elapsed: string;
   width: number;
   height: number;
+  responsiveDesktop: { width: number; height: number };
+  responsiveMobile: { width: number; height: number; label: string };
   durationSeconds: number;
   scrollCurvePreset: string;
   scrollCurveBezier?: [number, number, number, number];
@@ -711,14 +811,11 @@ function ComparisonCanvas(props: {
   }, [props.primaryUrl, props.secondaryUrl, props.studioMode]);
 
   const recording = props.job && ["queued", "running"].includes(props.job.status);
-  const isPortrait = props.width < props.height;
-
-  // Compute live preview panel dimensions
-  const isPrimaryMobile = props.width < 1024;
-  const dW = props.width;
-  const dH = props.height;
-  const mW = props.studioMode === "responsive" ? (isPrimaryMobile ? 1920 : 390) : props.width;
-  const mH = props.studioMode === "responsive" ? (isPrimaryMobile ? 1080 : 844) : props.height;
+  // Compute live preview panel dimensions from explicit device choices.
+  const dW = props.studioMode === "responsive" ? props.responsiveDesktop.width : props.width;
+  const dH = props.studioMode === "responsive" ? props.responsiveDesktop.height : props.height;
+  const mW = props.studioMode === "responsive" ? props.responsiveMobile.width : props.width;
+  const mH = props.studioMode === "responsive" ? props.responsiveMobile.height : props.height;
 
   const maxH = Math.max(primaryHeight || 0, secondaryHeight || 0);
   const primaryDurationMs = primaryHeight && secondaryHeight && maxH > 0
@@ -729,15 +826,15 @@ function ComparisonCanvas(props: {
     : props.durationSeconds * 1000;
 
   const gridColumns = props.studioMode === "responsive"
-    ? (isPrimaryMobile ? "1fr 3fr" : "3fr 1fr")
-    : "1fr 1fr";
+    ? "minmax(0, 3fr) minmax(210px, 1fr)"
+    : "repeat(2, minmax(0, 1fr))";
 
   return (
     <div className={`comparison-canvas${recording ? " is-recording" : ""}`} style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", gap: "10px" }}>
       <div className="comparison-preview-labels" style={{ display: "grid", gridTemplateColumns: gridColumns, gap: "20px" }}>
         <span>
           {props.studioMode === "responsive" ? (
-            <b>{isPrimaryMobile ? "Mobile View" : "Desktop View"}</b>
+            <b>Desktop View <small>{dW} × {dH}</small></b>
           ) : (
             <>
               {props.primaryLogoDataUrl
@@ -749,7 +846,7 @@ function ComparisonCanvas(props: {
         </span>
         <span>
           {props.studioMode === "responsive" ? (
-            <b>{isPrimaryMobile ? "Desktop View" : "Mobile View"}</b>
+            <b>{props.responsiveMobile.label} View <small>{mW} × {mH}</small></b>
           ) : (
             <>
               {props.secondaryLogoDataUrl
@@ -796,14 +893,45 @@ function ComparisonCanvas(props: {
         />
       </div>
       {recording && (
-        <div className="comparison-capture-state" role="status" aria-live="polite">
-          <span>{props.job?.progress.message}</span>
-          <div><i style={{ width: `${props.job?.progress.percent ?? 0}%` }} /></div>
-          <small>({props.elapsed} · {props.job?.progress.percent ?? 0}%)</small>
-        </div>
+        <CapturePipeline
+          percent={props.job?.progress.percent ?? 0}
+          message={props.job?.progress.message ?? "Preparing capture"}
+          elapsed={props.elapsed}
+          labels={props.studioMode === "responsive" ? ["Desktop", props.responsiveMobile.label, "Compose"] : [props.primaryLabel, props.secondaryLabel, "Compose"]}
+        />
       )}
     </div>
   );
+}
+
+function CapturePipeline({ percent, message, elapsed, labels }: { percent: number; message: string; elapsed: string; labels: string[] }) {
+  const steps = [
+    { label: labels[0], start: 2, done: 46 },
+    { label: labels[1], start: 46, done: 91 },
+    { label: labels[2], start: 91, done: 100 },
+  ];
+  return (
+    <div className="comparison-capture-state" role="status" aria-live="polite">
+      <div className="capture-steps">
+        {steps.map((step, index) => {
+          const complete = percent >= step.done;
+          const active = percent >= step.start && !complete;
+          return <div key={`${step.label}-${index}`} className={`${complete ? "is-complete" : ""}${active ? " is-active" : ""}`}><i>{complete ? <Check size={12} /> : index + 1}</i><span>{step.label}</span></div>;
+        })}
+      </div>
+      <div className="capture-status-line"><span>{message}</span><small>{elapsed} · {Math.round(percent)}%</small></div>
+      <div className="capture-progress-track"><i style={{ width: `${percent}%` }} /></div>
+    </div>
+  );
+}
+
+function isHttpUrl(value: string) {
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function PreviewPanel({

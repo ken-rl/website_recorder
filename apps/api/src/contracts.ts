@@ -89,6 +89,7 @@ export const recordRequestSchema = z.object({
   roundedCorners: z.boolean().optional(),
   comparison: z.object({
     targetUrl: httpUrl,
+    syncMode: z.enum(["match-progress", "match-speed", "independent"]).optional(),
     primaryLabel: z.string().trim().min(1).max(48),
     secondaryLabel: z.string().trim().min(1).max(48),
     primaryLogo: z.string().trim().max(8).optional(),
@@ -104,6 +105,7 @@ export const recordRequestSchema = z.object({
     layout: z.literal("side-by-side").optional(),
   }).optional(),
   responsiveness: z.object({
+    syncMode: z.enum(["match-progress", "match-speed", "independent"]).optional(),
     desktopLabel: z.string().trim().min(1).max(48).optional(),
     mobileLabel: z.string().trim().min(1).max(48).optional(),
     desktopWidth: z.number().int().min(320).max(3840).optional(),

@@ -123,7 +123,10 @@ export interface RecordRequest {
   responsiveness?: ResponsivenessConfig;
 }
 
+export type ComparisonSyncMode = "match-progress" | "match-speed" | "independent";
+
 export interface ResponsivenessConfig {
+  syncMode?: ComparisonSyncMode;
   desktopLabel?: string;
   mobileLabel?: string;
   desktopWidth?: number;
@@ -134,6 +137,7 @@ export interface ResponsivenessConfig {
 
 export interface ComparisonConfig {
   targetUrl: string;
+  syncMode?: ComparisonSyncMode;
   primaryLabel: string;
   secondaryLabel: string;
   layout?: "side-by-side";
