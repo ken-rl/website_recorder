@@ -47,6 +47,29 @@ sudo apt install ffmpeg
 
 ## Quick start
 
+Run the published package without cloning the repository:
+
+```bash
+npx deio-scroll setup
+npx deio-scroll
+```
+
+Outside a web project, this starts the local app and opens it in your browser.
+Inside a project with a `dev` or `start` script, it starts and records that
+project automatically. You can also record a URL directly; the default motion
+is linear at a slow 0.5× speed:
+
+```bash
+npx deio-scroll example.com
+npx deio-scroll example.com --curve ease-in-out --fast
+npx deio-scroll https://example.com --quality high --viewport 1920x1080
+```
+
+Use `npx deio-scroll serve` to always open the web app, or
+`npx deio-scroll . --command "npm run preview"` for a custom local command.
+
+For repository development:
+
 ```bash
 git clone https://github.com/ken-rl/website_recorder.git
 cd website_recorder
@@ -119,7 +142,7 @@ Left nav: Capture (collapsible brand sidebar).
 ### CLI
 
 ```bash
-pnpm --filter deio-scroll-api record apps/api/config.example.json
+pnpm --filter deio-scroll record apps/api/config.example.json
 ```
 
 Videos are written under `OUTPUT_DIR` (default `./outputs/<job-id>/output.mp4`).
@@ -358,9 +381,9 @@ outputs/               recorded videos (gitignored)
 | `pnpm dev:api:watch` | API with source-file hot reload |
 | `pnpm dev:worker` | External worker for `EMBEDDED_WORKER=0` mode |
 | `pnpm dev:web` | Vite frontend only |
-| `pnpm --filter deio-scroll-api record <config.json>` | CLI record |
+| `pnpm --filter deio-scroll record <config.json>` | CLI record |
 | `pnpm typecheck` | Typecheck all packages |
-| `pnpm --filter deio-scroll-api test` | API tests |
+| `pnpm --filter deio-scroll test` | API tests |
 
 ## Security note
 

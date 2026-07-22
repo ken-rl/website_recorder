@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev:api": "pnpm --filter deio-scroll-api start",
-    "dev:api:watch": "pnpm --filter deio-scroll-api start:watch",
-    "dev:worker": "pnpm --filter deio-scroll-api worker",
+    "dev:api": "pnpm --filter deio-scroll start",
+    "dev:api:watch": "pnpm --filter deio-scroll start:watch",
+    "dev:worker": "pnpm --filter deio-scroll worker",
     "dev:web": "pnpm --filter deio-scroll-web dev",
     "dev": "node scripts/dev.mjs",
     "typecheck": "pnpm --filter \"*\" typecheck"

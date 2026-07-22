@@ -1,6 +1,6 @@
 {
-  "name": "deio-scroll-api",
-  "version": "1.0.0",
+  "name": "deio-scroll",
+  "version": "1.1.0",
   "description": "Deio Scroll API and worker for directed website scroll videos",
   "license": "MIT",
   "author": "ken-rl (https://github.com/ken-rl)",
@@ -26,12 +26,25 @@
     "node": ">=20"
   },
   "type": "module",
+  "bin": {
+    "deio": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "public",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "start": "tsx src/api/server.ts",
     "start:watch": "tsx watch src/api/server.ts",
     "worker": "tsx src/worker.ts",
     "worker:watch": "tsx watch src/worker.ts",
     "record": "tsx src/cli.ts",
+    "build:web": "pnpm --dir ../web build",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "pnpm run build:web && pnpm run clean && tsc -p tsconfig.build.json",
+    "prepack": "pnpm run build",
     "test": "tsx --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit"
   },
