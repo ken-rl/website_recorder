@@ -11,6 +11,7 @@ test("classifies public, private, loopback, and IPv6 addresses", () => {
   assert.equal(addressCategory("172.31.4.5"), "private");
   assert.equal(addressCategory("192.168.1.2"), "private");
   assert.equal(addressCategory("::1"), "loopback");
+  assert.equal(addressCategory("[::1]"), "loopback");
   assert.equal(addressCategory("fd12::1"), "private");
   assert.equal(addressCategory("2606:4700:4700::1111"), "public");
 });
@@ -27,5 +28,6 @@ test("blocks private and cloud metadata addresses in hosted mode", () => {
 test("allows explicit local development targets without opening private networks", () => {
   const local = { allowLocalhost: true, allowPrivateNetworks: false };
   assert.doesNotThrow(() => assertAddressAllowed("127.0.0.1", "localhost", local));
+  assert.doesNotThrow(() => assertAddressAllowed("[::1]", "localhost", local));
   assert.throws(() => assertAddressAllowed("192.168.1.5", "nas.local", local), /blocked private/);
 });

@@ -74,6 +74,7 @@ export function assertAddressAllowed(
 }
 
 export function addressCategory(address: string): "public" | "loopback" | "private" {
+  address = unwrapIpAddress(address);
   const version = net.isIP(address);
   if (version === 4) {
     const [a, b] = address.split(".").map(Number);
@@ -129,8 +130,15 @@ function isCloudMetadataAddress(address: string) {
 }
 
 function normalizeMappedIpv4(address: string) {
-  const match = address.toLowerCase().match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  return match?.[1] ?? address;
+  const unwrapped = unwrapIpAddress(address);
+  const match = unwrapped.toLowerCase().match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  return match?.[1] ?? unwrapped;
+}
+
+function unwrapIpAddress(address: string) {
+  return address.startsWith("[") && address.endsWith("]")
+    ? address.slice(1, -1)
+    : address;
 }
 
 async function abortBlockedRoute(route: Route, error: unknown) {
