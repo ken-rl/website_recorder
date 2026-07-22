@@ -833,7 +833,7 @@ function ComparisonCanvas(props: {
     : "repeat(2, minmax(0, 1fr))";
 
   return (
-    <div className={`comparison-canvas${recording ? " is-recording" : ""}${compactViewport ? " is-compact-viewport" : ""}${portraitViewport ? " is-portrait-viewport" : ""}`} style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", gap: "10px" }}>
+    <div className={`comparison-canvas${recording ? " is-recording" : ""}${props.studioMode === "responsive" ? " is-responsive-layout" : ""}${compactViewport ? " is-compact-viewport" : ""}${portraitViewport ? " is-portrait-viewport" : ""}`} style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", gap: "10px" }}>
       <div className="comparison-preview-labels" style={{ display: "grid", gridTemplateColumns: gridColumns, gap: "20px" }}>
         <span>
           {props.studioMode === "responsive" ? (

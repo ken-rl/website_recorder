@@ -719,6 +719,11 @@
 .comparison-page.is-responsive .comparison-panels { justify-items: center; }
 .comparison-capture-state { flex: none; }
 
+@media (min-width: 901px) {
+  .comparison-canvas.is-responsive-layout .comparison-panels { flex: 1 1 0; align-items: center !important; }
+  .comparison-canvas.is-responsive-layout .comparison-panel:last-child { width: auto; height: 100%; max-width: 100%; margin-inline: auto; }
+}
+
 @media (max-width: 900px) {
   .workflow-content:has(.comparison-page) { overflow: auto; }
   .comparison-page { height: auto; min-height: 100vh; overflow: visible; padding-bottom: 40px; }
