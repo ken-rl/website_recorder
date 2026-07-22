@@ -408,6 +408,7 @@ export default function ComparisonStudio({ initialJob, onBusyChange, onReset, mo
             </>
           ) : (
             <>
+              {result && isDirty && <button type="button" className="comparison-new" onClick={clearResult} title="Reset preview" aria-label="Reset preview"><RefreshCcw size={15} /><span>Reset preview</span></button>}
               {result && isDirty && <a className="comparison-previous" href={result.videoUrl} download title="Download previous MP4" aria-label="Download previous MP4"><Download size={15} /><span>Previous MP4</span></a>}
               <button type="button" className="comparison-start" onClick={() => void start()} disabled={!canStart}>
                 {isBusy ? <span className="loader-circle" /> : <Play size={15} fill="currentColor" />}
@@ -825,12 +826,14 @@ function ComparisonCanvas(props: {
     ? props.durationSeconds * 1000 * (secondaryHeight / maxH)
     : props.durationSeconds * 1000;
 
+  const compactViewport = props.studioMode === "compare" && props.width <= 1024;
+  const portraitViewport = props.studioMode === "compare" && props.height > props.width;
   const gridColumns = props.studioMode === "responsive"
-    ? "minmax(0, 3fr) minmax(210px, 1fr)"
+    ? "minmax(0, 1.7fr) minmax(250px, 1fr)"
     : "repeat(2, minmax(0, 1fr))";
 
   return (
-    <div className={`comparison-canvas${recording ? " is-recording" : ""}`} style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", gap: "10px" }}>
+    <div className={`comparison-canvas${recording ? " is-recording" : ""}${compactViewport ? " is-compact-viewport" : ""}${portraitViewport ? " is-portrait-viewport" : ""}`} style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", gap: "10px" }}>
       <div className="comparison-preview-labels" style={{ display: "grid", gridTemplateColumns: gridColumns, gap: "20px" }}>
         <span>
           {props.studioMode === "responsive" ? (

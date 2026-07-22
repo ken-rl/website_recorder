@@ -68,9 +68,9 @@ export async function composeComparison(options: ComposeComparisonOptions) {
 
   // Shadows and corner masks are static. Render them once instead of blurring
   // every video frame, which produces a cleaner silhouette and lowers CPU cost.
-  const shadowOffsetY = Math.max(5, Math.round(height * 0.007));
-  const shadowBlur = Math.max(10, Math.round(height * 0.014));
-  const shadowAlpha = 0.24;
+  const shadowOffsetY = Math.max(1, Math.round(height * 0.0015));
+  const shadowBlur = Math.max(12, Math.round(height * 0.018));
+  const shadowAlpha = 0.15;
   const shadowPad = Math.ceil(shadowBlur * 3);
 
   // --- Logo text fallbacks ---
@@ -352,7 +352,7 @@ async function createRoundedMask(
     "-y",
     "-f", "lavfi",
     "-i", `color=c=white:s=${scaledWidth}x${scaledHeight}:r=1`,
-    "-vf", `format=gray,geq=lum='if(gt(${outsideCorner},0),0,255)',scale=${width}:${height}:flags=lanczos`,
+    "-vf", `format=gray,geq=lum='if(gt(${outsideCorner},0),0,255)',scale=${width}:${height}:flags=lanczos,gblur=sigma=0.65:steps=1`,
     "-frames:v", "1",
     "-c:v", "png",
     outputPath,

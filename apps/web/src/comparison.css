@@ -631,12 +631,12 @@
 .comparison-input-rail {
   max-width: none;
   margin: 0;
-  grid-template-columns: minmax(220px, 1fr) 38px minmax(220px, 1fr) 174px;
+  grid-template-columns: minmax(220px, 1fr) 38px minmax(220px, 1fr) 206px;
   gap: 8px;
   padding: 12px;
   align-items: center;
 }
-.comparison-input-rail.is-responsive { grid-template-columns: minmax(0, 1fr) 174px; }
+.comparison-input-rail.is-responsive { grid-template-columns: minmax(0, 1fr) 206px; }
 .comparison-target {
   min-height: 0;
   height: 40px;
@@ -653,6 +653,7 @@
 .comparison-target .capture-url-wrap { height: 38px; background: var(--surface-elevated); }
 .comparison-rail-actions { height: 40px; }
 .comparison-start, .comparison-export, .comparison-new, .comparison-previous { height: 40px; min-height: 40px; }
+.comparison-rail-actions:has(.comparison-new):has(.comparison-previous) .comparison-start { min-width: 0; padding-inline: 9px; }
 .comparison-validation, .comparison-hint, .comparison-dirty, .comparison-page > .workflow-error { max-width: none; }
 
 .comparison-workspace {
@@ -707,6 +708,15 @@
 .comparison-workspace .studio-stage { min-width: 0; min-height: 0; width: auto; height: 100%; overflow: hidden; }
 .comparison-stage { min-height: 0; height: 100%; padding: clamp(20px, 4vw, 60px); align-items: center; overflow: hidden; }
 .comparison-canvas { min-height: 0; justify-content: center; }
+.comparison-canvas .comparison-preview-labels { flex: none; }
+.comparison-canvas .comparison-panels { min-height: 0; }
+.comparison-canvas.is-compact-viewport .comparison-preview-labels,
+.comparison-canvas.is-compact-viewport .comparison-panels { justify-items: center; }
+.comparison-canvas.is-compact-viewport .comparison-panel { width: min(100%, 440px); }
+.comparison-canvas.is-portrait-viewport .comparison-panels { flex: 1 1 0; align-items: center !important; }
+.comparison-canvas.is-portrait-viewport .comparison-panel { width: auto; height: 100%; max-width: 100%; margin-inline: auto; }
+.comparison-page.is-responsive .comparison-preview-labels,
+.comparison-page.is-responsive .comparison-panels { justify-items: center; }
 .comparison-capture-state { flex: none; }
 
 @media (max-width: 900px) {

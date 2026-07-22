@@ -139,10 +139,10 @@ async function createStaticLayers(options: {
   if (shadowPath) {
     // Use a black masked silhouette, not a translucent copy of the video. The
     // card covers the shadow's solid center, leaving only a natural soft falloff.
-    const shadowOffsetY = Math.max(8, Math.round(height * 0.014));
+    const shadowOffsetY = Math.max(1, Math.round(height * 0.002));
     const shadowY = y + shadowOffsetY;
-    const shadowBlur = Math.max(14, Math.round(Math.min(width, height) * 0.02));
-    const shadowAlpha = 0.24;
+    const shadowBlur = Math.max(16, Math.round(Math.min(width, height) * 0.022));
+    const shadowAlpha = 0.16;
     await runFfmpeg([
       "-y", "-i", maskPath,
       "-f", "lavfi", "-i", `color=c=black:s=${contentWidth}x${contentHeight}:r=1`,
@@ -174,7 +174,7 @@ function roundedMaskFilter(radius: number, outputWidth: number, outputHeight: nu
     `gt(X,${right})*gt(Y,${bottom})*gt(hypot(X-(${right}),Y-(${bottom})),${radius})`,
   ].join("+");
 
-  return `format=gray,geq=lum='if(gt(${outsideCorner},0),0,255)',scale=${outputWidth}:${outputHeight}:flags=lanczos`;
+  return `format=gray,geq=lum='if(gt(${outsideCorner},0),0,255)',scale=${outputWidth}:${outputHeight}:flags=lanczos,gblur=sigma=0.65:steps=1`;
 }
 
 async function resolvePresetPath(filename: string) {
