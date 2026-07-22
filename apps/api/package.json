@@ -1,6 +1,6 @@
 {
   "name": "deio-scroll",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Deio Scroll API and worker for directed website scroll videos",
   "license": "MIT",
   "author": "ken-rl (https://github.com/ken-rl)",
@@ -49,6 +49,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@inquirer/prompts": "^8.5.2",
     "better-sqlite3": "^12.11.1",
     "dotenv": "^16.4.7",
     "playwright": "^1.40.0",

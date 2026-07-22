@@ -3,7 +3,6 @@
 Create polished smooth-scroll recordings of live websites, from a local web app or the command line.
 
 ```bash
-npx deio-scroll setup
 npx deio-scroll
 ```
 
@@ -16,10 +15,19 @@ npx deio-scroll https://example.com --quality high --viewport 1920x1080
 ```
 
 Run `npx deio-scroll` inside a web project with a `dev` or `start` script to
-start and record it automatically. Use `npx deio-scroll serve` to explicitly
-open the Deio web app instead.
+start it, detect internal routes, and choose pages from an interactive terminal
+checklist. Each selected route becomes a separate MP4. Use explicit routes or
+also produce a combined video with:
 
-Deio requires Node.js 20+ and ffmpeg. `npx deio-scroll setup` installs Playwright Chromium and checks whether ffmpeg is available.
+```bash
+npx deio-scroll . --pages /,/features,/pricing
+npx deio-scroll . --all-pages --combine
+```
+
+Routes are website paths, not source files such as `example.tsx`. Use
+`npx deio-scroll serve` to explicitly open the Deio web app instead.
+
+Deio requires Node.js 20+ and ffmpeg. Chromium is installed automatically on the first recording. Run `npx deio-scroll setup` only if you want to prepare it in advance and check ffmpeg.
 
 Run `npx deio-scroll --help` for all commands and options.
 

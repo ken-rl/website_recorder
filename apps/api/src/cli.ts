@@ -5,6 +5,7 @@ import fs from "node:fs";
 import fsPromises from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { checkbox } from "@inquirer/prompts";
 import { RecordingJobManager } from "./jobs/manager.js";
 import type { RecordRequest, ScrollCurvePreset } from "./types.js";
 
@@ -35,6 +36,9 @@ type CliOptions = {
   configPath?: string;
   localCommand?: string;
   localUrl?: string;
+  pages?: string[];
+  allPages: boolean;
+  combine: boolean;
 };
 
 async function main() {
@@ -64,6 +68,8 @@ function parseArgs(args: string[]): CliOptions {
     port: DEFAULT_PORT,
     host: "127.0.0.1",
     open: true,
+    allPages: false,
+    combine: false,
   };
 
   const first = args[0];
@@ -109,6 +115,9 @@ function parseArgs(args: string[]): CliOptions {
     else if (arg === "--host") options.host = requiredValue(args, index++, arg);
     else if (arg === "--command") options.localCommand = requiredValue(args, index++, arg);
     else if (arg === "--local-url") options.localUrl = normalizeUrl(requiredValue(args, index++, arg));
+    else if (arg === "--pages") options.pages = parsePages(requiredValue(args, index++, arg));
+    else if (arg === "--all-pages") options.allPages = true;
+    else if (arg === "--combine") options.combine = true;
     else if (arg === "--help" || arg === "-h") options.command = "help";
     else if (!arg.startsWith("-") && options.command === "record" && !options.target) options.target = arg;
     // Friendly shorthand: `deio <url> linear speed-1`.
@@ -176,12 +185,113 @@ async function recordLocalProject(options: CliOptions) {
   try {
     const target = await waitForLocalProject(child, () => discoveredUrl);
     console.log(`Local project ready at ${target}`);
+    await assertRuntimeReady();
+
+    const detected = await discoverProjectPages(target);
+    const routes = await chooseProjectPages(options, detected);
+    const sessionDir = routes.length > 1
+      ? path.join(options.outputDir, `pages-${new Date().toISOString().replace(/[:.]/g, "-")}`)
+      : undefined;
+    const outputs: string[] = [];
+
     options.command = "record";
-    options.target = target;
-    return await record(options);
+    for (const [index, route] of routes.entries()) {
+      options.target = new URL(route, target).toString();
+      console.log(`\nPage ${index + 1}/${routes.length}: ${route}`);
+      const output = await record(options);
+      if (!sessionDir) {
+        outputs.push(output);
+        continue;
+      }
+      await fsPromises.mkdir(sessionDir, { recursive: true });
+      const destination = path.join(sessionDir, `${String(index + 1).padStart(2, "0")}-${routeSlug(route)}.mp4`);
+      await fsPromises.copyFile(output, destination);
+      outputs.push(destination);
+    }
+
+    if (sessionDir) console.log(`\nPage recordings: ${sessionDir}`);
+    if (options.combine && outputs.length > 1) {
+      const combined = path.join(sessionDir!, "combined.mp4");
+      await combineRecordings(outputs, combined);
+      console.log(`Combined video: ${combined}`);
+    }
+    return outputs;
   } finally {
     process.off("exit", stopProject);
     stopProject();
+  }
+}
+
+async function discoverProjectPages(baseUrl: string) {
+  const { chromium } = await import("playwright");
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 30_000 }).catch(async () => {
+      await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+    });
+    const hrefs = await page.locator("a[href]").evaluateAll((anchors) =>
+      anchors.map((anchor) => (anchor as HTMLAnchorElement).href),
+    );
+    const origin = new URL(baseUrl).origin;
+    const routes = new Set<string>(["/"]);
+    for (const href of hrefs) {
+      try {
+        const url = new URL(href);
+        if (url.origin !== origin || url.protocol !== "http:" && url.protocol !== "https:") continue;
+        if (/\.(?:png|jpe?g|gif|svg|webp|pdf|zip|mp4|mp3|css|js|json)$/i.test(url.pathname)) continue;
+        const route = url.pathname.replace(/\/$/, "") || "/";
+        routes.add(route);
+        if (routes.size >= 50) break;
+      } catch {
+        // Ignore malformed links rendered by the project.
+      }
+    }
+    return [...routes].sort((left, right) => left === "/" ? -1 : right === "/" ? 1 : left.localeCompare(right));
+  } finally {
+    await browser.close();
+  }
+}
+
+async function chooseProjectPages(options: CliOptions, detected: string[]) {
+  if (options.pages?.length) return options.pages;
+  if (options.allPages) return detected;
+  if (detected.length <= 1 || !process.stdin.isTTY || !process.stdout.isTTY) return ["/"];
+
+  return checkbox({
+    message: "Select pages to record (space to select, enter to record)",
+    required: true,
+    choices: detected.map((route) => ({
+      name: route,
+      value: route,
+      checked: route === "/",
+    })),
+  });
+}
+
+function parsePages(value: string) {
+  const pages = [...new Set(value.split(",").map((page) => page.trim()).filter(Boolean))];
+  if (!pages.length) throw new Error("--pages requires comma-separated routes, such as /,/pricing.");
+  return pages.map((page) => page.startsWith("/") ? page : `/${page}`);
+}
+
+function routeSlug(route: string) {
+  if (route === "/") return "home";
+  return route.replace(/^\/+|\/+$/g, "").replace(/[^a-z\d]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "page";
+}
+
+async function combineRecordings(inputs: string[], output: string) {
+  const listPath = path.join(path.dirname(output), ".concat.txt");
+  const list = inputs.map((input) => `file '${input.replace(/'/g, "'\\''")}'`).join("\n");
+  await fsPromises.writeFile(listPath, list);
+  try {
+    const result = spawnSync("ffmpeg", [
+      "-y", "-f", "concat", "-safe", "0", "-i", listPath,
+      "-c", "copy", "-movflags", "+faststart", output,
+    ], { stdio: "inherit" });
+    if (result.status !== 0) throw new Error("Could not combine page recordings.");
+  } finally {
+    await fsPromises.rm(listPath, { force: true });
   }
 }
 
@@ -221,7 +331,12 @@ async function waitForLocalProject(
   const startedAt = Date.now();
   while (Date.now() - startedAt < 90_000) {
     if (child.exitCode !== null) throw new Error(`Local project exited with code ${child.exitCode}.`);
-    const candidates = [...new Set([discovered(), ...commonUrls].filter((url): url is string => Boolean(url)))];
+    const detectedUrl = discovered();
+    // Prefer the URL printed by this process. Only probe conventional ports
+    // after a grace period, otherwise an unrelated server could be captured.
+    const candidates = detectedUrl
+      ? [detectedUrl]
+      : Date.now() - startedAt >= 5_000 ? commonUrls : [];
     for (const url of candidates) {
       try {
         const response = await fetch(url, { signal: AbortSignal.timeout(500) });
@@ -270,9 +385,13 @@ async function record(options: CliOptions) {
     if (job.status !== "completed" || !job.result) {
       throw new Error(job.error?.message ?? `Recording ${job.status}`);
     }
+    const output = path.join(options.outputDir, job.jobId, "output.mp4");
     console.log("Recording complete");
-    console.log(path.join(options.outputDir, job.jobId, "output.mp4"));
+    console.log(output);
+    return output;
   } finally {
+    process.off("SIGINT", shutdown);
+    process.off("SIGTERM", shutdown);
     await manager.shutdown();
   }
 }
@@ -306,14 +425,7 @@ function buildRequest(options: CliOptions): RecordRequest {
 }
 
 async function setup() {
-  console.log("Installing Playwright Chromium…");
-  const packageJson = packageRequire.resolve("playwright/package.json");
-  const cli = path.join(path.dirname(packageJson), "cli.js");
-  // Invoke through a tiny wrapper so Playwright does not mistake Deio's npx
-  // installation for an unsupported global `npx playwright` invocation.
-  const wrapper = "const cli=process.argv[1]; process.argv.splice(1,1,'playwright'); require(cli)";
-  const result = spawnSync(process.execPath, ["-e", wrapper, cli, "install", "chromium"], { stdio: "inherit" });
-  if (result.status !== 0) throw new Error("Chromium installation failed.");
+  await installChromium();
 
   if (hasFfmpeg()) {
     console.log("ffmpeg: found");
@@ -326,12 +438,25 @@ async function setup() {
   console.log("Deio setup complete.");
 }
 
+async function installChromium() {
+  console.log("Installing Playwright Chromium…");
+  const packageJson = packageRequire.resolve("playwright/package.json");
+  const cli = path.join(path.dirname(packageJson), "cli.js");
+  // Invoke through a tiny wrapper so Playwright does not mistake Deio's npx
+  // installation for an unsupported global `npx playwright` invocation.
+  const wrapper = "const cli=process.argv[1]; process.argv.splice(1,1,'playwright'); require(cli)";
+  const result = spawnSync(process.execPath, ["-e", wrapper, cli, "install", "chromium"], { stdio: "inherit" });
+  if (result.status !== 0) throw new Error("Chromium installation failed.");
+}
+
 async function assertRuntimeReady() {
-  if (!hasFfmpeg()) throw new Error("ffmpeg was not found on PATH. Install ffmpeg, then run `npx deio-scroll setup`.");
+  if (!hasFfmpeg()) throw new Error("ffmpeg was not found on PATH. Install ffmpeg and try again.");
   const { chromium } = await import("playwright");
   if (!fs.existsSync(chromium.executablePath())) {
-    throw new Error("Playwright Chromium is not installed. Run `npx deio-scroll setup` first.");
+    console.log("Chromium is not installed; completing one-time setup.");
+    await installChromium();
   }
+  if (!fs.existsSync(chromium.executablePath())) throw new Error("Chromium installation did not complete.");
 }
 
 function hasFfmpeg() {
@@ -444,6 +569,9 @@ Recording options:
   --quality <preset>     low, medium, or high (default: medium)
   --viewport <WxH>       Browser viewport (default: 1440x900)
   --output <directory>   Output root (default: ./deio-output)
+  --pages <routes>       Comma-separated local routes, e.g. /,/pricing,/docs
+  --all-pages            Record every detected internal page
+  --combine              Also combine selected pages into one MP4
   --command <command>    Local project's start command
   --local-url <url>      Local project's URL when it cannot be detected
 
@@ -456,6 +584,7 @@ Examples:
   npx deio-scroll
   npx deio-scroll example.com
   npx deio-scroll example.com --curve ease-in-out --fast
+  npx deio-scroll . --pages /,/pricing,/docs --combine
   npx deio-scroll . --command "npm run preview"
   npx deio-scroll record https://example.com --quality high --viewport 1920x1080
 

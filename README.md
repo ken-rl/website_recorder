@@ -50,11 +50,12 @@ sudo apt install ffmpeg
 Run the published package without cloning the repository:
 
 ```bash
-npx deio-scroll setup
 npx deio-scroll
 ```
 
-Outside a web project, this starts the local app and opens it in your browser.
+Chromium is installed automatically when the first recording starts, so the
+separate `npx deio-scroll setup` command is optional. Outside a web project,
+this starts the local app and opens it in your browser.
 Inside a project with a `dev` or `start` script, it starts and records that
 project automatically. You can also record a URL directly; the default motion
 is linear at a slow 0.5× speed:
@@ -65,8 +66,18 @@ npx deio-scroll example.com --curve ease-in-out --fast
 npx deio-scroll https://example.com --quality high --viewport 1920x1080
 ```
 
-Use `npx deio-scroll serve` to always open the web app, or
-`npx deio-scroll . --command "npm run preview"` for a custom local command.
+For local projects, Deio scans rendered internal links and shows an interactive
+page checklist. Selected routes are recorded as separate MP4s:
+
+```bash
+npx deio-scroll . --pages /,/features,/pricing
+npx deio-scroll . --all-pages --combine
+```
+
+Use route paths rather than source filenames such as `example.tsx`. The
+`--combine` flag also creates one concatenated video. Use `npx deio-scroll serve`
+to always open the web app, or `npx deio-scroll . --command "npm run preview"`
+for a custom local command.
 
 For repository development:
 
