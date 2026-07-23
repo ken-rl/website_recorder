@@ -34,6 +34,13 @@ npx deio-scroll example.com
 
 The finished MP4 is saved locally.
 
+## What to expect
+
+- Deio Scroll may open a visible Chromium window while recording. Keep it open until the capture finishes.
+- Recording and video encoding can temporarily use significant CPU and memory, especially at higher quality settings.
+- Longer pages and larger viewports take more time and produce larger files.
+- Recordings are processed and stored locally on your machine.
+
 ## CLI
 
 Pass a URL and optionally choose the motion, quality, or viewport:
